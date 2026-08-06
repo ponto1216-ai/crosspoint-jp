@@ -209,7 +209,18 @@ void GenerateAllCacheActivity::onEnter() {
   requestUpdate();
 }
 
-void GenerateAllCacheActivity::onExit() { Activity::onExit(); }
+void GenerateAllCacheActivity::onExit() {
+  Activity::onExit();
+  // Release the SD card font caches built during cache generation.  The loop
+  // clears caches *before* each book (max heap for layout), but never after
+  // the last book, so its advance tables + prewarm data (~130KB) stay resident
+  // and starve the large contiguous page buffer XTC needs (~96KB/page) when
+  // another book is opened afterwards -> "memory error".  Free them here.
+  if (auto* fcm = renderer.getFontCacheManager()) {
+    fcm->clearCache();
+    fcm->freeKernLigatureData();
+  }
+}
 
 void GenerateAllCacheActivity::summarizeCacheStatuses(const std::vector<std::string>& epubFiles) {
   completeCount = 0;
