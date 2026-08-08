@@ -885,6 +885,12 @@ void EpubReaderActivity::toggleAutoPageTurn(const uint8_t selectedPageTurnOption
 }
 
 void EpubReaderActivity::pageTurn(bool isForwardTurn) {
+  // At the beginning of the book there is no previous page. Return before
+  // scheduling a render so an image cover is left entirely untouched.
+  if (!isForwardTurn && currentSpineIndex == 0 && section->currentPage == 0) {
+    return;
+  }
+
   if (isForwardTurn) {
     if (section->currentPage < section->pageCount - 1) {
       section->currentPage++;
