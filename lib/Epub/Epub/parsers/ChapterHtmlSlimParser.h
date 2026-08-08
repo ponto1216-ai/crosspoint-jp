@@ -39,6 +39,9 @@ class ChapterHtmlSlimParser {
   char partWordBuffer[MAX_WORD_SIZE + 1] = {};
   int partWordBufferIndex = 0;
   bool nextWordContinues = false;  // true when next flushed word attaches to previous (inline element boundary)
+  // Ordinary HTML whitespace collapses to one visible separator in vertical text.
+  // Keep it pending so leading and trailing whitespace remains collapsed away.
+  bool pendingVerticalWhitespace = false;
   std::unique_ptr<ParsedText> currentTextBlock = nullptr;
   std::unique_ptr<Page> currentPage = nullptr;
   int16_t currentPageNextY = 0;
@@ -124,6 +127,7 @@ class ChapterHtmlSlimParser {
   void updateEffectiveInlineStyle();
   void startNewTextBlock(const BlockStyle& blockStyle);
   void flushPartWordBuffer();
+  void flushPendingVerticalWhitespace();
   void flushTextBlockForMemory();
   void ensureTextBlockCapacityForWord();
   void noteEmptyBlockContent();

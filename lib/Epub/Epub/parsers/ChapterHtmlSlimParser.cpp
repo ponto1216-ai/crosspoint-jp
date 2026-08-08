@@ -349,6 +349,21 @@ void ChapterHtmlSlimParser::flushPartWordBuffer() {
   nextWordContinues = false;
 }
 
+void ChapterHtmlSlimParser::flushPendingVerticalWhitespace() {
+  if (!pendingVerticalWhitespace) return;
+  pendingVerticalWhitespace = false;
+
+  // A leading run has no preceding inline content, so CSS whitespace
+  // collapsing leaves it invisible. The same is true for a trailing run,
+  // because this helper is only called when another word follows.
+  if (!verticalMode || !currentTextBlock || currentTextBlock->isEmpty()) return;
+
+  partWordBuffer[0] = ' ';
+  partWordBuffer[1] = '\0';
+  partWordBufferIndex = 1;
+  flushPartWordBuffer();
+}
+
 void ChapterHtmlSlimParser::flushTextBlockForMemory() {
   if (!currentTextBlock || currentTextBlock->isEmpty()) return;
 
@@ -380,6 +395,7 @@ void ChapterHtmlSlimParser::ensureTextBlockCapacityForWord() {
 // start a new text block if needed
 void ChapterHtmlSlimParser::startNewTextBlock(const BlockStyle& blockStyle) {
   nextWordContinues = false;  // New block = new paragraph, no continuation
+  pendingVerticalWhitespace = false;
   if (currentTextBlock) {
     // already have a text block running and it is empty - just reuse it
     if (currentTextBlock->isEmpty()) {
@@ -1235,7 +1251,12 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
       if (self->partWordBufferIndex > 0) {
         self->flushPartWordBuffer();
       }
-      // Whitespace is a real word boundary -- reset continuation state
+      // Horizontal layout supplies inter-word spacing itself. Vertical layout
+      // stores every advance explicitly, so keep one collapsed separator and
+      // emit it only if another word follows.
+      if (self->verticalMode && self->currentTextBlock && !self->currentTextBlock->isEmpty()) {
+        self->pendingVerticalWhitespace = true;
+      }
       self->nextWordContinues = false;
       i++;
       continue;
@@ -1251,6 +1272,7 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
       if (self->partWordBufferIndex > 0) {
         self->flushPartWordBuffer();
       }
+      self->flushPendingVerticalWhitespace();
 
       self->partWordBuffer[0] = ' ';
       self->partWordBuffer[1] = '\0';
@@ -1270,6 +1292,7 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
       if (self->partWordBufferIndex > 0) {
         self->flushPartWordBuffer();
       }
+      self->flushPendingVerticalWhitespace();
 
       self->partWordBuffer[0] = ' ';
       self->partWordBuffer[1] = '\0';
@@ -1319,6 +1342,7 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
       if (self->partWordBufferIndex > 0) {
         self->flushPartWordBuffer();
       }
+      self->flushPendingVerticalWhitespace();
 
       self->ensureTextBlockCapacityForWord();
 
@@ -1348,6 +1372,7 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
     }
 
     // Non-CJK character: buffer it
+    self->flushPendingVerticalWhitespace();
     // If we're about to run out of space, flush the buffer first
     if (self->partWordBufferIndex + charLen >= MAX_WORD_SIZE) {
       self->flushPartWordBuffer();

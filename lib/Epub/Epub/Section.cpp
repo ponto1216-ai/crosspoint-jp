@@ -130,7 +130,9 @@ bool collectSectionFontCodepoints(const std::string& htmlPath, std::string& uniq
 // Version 74: ruby parent and rb-specific emphasis have independent lifetimes.
 // Version 75: SD-font advance-table misses retain their measured width instead
 // of persisting overlapping vertical glyph positions after the table is full.
-constexpr uint8_t SECTION_FILE_VERSION = 75;
+// Version 76: vertical EPUB layout persists ordinary HTML whitespace between
+// Latin words instead of treating it as only a word boundary.
+constexpr uint8_t SECTION_FILE_VERSION = 76;
 // Minimum free heap required before attempting to build section pages.
 // Section building involves heavy allocations (Page, TextBlock, PageLine, etc.)
 // and on ESP32 without C++ exceptions, allocation failure calls abort().
