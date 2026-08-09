@@ -19,6 +19,15 @@ class ParsedText {
   std::vector<bool> wordContinues;     // true = word attaches to previous (no space before it)
   std::vector<std::string> rubyTexts;  // words と並列、ルビなしは空文字列
   std::vector<VerticalTextUtils::VerticalBehavior> wordVerticalBehaviors;
+  // インライン画像（本文中の文字として扱う画像）。sparse方式: 画像のあるWordの情報だけを、
+  // words 内の画像マーカー(U+FFFC)の出現順に保持する。画像でないWordの空要素は持たない
+  // （メモリ最小化）。words の何番目のマーカーかで対応付ける。
+  struct InlineImage {
+    std::string imagePath;
+    int16_t width = 0;
+    int16_t height = 0;
+  };
+  std::vector<InlineImage> inlineImages;  // words 内の U+FFFC マーカーの出現順（画像数だけ）
   BlockStyle blockStyle;
   bool firstLineIndent;
   bool hyphenationEnabled;
@@ -49,6 +58,9 @@ class ParsedText {
   void addWord(std::string word, EpdFontFamily::Style fontStyle, bool underline = false, bool attachToPrevious = false);
   void addWord(std::string word, EpdFontFamily::Style fontStyle, VerticalTextUtils::VerticalBehavior vBehavior,
                bool underline = false, bool attachToPrevious = false);
+  // 本文中の文字として扱うインライン画像を追加する。words にダミー文字 U+FFFC を1Wordとして積み、
+  // 画像情報（パス・寸法）は sparse な inlineImages に追加する（words 内のマーカー出現順に対応）。
+  void addImage(std::string imagePath, int16_t width, int16_t height);
   void setBlockStyle(const BlockStyle& blockStyle) { this->blockStyle = blockStyle; }
   BlockStyle& getBlockStyle() { return blockStyle; }
   size_t size() const { return words.size(); }

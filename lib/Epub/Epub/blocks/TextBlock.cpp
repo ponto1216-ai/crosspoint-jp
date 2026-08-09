@@ -6,6 +6,11 @@
 #include <Utf8.h>
 #include <VerticalTextUtils.h>
 
+#include "ImageBlock.h"
+
+// U+FFFC (OBJECT REPLACEMENT CHARACTER) — インライン画像のダミー文字（ParsedText の addImage と同一）。
+static constexpr const char* INLINE_IMAGE_MARKER = "\xef\xbf\xbc";
+
 #include <algorithm>
 #include <climits>
 static std::vector<std::string> splitUtf8Chars(const std::string& text) {
@@ -101,7 +106,7 @@ int TextBlock::getHorizontalRubyTopInset(const GfxRenderer& renderer, const int 
   return std::max(0, rubyViewportSafety - naturalRubyY);
 }
 
-void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int x, const int y,
+void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, const int y,
                        const int viewportWidth, const int viewportHeight, const int viewportLeft,
                        const int viewportTop, const int rubyOffsetX, const int rubyOffsetY) const {
   // Validate iterator bounds before rendering
@@ -147,6 +152,7 @@ void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int 
   // Keep annotations in one vertical column from drawing over each other.
   // This adjusts only ruby glyphs; body-text positions remain unchanged.
   int nextVerticalRubyY = INT_MIN;
+  size_t imgIdx = 0;  // words 内の画像マーカー出現順 = inlineImages の index
   for (size_t i = 0; i < words.size(); i++) {
     const EpdFontFamily::Style currentStyle = wordStyles[i];
 #if DEBUG_RUBY_RENDER
@@ -166,6 +172,33 @@ void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int 
       isVertical ? 1 : 0
   );
 #endif
+    // インライン画像（sparse）: words[i] が画像マーカー(U+FFFC)のとき、inlineImages の該当要素
+    // （マーカー出現順）を ImageBlock として描画する。画像は回転しない（縦書きでも横向きのまま列内に収める）。
+    if (words[i] == INLINE_IMAGE_MARKER) {
+      const int imgW = (imgIdx < inlineImages.size() && inlineImages[imgIdx].width > 0)
+                           ? inlineImages[imgIdx].width
+                           : 1;
+      const int imgH = (imgIdx < inlineImages.size() && inlineImages[imgIdx].height > 0)
+                           ? inlineImages[imgIdx].height
+                           : 1;
+      int imgX = x + wordXpos[i];
+      int imgY = y;
+      if (isVertical && i < wordYpos.size()) {
+        imgY = y + wordYpos[i];
+        // 縦書き: 列セル内に中央配置（画像は回転しない）
+        imgX += (columnWidth - imgW) / 2;
+      } else {
+        // 横書き: 行内で縦中央寄せ
+        const int lineHeight = renderer.getLineHeight(effectiveFontId);
+        imgY += (lineHeight - imgH) / 2;
+      }
+      if (imgIdx < inlineImages.size()) {
+        ImageBlock ib(inlineImages[imgIdx].imagePath, static_cast<int16_t>(imgW), static_cast<int16_t>(imgH));
+        ib.render(renderer, imgX, imgY);
+      }
+      imgIdx++;
+      continue;
+    }
     if (isVertical && i < wordYpos.size()) {
       // 縦書きモード: VerticalBehaviorに応じて描画方法を分岐
       const char* w = words[i].c_str();
@@ -522,6 +555,14 @@ bool TextBlock::serialize(FsFile& file) const {
     serialization::writeString(file, (i < rubyTexts.size()) ? rubyTexts[i] : std::string());
   }
 
+  // Inline image data (sparse): 画像の数と内容を書き込む（words 内のマーカー出現順に一致）。
+  serialization::writePod(file, static_cast<uint16_t>(inlineImages.size()));
+  for (const auto& img : inlineImages) {
+    serialization::writeString(file, img.imagePath);
+    serialization::writePod(file, img.width);
+    serialization::writePod(file, img.height);
+  }
+
   return true;
 }
 
@@ -581,6 +622,24 @@ std::unique_ptr<TextBlock> TextBlock::deserialize(FsFile& file) {
   std::vector<std::string> rubyTexts(wc);
   for (auto& rt : rubyTexts) serialization::readString(file, rt);
 
+  // Inline image data (sparse): 画像の数と内容を読み込む（words 内のマーカー出現順に一致）。
+  uint16_t imgCount = 0;
+  serialization::readPod(file, imgCount);
+  if (imgCount > 10000) {
+    LOG_ERR("TXB", "Deserialization failed: inline image count %u exceeds maximum", imgCount);
+    return nullptr;
+  }
+  std::vector<TextBlock::InlineImage> inlineImages;
+  inlineImages.reserve(imgCount);
+  for (uint16_t i = 0; i < imgCount; i++) {
+    TextBlock::InlineImage img;
+    serialization::readString(file, img.imagePath);
+    serialization::readPod(file, img.width);
+    serialization::readPod(file, img.height);
+    inlineImages.push_back(std::move(img));
+  }
+
   return std::unique_ptr<TextBlock>(new TextBlock(std::move(words), std::move(wordXpos), std::move(wordStyles),
-                                                  blockStyle, std::move(wordYpos), vertical, std::move(rubyTexts)));
+                                                  blockStyle, std::move(wordYpos), vertical, std::move(rubyTexts),
+                                                  std::move(inlineImages)));
 }

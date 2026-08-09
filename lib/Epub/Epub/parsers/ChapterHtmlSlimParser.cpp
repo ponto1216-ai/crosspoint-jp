@@ -720,6 +720,24 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
                 if (self->partWordBufferIndex > 0) {
                   self->flushPartWordBuffer();
                 }
+
+                // インライン画像（文字の代替）判定: CSS指定の表示サイズが文字セル1つ分以内なら、
+                // ブロック図版（専用ページ化）ではなく本文中の文字（Word）として扱う。
+                // bookStyle 1(書籍優先)で有効。imgStyle が解決されるのは bookStyle==1 のときのみ。
+                if (self->bookStyle == 1 && self->currentTextBlock && (hasCssHeight || hasCssWidth) &&
+                    !hasClassToken(classAttr, "fit")) {
+                  const bool fitsInline = self->verticalMode
+                                              ? (displayWidth <= self->renderer.getTextAdvanceX(
+                                                                     self->fontId, "\xe4\xb8\x80",
+                                                                     EpdFontFamily::REGULAR))
+                                              : (displayHeight <= self->renderer.getLineHeight(self->fontId));
+                  if (fitsInline) {
+                    self->currentTextBlock->addImage(cachedImagePath, displayWidth, displayHeight);
+                    self->depth += 1;
+                    return;
+                  }
+                }
+
                 if (self->currentTextBlock && !self->currentTextBlock->isEmpty()) {
                   const BlockStyle parentBlockStyle = self->currentTextBlock->getBlockStyle();
                   self->startNewTextBlock(parentBlockStyle);
