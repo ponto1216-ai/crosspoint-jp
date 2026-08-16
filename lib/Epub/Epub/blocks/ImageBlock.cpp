@@ -136,6 +136,16 @@ bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x,
   return true;
 }
 
+// Whether this image can be rendered from an existing BMP cache (JPEG only,
+// in the pre-generated pixel-cache layout). A valid BMP cache means render()
+// will not decode, so the font cache should be preserved across inline images.
+bool hasValidBmpCache(const std::string& imagePath) {
+  if (!FsHelpers::hasJpgExtension(imagePath)) return false;
+  const std::string bmpPath = getCachePath(imagePath) + ".bmp";
+  if (!Storage.exists(bmpPath.c_str())) return false;
+  return ImageCacheValidation::validateBmpCacheFile(bmpPath);
+}
+
 }  // namespace
 
 bool ImageBlock::pregeneratePngCache(GfxRenderer& renderer) const {
@@ -229,7 +239,16 @@ void ImageBlock::render(GfxRenderer& renderer, const int x, const int y) {
   // decoder on image-heavy chapters. These font caches are reproducible and
   // will reload on demand for any text after the image, while the generated
   // pixel cache lets the later grayscale passes avoid decoding altogether.
-  if (fcm) {
+  //
+  // BUT: for a JPEG that already has a valid BMP cache, no decode happens here
+  // (we just read the cached BMP, a tiny heap footprint). Clearing the font
+  // cache in that case only forces every glyph after the image to reload from
+  // SD. On illustration pages with many small inline JPEGs the repeated
+  // clearCache() caused the glyph reload storm behind the ~13s bw_render
+  // (CrossPoint Reader). So skip the release when we can render from a cached
+  // BMP; the caches are slot-limited and overflow-safe, so keeping them warm
+  // across images is safe.
+  if (fcm && !hasValidBmpCache(imagePath)) {
     fcm->clearCache();
     fcm->freeKernLigatureData();
     LOG_DBG("IMG", "Released font caches before decode: free=%u maxAlloc=%u", ESP.getFreeHeap(),

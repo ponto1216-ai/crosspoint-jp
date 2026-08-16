@@ -1258,13 +1258,126 @@ void GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
     return;
   }
 
+  if (isScaled) {
+    // --- Downscale fast path ---------------------------------------------
+    // When shrinking (scale<1, e.g. a 502x502 cover down to 22x22), iterate
+    // over the OUTPUT pixels instead of the full source. The old loop walked
+    // every source pixel and mapped it to floor(src*scale), so ~23 source
+    // pixels collapsed onto each output pixel and drew the same screenX ~23x
+    // (252k drawPixel calls for a 22x22 result).
+    //
+    // Region sampling (2D): for each output pixel, scan its whole source span
+    // in BOTH axes and take the darkest value, so thin strokes survive the
+    // extreme downscale. Horizontal is the inner source-column span; vertical
+    // accumulates across the source rows that collapse onto one output row.
+    // To bound cost, rows are sampled every `stride` source rows (stroke
+    // thickness is >= a few px, so this still catches lines) and each sampled
+    // row writes only outCols pixels -- roughly 1/60 of the old full-source
+    // loop. Source rows are still read sequentially (readNextRow advances the
+    // file), so ditherer state and palette processing stay intact.
+    const int outCols =
+        std::max(1, static_cast<int>(std::floor((bitmap.getWidth() - 2 * cropPixX) * scale)));
+    auto* bestCols = static_cast<uint8_t*>(malloc(static_cast<size_t>(outCols)));
+    if (!bestCols) {
+      LOG_ERR("GFX", "!! Failed to allocate downscale column buffer");
+      free(outputRow);
+      free(rowBytes);
+      return;
+    }
+    const float rowsPerOutRow = 1.0f / scale;  // scale<1 here
+    const int stride = std::max(1, static_cast<int>(std::floor(rowsPerOutRow / 8.0f + 0.5f)));
+
+    auto flushCols = [&](int screenY) {
+      for (int col = 0; col < outCols; col++) {
+        const int screenX = x + col;
+        if (screenX < 0 || screenX >= getScreenWidth()) {
+          continue;
+        }
+        const uint8_t val = bestCols[col];
+        if (renderMode == BW && val < 3) {
+          drawPixel(screenX, screenY);
+        } else if (renderMode == GRAYSCALE_MSB && (val == 1 || val == 2)) {
+          drawPixel(screenX, screenY, false);
+        } else if (renderMode == GRAYSCALE_LSB && val == 1) {
+          drawPixel(screenX, screenY, false);
+        }
+      }
+    };
+
+    int currentScreenY = 0;
+    bool haveGroup = false;
+    int groupRow = 0;
+    for (int bmpY = 0; bmpY < (bitmap.getHeight() - cropPixY); bmpY++) {
+      const int bmpScreenY = -cropPixY + (bitmap.isTopDown() ? bmpY : bitmap.getHeight() - 1 - bmpY);
+      int screenY = std::floor(bmpScreenY * scale);
+      screenY += y;  // the offset should not be scaled
+      if (screenY >= getScreenHeight()) {
+        break;
+      }
+      // Read the row before the screenY<0 check so the file always advances
+      // (readNextRow tracks position sequentially; skipping a read here would
+      // desync every subsequent row).
+      const BmpReaderError rowErr = bitmap.readNextRow(outputRow, rowBytes);
+      if (rowErr != BmpReaderError::Ok) {
+        LOG_ERR("GFX", "Failed to read row %d from bitmap: %s", bmpY, Bitmap::errorToString(rowErr));
+        free(outputRow);
+        free(rowBytes);
+        free(bestCols);
+        return;
+      }
+      if (screenY < 0) {
+        continue;
+      }
+      if (!haveGroup) {
+        currentScreenY = screenY;
+        memset(bestCols, 3, static_cast<size_t>(outCols));
+        groupRow = 0;
+        haveGroup = true;
+      } else if (screenY != currentScreenY) {
+        flushCols(currentScreenY);  // finish previous output row
+        currentScreenY = screenY;
+        memset(bestCols, 3, static_cast<size_t>(outCols));
+        groupRow = 0;
+      }
+      if (groupRow % stride == 0) {
+        // Sample this source row: darkest pixel across its source-column span,
+        // also stride-sampled like the vertical axis (lines are a few px thick,
+        // so skipping columns still catches them). Rows only sample every
+        // `stride` rows and every `stride` columns, so total reads are roughly
+        // 1/60 of the old full-source loop.
+        for (int col = 0; col < outCols; col++) {
+          const int srcX0 = cropPixX + static_cast<int>(std::floor((float)col / scale));
+          const int srcX1 = cropPixX + static_cast<int>(std::floor((float)(col + 1) / scale));
+          const int srcXEnd = std::min(srcX1, bitmap.getWidth() - cropPixX);
+          if (srcX0 >= srcXEnd) {
+            continue;
+          }
+          int rowBest = 3;  // white
+          for (int bx = srcX0; bx < srcXEnd; bx += stride) {
+            const uint8_t v = outputRow[bx / 4] >> (6 - ((bx * 2) % 8)) & 0x3;
+            if (v < rowBest) rowBest = v;
+            if (rowBest == 0) break;  // black; nothing darker
+          }
+          if (rowBest < bestCols[col]) bestCols[col] = static_cast<uint8_t>(rowBest);
+        }
+      }
+      groupRow++;
+    }
+    if (haveGroup) {
+      flushCols(currentScreenY);  // flush the last output row
+    }
+    free(bestCols);
+    free(outputRow);
+    free(rowBytes);
+    cleanup();
+    return;
+  }
+
+  // --- Unscaled / generic path -------------------------------------------
   for (int bmpY = 0; bmpY < (bitmap.getHeight() - cropPixY); bmpY++) {
     // The BMP's (0, 0) is the bottom-left corner (if the height is positive, top-left if negative).
     // Screen's (0, 0) is the top-left corner.
     int screenY = -cropPixY + (bitmap.isTopDown() ? bmpY : bitmap.getHeight() - 1 - bmpY);
-    if (isScaled) {
-      screenY = std::floor(screenY * scale);
-    }
     screenY += y;  // the offset should not be scaled
     if (screenY >= getScreenHeight()) {
       break;
@@ -1289,9 +1402,6 @@ void GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
 
     for (int bmpX = cropPixX; bmpX < bitmap.getWidth() - cropPixX; bmpX++) {
       int screenX = bmpX - cropPixX;
-      if (isScaled) {
-        screenX = std::floor(screenX * scale);
-      }
       screenX += x;  // the offset should not be scaled
       if (screenX >= getScreenWidth()) {
         break;
