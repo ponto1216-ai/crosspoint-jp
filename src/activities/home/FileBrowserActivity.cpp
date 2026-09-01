@@ -17,6 +17,7 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "ReadingStatusHelper.h"
+#include "ReadingHistoryStore.h"
 #include "components/UITheme.h"
 #include "components/CacheStatusIcon.h"
 #include "fontIds.h"
@@ -427,6 +428,7 @@ void FileBrowserActivity::loop() {
             }
             if (!isDirectory) clearFileMetadata(fullPath);
             if (Storage.rename(fullPath.c_str(), destPath.c_str())) {
+              if (!isDirectory) READING_HISTORY.moveBook(fullPath, destPath);
               removeBookListStatusIndexEntry(fullPath, bookListStatusIndex);
               bookListStatusIndexDirty = true;
               invalidateDirectoryCache("/Archived");

@@ -11,6 +11,7 @@
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
 #include "ProgressFile.h"
+#include "ReadingHistoryStore.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
 #include "SdCardFontGlobals.h"
@@ -71,6 +72,7 @@ void TxtReaderActivity::onEnter() {
   APP_STATE.openEpubPath = filePath;
   APP_STATE.saveToFile();
   RECENT_BOOKS.addBook(filePath, fileName, "", "");
+  READING_HISTORY.beginSession(filePath, fileName, "");
 
   // Trigger first update
   requestUpdate();
@@ -78,6 +80,7 @@ void TxtReaderActivity::onEnter() {
 
 void TxtReaderActivity::onExit() {
   Activity::onExit();
+  READING_HISTORY.endSession();
 
   // Reset orientation back to portrait for the rest of the UI
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
@@ -90,6 +93,8 @@ void TxtReaderActivity::onExit() {
 }
 
 void TxtReaderActivity::loop() {
+  READING_HISTORY.tick();
+  if (mappedInput.wasAnyPressed() || mappedInput.wasAnyReleased()) READING_HISTORY.noteInteraction();
   // Long press BACK (1s+) goes to file selection
   if (mappedInput.isPressed(MappedInputManager::Button::Back) && mappedInput.getHeldTime() >= ReaderUtils::GO_HOME_MS) {
     activityManager.goToFileBrowser(txt ? txt->getPath() : "");

@@ -20,6 +20,7 @@
 #include "EpubReaderPercentSelectionActivity.h"
 #include "MappedInputManager.h"
 #include "ProgressFile.h"
+#include "ReadingHistoryStore.h"
 #include "RecentBooksStore.h"
 #include "XtcReaderChapterSelectionActivity.h"
 #include "XtcReaderMenuActivity.h"
@@ -48,6 +49,7 @@ void XtcReaderActivity::onEnter() {
   APP_STATE.openEpubPath = xtc->getPath();
   APP_STATE.saveToFile();
   RECENT_BOOKS.addBook(xtc->getPath(), xtc->getTitle(), xtc->getAuthor(), xtc->getThumbBmpPath());
+  READING_HISTORY.beginSession(xtc->getPath(), xtc->getTitle(), xtc->getAuthor());
 
   // Trigger first update
   requestUpdate();
@@ -55,6 +57,7 @@ void XtcReaderActivity::onEnter() {
 
 void XtcReaderActivity::onExit() {
   Activity::onExit();
+  READING_HISTORY.endSession();
 
   APP_STATE.readerActivityLoadCount = 0;
   APP_STATE.saveToFile();
@@ -62,6 +65,8 @@ void XtcReaderActivity::onExit() {
 }
 
 void XtcReaderActivity::loop() {
+  READING_HISTORY.tick();
+  if (mappedInput.wasAnyPressed() || mappedInput.wasAnyReleased()) READING_HISTORY.noteInteraction();
   // リーダーメニューを開く
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     if (!xtc) return;

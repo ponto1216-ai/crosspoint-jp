@@ -34,6 +34,7 @@
 #include "MappedInputManager.h"
 #include "OrientationHelper.h"
 #include "ProgressFile.h"
+#include "ReadingHistoryStore.h"
 #include "QrDisplayActivity.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
@@ -337,6 +338,9 @@ void EpubReaderActivity::onEnter() {
   APP_STATE.openEpubPath = epub->getPath();
   APP_STATE.saveToFile();
   RECENT_BOOKS.addBook(epub->getPath(), epub->getTitle(), epub->getAuthor(), epub->getThumbBmpPath());
+  const auto beginReadingSession = [this] {
+    if (epub) READING_HISTORY.beginSession(epub->getPath(), epub->getTitle(), epub->getAuthor());
+  };
 
   // Showing the prompt once is enough.  A cancelled generation remains resumable
   // from the Reader menu, so reopening the book must not interrupt reading again.
@@ -351,13 +355,17 @@ void EpubReaderActivity::onEnter() {
       promptMarker.close();
     }
 
-    auto handler = [this](const ActivityResult& res) {
+    auto handler = [this, beginReadingSession](const ActivityResult& res) {
       if (!res.isCancelled) {
         pregenerateCache();
+        // Do not attribute the cache build to the book.  The session begins
+        // only once the reader can show the actual text.
+        beginReadingSession();
         requestUpdate();
       } else {
         // Left means "Later". Back keeps the existing close-book behavior.
         if (std::holds_alternative<MenuResult>(res.data)) {
+          beginReadingSession();
           requestUpdate();
         } else {
           onGoHome();
@@ -371,11 +379,13 @@ void EpubReaderActivity::onEnter() {
     return;
   }
 
+  beginReadingSession();
   requestUpdate();
 }
 
 void EpubReaderActivity::onExit() {
   Activity::onExit();
+  READING_HISTORY.endSession();
 
   // Reset orientation back to portrait for the rest of the UI
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
@@ -458,6 +468,8 @@ void EpubReaderActivity::restoreActiveBookOverride() {
 }
 
 void EpubReaderActivity::loop() {
+  READING_HISTORY.tick();
+  if (mappedInput.wasAnyPressed() || mappedInput.wasAnyReleased()) READING_HISTORY.noteInteraction();
   if (!epub) {
     // Should never happen
     finish();
@@ -950,7 +962,12 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       return;
     }
     case EpubReaderMenuActivity::MenuAction::GENERATE_CACHE:
+      // Cache building can take minutes on large books. Commit the current
+      // reading interval before it and start a fresh one afterwards so it is
+      // never included in the meter.
+      READING_HISTORY.endSession();
       pregenerateCache();
+      if (epub) READING_HISTORY.beginSession(epub->getPath(), epub->getTitle(), epub->getAuthor());
       requestUpdate();
       break;
     case EpubReaderMenuActivity::MenuAction::DELETE_CACHE: {
