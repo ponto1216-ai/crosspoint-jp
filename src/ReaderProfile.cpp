@@ -32,6 +32,7 @@ struct ProfileData {
   uint8_t statusBarProgressBarThickness;
   uint8_t statusBarTitle;
   uint8_t statusBarBattery;
+  uint8_t xtcStatusBarMode;
   char externalFontFilename[64] = "";
 };
 
@@ -54,7 +55,8 @@ ProfileData capture() {
                    SETTINGS.statusBarProgressBar,
                    SETTINGS.statusBarProgressBarThickness,
                    SETTINGS.statusBarTitle,
-                   SETTINGS.statusBarBattery};
+                   SETTINGS.statusBarBattery,
+                   SETTINGS.xtcStatusBarMode};
   const FontInfo* externalFont = FontMgr.getFontInfo(FontMgr.getSelectedIndex());
   if (externalFont) {
     strncpy(data.externalFontFilename, externalFont->filename, sizeof(data.externalFontFilename) - 1);
@@ -100,6 +102,7 @@ String serialize(const ProfileData& data) {
   status["progressBarThickness"] = data.statusBarProgressBarThickness;
   status["title"] = data.statusBarTitle;
   status["battery"] = data.statusBarBattery;
+  status["xtcStatusBarMode"] = data.xtcStatusBarMode;
   String json;
   serializeJson(doc, json);
   return json;
@@ -169,6 +172,18 @@ bool parse(const String& json, ProfileData& target) {
       !readU8(status, "battery", 0, 1, target.statusBarBattery)) {
     return false;
   }
+  // Older profiles used an on/off XTC progress-bar switch. Preserve an
+  // enabled value as a bottom status bar during migration.
+  if (!status["xtcStatusBarMode"].isNull()) {
+    if (!readU8(status, "xtcStatusBarMode", 0, CrossPointSettings::XTC_STATUS_BAR_MODE_COUNT - 1,
+                target.xtcStatusBarMode))
+      return false;
+  } else if (!status["xtcProgressBar"].isNull()) {
+    uint8_t legacyProgressBar = 0;
+    if (!readU8(status, "xtcProgressBar", 0, 1, legacyProgressBar)) return false;
+    target.xtcStatusBarMode = legacyProgressBar ? CrossPointSettings::XTC_STATUS_BAR_BOTTOM
+                                                 : CrossPointSettings::XTC_STATUS_BAR_HIDE;
+  }
   const char* externalFontFilename = reader["externalFontFilename"] | "";
   if (strlen(externalFontFilename) >= sizeof(target.externalFontFilename)) return false;
   strncpy(target.externalFontFilename, externalFontFilename, sizeof(target.externalFontFilename) - 1);
@@ -225,6 +240,7 @@ bool apply(const ProfileData& data, bool* externalFontFallback = nullptr) {
   SETTINGS.statusBarProgressBarThickness = data.statusBarProgressBarThickness;
   SETTINGS.statusBarTitle = data.statusBarTitle;
   SETTINGS.statusBarBattery = data.statusBarBattery;
+  SETTINGS.xtcStatusBarMode = data.xtcStatusBarMode;
 
   // The legacy external-font manager persists separately from
   // CrossPointSettings, so restore it explicitly. Matching by filename avoids
@@ -253,6 +269,7 @@ ProfileData defaults() {
   data.statusBarProgressBarThickness = CrossPointSettings::PROGRESS_BAR_NORMAL;
   data.statusBarTitle = CrossPointSettings::BOOK_TITLE;
   data.statusBarBattery = 0;
+  data.xtcStatusBarMode = CrossPointSettings::XTC_STATUS_BAR_HIDE;
   return data;
 }
 

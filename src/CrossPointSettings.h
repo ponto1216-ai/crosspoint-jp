@@ -87,6 +87,12 @@ class CrossPointSettings {
     STATUS_BAR_PROGRESS_BAR_THICKNESS_COUNT
   };
   enum STATUS_BAR_TITLE { BOOK_TITLE = 0, CHAPTER_TITLE = 1, HIDE_TITLE = 2, STATUS_BAR_TITLE_COUNT };
+  enum XTC_STATUS_BAR_MODE {
+    XTC_STATUS_BAR_HIDE = 0,
+    XTC_STATUS_BAR_BOTTOM = 1,
+    XTC_STATUS_BAR_TOP = 2,
+    XTC_STATUS_BAR_MODE_COUNT
+  };
 
   enum ORIENTATION {
     PORTRAIT = 0,       // 480x800 logical coordinates (current default)
@@ -210,6 +216,9 @@ class CrossPointSettings {
   uint8_t statusBarProgressBarThickness = PROGRESS_BAR_NORMAL;
   uint8_t statusBarTitle = 0;
   uint8_t statusBarBattery = 0;
+  // XTC pages are pre-rendered, so this is an independent overlay rather
+  // than part of the EPUB/TXT status-bar layout.
+  uint8_t xtcStatusBarMode = XTC_STATUS_BAR_HIDE;
   // Direction-specific reader settings
   DirectionSettings horizontal;
   DirectionSettings vertical = {1, "", 1, 155, 15, 0, 0, 0, 10, 1, 1};  // charSpacing=15 for vertical, rubyEnabled=1

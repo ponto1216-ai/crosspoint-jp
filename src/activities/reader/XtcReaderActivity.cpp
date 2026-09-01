@@ -13,6 +13,8 @@
 #include <HalTiltSensor.h>
 #include <I18n.h>
 
+#include <algorithm>
+
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "EpubReaderPercentSelectionActivity.h"
@@ -208,6 +210,58 @@ void XtcReaderActivity::render(RenderLock&&) {
   }
 }
 
+XtcReaderActivity::StatusBarInfo XtcReaderActivity::getStatusBarInfo() const {
+  const int bookPageCount = static_cast<int>(xtc->getPageCount());
+  const int bookPage = static_cast<int>(currentPage) + 1;
+  std::string title =
+      SETTINGS.statusBarTitle == CrossPointSettings::STATUS_BAR_TITLE::BOOK_TITLE ? xtc->getTitle() : "";
+  if (!xtc->hasChapters()) return {bookPage, bookPageCount, std::move(title)};
+
+  const auto& chapters = xtc->getChapters();
+  const auto chapter = std::find_if(chapters.begin(), chapters.end(), [this](const xtc::ChapterInfo& item) {
+    return currentPage >= item.startPage && currentPage <= item.endPage;
+  });
+  if (chapter == chapters.end() || chapter->endPage < chapter->startPage) {
+    return {bookPage, bookPageCount, std::move(title)};
+  }
+  if (SETTINGS.statusBarTitle == CrossPointSettings::STATUS_BAR_TITLE::CHAPTER_TITLE) {
+    title = chapter->name.empty() ? tr(STR_UNNAMED) : chapter->name;
+  }
+  return {static_cast<int>(currentPage - chapter->startPage) + 1,
+          static_cast<int>(chapter->endPage - chapter->startPage) + 1, std::move(title)};
+}
+
+void XtcReaderActivity::renderStatusBarOverlay(const StatusBarOverlayPosition position) const {
+  const bool drawBottom = SETTINGS.xtcStatusBarMode == CrossPointSettings::XTC_STATUS_BAR_BOTTOM &&
+                          position == StatusBarOverlayPosition::Bottom;
+  const bool drawTop = SETTINGS.xtcStatusBarMode == CrossPointSettings::XTC_STATUS_BAR_TOP &&
+                       position == StatusBarOverlayPosition::Top;
+  if ((!drawBottom && !drawTop) || !xtc || xtc->getPageCount() == 0) return;
+
+  const int statusBarHeight = UITheme::getInstance().getStatusBarHeight();
+  if (statusBarHeight <= 0) return;
+
+  int marginTop, marginRight, marginBottom, marginLeft;
+  renderer.getOrientedViewableTRBL(&marginTop, &marginRight, &marginBottom, &marginLeft);
+  const int screenHeight = renderer.getScreenHeight();
+  int clearY = marginTop;
+  int paddingBottom = 0;
+  if (position == StatusBarOverlayPosition::Bottom) {
+    clearY = std::max(0, screenHeight - marginBottom - statusBarHeight - 4);
+  } else {
+    paddingBottom = screenHeight - statusBarHeight - marginBottom - marginTop - 4;
+  }
+  const int clearHeight = position == StatusBarOverlayPosition::Bottom ? screenHeight - marginBottom - clearY
+                                                                         : statusBarHeight + 4;
+  renderer.fillRect(0, clearY, renderer.getScreenWidth(), clearHeight, false);
+
+  const int pageCount = static_cast<int>(xtc->getPageCount());
+  const float bookProgress = static_cast<float>(currentPage + 1) * 100.0f / pageCount;
+  const auto pageInfo = getStatusBarInfo();
+  GUI.drawStatusBar(renderer, bookProgress, pageInfo.currentPage, pageInfo.pageCount, pageInfo.title, paddingBottom,
+                    0, true);
+}
+
 void XtcReaderActivity::renderPage() {
   // XTC pages are pre-rendered images; disable dark mode to preserve
   // original appearance (clearScreen fills white, pixels not inverted).
@@ -386,7 +440,14 @@ void XtcReaderActivity::renderPage() {
 
   free(pageBuffer);
 
-  // XTC pages already have status bar pre-rendered, no need to add our own
+  // A 1-bit XTC can safely accept this final framebuffer overlay. The 2-bit
+  // branch above has already returned because it requires a separate grayscale
+  // overlay for every render plane.
+  if (SETTINGS.xtcStatusBarMode == CrossPointSettings::XTC_STATUS_BAR_TOP) {
+    renderStatusBarOverlay(StatusBarOverlayPosition::Top);
+  } else {
+    renderStatusBarOverlay(StatusBarOverlayPosition::Bottom);
+  }
 
   // Display with appropriate refresh
   if (pagesUntilFullRefresh <= 1) {

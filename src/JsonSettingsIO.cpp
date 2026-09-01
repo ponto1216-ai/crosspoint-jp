@@ -263,6 +263,14 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json, bool*
   if (doc["statusBarChapterPageCount"].isNull()) {
     applyLegacyStatusBarSettings(s);
   }
+  // The initial Yomuka XTC option was a simple on/off progress bar. Preserve
+  // enabled installations when migrating to the upstream-compatible position
+  // selector, placing the overlay at the bottom.
+  if (doc["xtcStatusBarMode"].isNull() && !doc["xtcProgressBar"].isNull()) {
+    s.xtcStatusBarMode = (doc["xtcProgressBar"] | 0) ? CrossPointSettings::XTC_STATUS_BAR_BOTTOM
+                                                      : CrossPointSettings::XTC_STATUS_BAR_HIDE;
+    if (needsResave) *needsResave = true;
+  }
 
   for (const auto& info : getSettingsList()) {
     if (!info.key) continue;
