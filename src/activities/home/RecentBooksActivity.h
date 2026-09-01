@@ -1,4 +1,5 @@
 #pragma once
+#include <Epub.h>
 #include <I18n.h>
 
 #include <functional>
@@ -19,6 +20,7 @@ class RecentBooksActivity final : public Activity {
   // Recent tab state
   std::vector<RecentBook> recentBooks;
   std::vector<ReadingStatus> bookStatuses;
+  std::vector<Epub::CacheGenerationStatus> bookCacheStatuses;
 
   // Data loading
   void loadRecentBooks();

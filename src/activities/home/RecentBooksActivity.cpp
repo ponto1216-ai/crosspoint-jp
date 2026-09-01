@@ -3,6 +3,7 @@
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <I18n.h>
+#include <FsHelpers.h>
 
 #include <algorithm>
 
@@ -10,18 +11,23 @@
 #include "ReadingStatusHelper.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
+#include "components/CacheStatusIcon.h"
 #include "fontIds.h"
 
 namespace {
 constexpr unsigned long GO_HOME_MS = 1000;
+constexpr int CACHE_STATUS_ICON_RADIUS = 7;
+constexpr char CACHE_STATUS_VALUE_SPACER[] = "    ";
 }  // namespace
 
 void RecentBooksActivity::loadRecentBooks() {
   recentBooks.clear();
   bookStatuses.clear();
+  bookCacheStatuses.clear();
   const auto& books = RECENT_BOOKS.getBooks();
   recentBooks.reserve(books.size());
   bookStatuses.reserve(books.size());
+  bookCacheStatuses.reserve(books.size());
 
   for (const auto& book : books) {
     if (!Storage.exists(book.path.c_str())) {
@@ -29,6 +35,9 @@ void RecentBooksActivity::loadRecentBooks() {
     }
     recentBooks.push_back(book);
     bookStatuses.push_back(getReadingStatus(book.path, "/.crosspoint"));
+    bookCacheStatuses.push_back(FsHelpers::hasEpubExtension(book.path)
+                                    ? Epub(book.path, "/.crosspoint").getCacheGenerationStatus()
+                                    : Epub::CacheGenerationStatus::NotGenerated);
   }
 }
 
@@ -46,6 +55,7 @@ void RecentBooksActivity::onExit() {
   Activity::onExit();
   recentBooks.clear();
   bookStatuses.clear();
+  bookCacheStatuses.clear();
 }
 
 void RecentBooksActivity::loop() {
@@ -105,7 +115,21 @@ void RecentBooksActivity::render(RenderLock&&) {
     GUI.drawList(
         renderer, Rect{0, contentTop, pageWidth, contentHeight}, recentBooks.size(), selectorIndex,
         [this](int index) { return recentBooks[index].title; }, [this](int index) { return recentBooks[index].author; },
-        [this](int index) { return UITheme::getFileIcon(recentBooks[index].path, bookStatuses[index]); });
+        [this](int index) { return UITheme::getFileIcon(recentBooks[index].path, bookStatuses[index]); },
+        [this](int index) {
+          return FsHelpers::hasEpubExtension(recentBooks[index].path) ? CACHE_STATUS_VALUE_SPACER : "";
+        });
+
+    const int rowHeight = metrics.listWithSubtitleRowHeight;
+    const int pageItems = std::max(1, contentHeight / rowHeight);
+    const int pageStart = (selectorIndex / pageItems) * pageItems;
+    const int iconCenterX = pageWidth - metrics.contentSidePadding - CACHE_STATUS_ICON_RADIUS - 10;
+    for (int index = pageStart; index < static_cast<int>(recentBooks.size()) && index < pageStart + pageItems; ++index) {
+      if (!FsHelpers::hasEpubExtension(recentBooks[index].path)) continue;
+      const int iconCenterY = contentTop + (index - pageStart) * rowHeight + rowHeight / 2;
+      const bool ink = UITheme::getInstance().getTheme().showsFileIcons() || index != selectorIndex;
+      CacheStatusIcon::draw(renderer, bookCacheStatuses[index], CACHE_STATUS_ICON_RADIUS, iconCenterX, iconCenterY, ink);
+    }
   }
 
   // Help text
