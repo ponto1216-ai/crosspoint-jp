@@ -24,6 +24,7 @@ class FileBrowserActivity final : public Activity {
     std::vector<std::string> files;
     std::vector<ReadingStatus> statuses;
     std::vector<Epub::CacheGenerationStatus> cacheStatuses;
+    std::vector<bool> cacheStatusKnown;
   };
 
   static constexpr size_t DIRECTORY_CACHE_SIZE = 4;
@@ -45,6 +46,7 @@ class FileBrowserActivity final : public Activity {
   std::vector<std::string> files;
   std::vector<ReadingStatus> fileStatuses;
   std::vector<Epub::CacheGenerationStatus> fileCacheStatuses;
+  std::vector<bool> fileCacheStatusKnown;
   std::vector<DirectoryCacheEntry> directoryCache;
 
   // Data loading

@@ -91,7 +91,8 @@ void FileBrowserActivity::cacheCurrentDirectory() {
     directoryCache.erase(directoryCache.begin());
   }
   directoryCache.push_back(
-      {std::move(loadedPath), std::move(files), std::move(fileStatuses), std::move(fileCacheStatuses)});
+      {std::move(loadedPath), std::move(files), std::move(fileStatuses), std::move(fileCacheStatuses),
+       std::move(fileCacheStatusKnown)});
   loadedPath.clear();
 }
 
@@ -104,6 +105,7 @@ bool FileBrowserActivity::restoreCachedDirectory() {
   files = std::move(cached->files);
   fileStatuses = std::move(cached->statuses);
   fileCacheStatuses = std::move(cached->cacheStatuses);
+  fileCacheStatusKnown = std::move(cached->cacheStatusKnown);
   directoryCache.erase(cached);
   return true;
 }
@@ -124,6 +126,7 @@ void FileBrowserActivity::invalidateDirectoryCache(const std::string& path) {
     files.clear();
     fileStatuses.clear();
     fileCacheStatuses.clear();
+    fileCacheStatusKnown.clear();
   }
 }
 
@@ -147,6 +150,7 @@ FileBrowserActivity::DirectoryLoadResult FileBrowserActivity::loadFiles(bool for
   files.clear();
   fileStatuses.clear();
   fileCacheStatuses.clear();
+  fileCacheStatusKnown.clear();
 
   uint32_t scannedEntries = 0;
   uint32_t getNameCalls = 0;
@@ -206,29 +210,29 @@ FileBrowserActivity::DirectoryLoadResult FileBrowserActivity::loadFiles(bool for
   sortFileList(files);
   const unsigned long sortMs = millis() - sortStartedAt;
 
-  const unsigned long statusStartedAt = millis();
+  const unsigned long readingStatusStartedAt = millis();
   getReadingStatuses(basepath, files, "/.crosspoint", fileStatuses);
-  fileCacheStatuses.reserve(files.size());
+  const unsigned long readingStatusMs = millis() - readingStatusStartedAt;
+
+  uint32_t epubEntries = 0;
   for (const auto& file : files) {
     if (FsHelpers::hasEpubExtension(file)) {
-      std::string fullPath = basepath;
-      if (fullPath.back() != '/') fullPath += '/';
-      fullPath += file;
-      fileCacheStatuses.push_back(Epub(fullPath, "/.crosspoint").getCacheGenerationStatus());
-    } else {
-      fileCacheStatuses.push_back(Epub::CacheGenerationStatus::NotGenerated);
+      ++epubEntries;
     }
   }
-  const unsigned long statusMs = millis() - statusStartedAt;
+  fileCacheStatuses.assign(files.size(), Epub::CacheGenerationStatus::NotGenerated);
+  fileCacheStatusKnown.assign(files.size(), false);
 
   loadedPath = basepath;
   LOG_DBG("FBPERF",
-          "path=%s cache=miss open=%lu scan=%lu sort=%lu status=%lu total=%lu ms raw=%lu visible=%lu "
+          "path=%s cache=miss open=%lu scan=%lu sort=%lu readingStatus=%lu cacheStatus=deferred total=%lu ms raw=%lu visible=%lu "
           "openNext=%lu getName=%lu isDirectory=%lu close=%lu",
-          basepath.c_str(), openMs, scanMs, sortMs, statusMs, millis() - totalStartedAt,
+          basepath.c_str(), openMs, scanMs, sortMs, readingStatusMs, millis() - totalStartedAt,
           static_cast<unsigned long>(scannedEntries), static_cast<unsigned long>(files.size()),
           static_cast<unsigned long>(scannedEntries + 1), static_cast<unsigned long>(getNameCalls),
           static_cast<unsigned long>(isDirectoryCalls), static_cast<unsigned long>(scannedEntries + 2));
+  LOG_DBG("FBPERF", "path=%s epubCacheStatus=deferred epubs=%lu metadata=0 cover=0", basepath.c_str(),
+          static_cast<unsigned long>(epubEntries));
   return DirectoryLoadResult::Loaded;
 }
 
@@ -261,6 +265,7 @@ void FileBrowserActivity::onExit() {
   Activity::onExit();
   files.clear();
   fileCacheStatuses.clear();
+  fileCacheStatusKnown.clear();
 }
 
 void FileBrowserActivity::clearFileMetadata(const std::string& fullPath) {
@@ -492,6 +497,7 @@ std::string getFileExtension(std::string filename) {
 }
 
 void FileBrowserActivity::render(RenderLock&&) {
+  const unsigned long renderStartedAt = millis();
   renderer.clearScreen();
 
   const auto pageWidth = renderer.getScreenWidth();
@@ -504,6 +510,7 @@ void FileBrowserActivity::render(RenderLock&&) {
                                                     : basepath.substr(basepath.rfind('/') + 1));
   utf8NfcNormalizeKana(folderName);
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, folderName.c_str());
+  const unsigned long headerMs = millis() - renderStartedAt;
 
   const int pathLineHeight = renderer.getLineHeight(SMALL_FONT_ID);
   const int pathReserved = pathLineHeight + metrics.verticalSpacing;
@@ -511,13 +518,40 @@ void FileBrowserActivity::render(RenderLock&&) {
   const int contentHeight =
       pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing - pathReserved;
   const bool showCacheStatusIcons = mode == Mode::Books && UITheme::getInstance().getTheme().showsFileIcons();
+  uint32_t loadedCacheStatuses = 0;
+  unsigned long cacheStatusMs = 0;
+  if (showCacheStatusIcons && !files.empty()) {
+    const int pageItems = std::max(1, contentHeight / metrics.listRowHeight);
+    const int pageStart = (selectorIndex / pageItems) * pageItems;
+    const int pageEnd = std::min(static_cast<int>(files.size()), pageStart + pageItems);
+    const unsigned long cacheStatusStartedAt = millis();
+    for (int index = pageStart; index < pageEnd; ++index) {
+      if (!FsHelpers::hasEpubExtension(files[index]) || fileCacheStatusKnown[index]) continue;
+
+      std::string fullPath = basepath;
+      if (fullPath.back() != '/') fullPath += '/';
+      fullPath += files[index];
+      fileCacheStatuses[index] = Epub(fullPath, "/.crosspoint").getCacheGenerationStatus();
+      fileCacheStatusKnown[index] = true;
+      ++loadedCacheStatuses;
+    }
+    cacheStatusMs = millis() - cacheStatusStartedAt;
+  }
+  const unsigned long listStartedAt = millis();
+  unsigned long filenameNormalizeUs = 0;
   if (files.empty()) {
     renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, contentTop + 20,
                       mode == Mode::PickFirmware ? tr(STR_NO_BIN_FILES) : tr(STR_NO_FILES_FOUND));
   } else {
     GUI.drawList(
         renderer, Rect{0, contentTop, pageWidth, contentHeight}, files.size(), selectorIndex,
-        [this](int index) { return getFileName(files[index]); }, nullptr,
+        [this, &filenameNormalizeUs](int index) {
+          const unsigned long startedAt = micros();
+          std::string filename = getFileName(files[index]);
+          filenameNormalizeUs += micros() - startedAt;
+          return filename;
+        },
+        nullptr,
         [this](int index) {
           return mode == Mode::PickFirmware ? UITheme::getFileIcon(files[index])
                                             : UITheme::getFileIcon(files[index], fileStatuses[index]);
@@ -548,8 +582,10 @@ void FileBrowserActivity::render(RenderLock&&) {
       }
     }
   }
+  const unsigned long listMs = millis() - listStartedAt;
 
   // Full path display
+  const unsigned long footerStartedAt = millis();
   {
     const int pathY = pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - pathLineHeight;
     const int separatorY = pathY - metrics.verticalSpacing / 2;
@@ -584,7 +620,13 @@ void FileBrowserActivity::render(RenderLock&&) {
                             files.empty() ? "" : tr(STR_DIR_UP), files.empty() ? "" : tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
+  const unsigned long footerMs = millis() - footerStartedAt;
+  const unsigned long displayStartedAt = millis();
   renderer.displayBuffer();
+  LOG_DBG("FBPERF",
+          "render path=%s header=%lu cacheStatus=%lu ms loadedCacheStatuses=%lu list=%lu filenameNfc=%lu us footer=%lu display=%lu total=%lu ms",
+          basepath.c_str(), headerMs, cacheStatusMs, static_cast<unsigned long>(loadedCacheStatuses), listMs,
+          filenameNormalizeUs, footerMs, millis() - displayStartedAt, millis() - renderStartedAt);
 }
 
 size_t FileBrowserActivity::findEntry(const std::string& name) const {
