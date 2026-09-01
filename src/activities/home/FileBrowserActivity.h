@@ -23,6 +23,8 @@ class FileBrowserActivity final : public Activity {
     std::string path;
     std::vector<std::string> files;
     std::vector<ReadingStatus> statuses;
+    std::vector<std::string> readingStatusCacheEntries;
+    std::vector<bool> readingStatusKnown;
     std::vector<Epub::CacheGenerationStatus> cacheStatuses;
     std::vector<bool> cacheStatusKnown;
   };
@@ -45,6 +47,10 @@ class FileBrowserActivity final : public Activity {
   std::string loadedPath;
   std::vector<std::string> files;
   std::vector<ReadingStatus> fileStatuses;
+  std::vector<std::string> readingStatusCacheEntries;
+  std::vector<BookListStatusEntry> bookListStatusIndex;
+  bool bookListStatusIndexDirty = false;
+  std::vector<bool> readingStatusKnown;
   std::vector<Epub::CacheGenerationStatus> fileCacheStatuses;
   std::vector<bool> fileCacheStatusKnown;
   std::vector<DirectoryCacheEntry> directoryCache;

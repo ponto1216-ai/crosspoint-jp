@@ -24,6 +24,10 @@ class Epub {
   std::string contentBasePath;
   // Uniq cache key based on filepath
   std::string cachePath;
+  // ReaderActivity obtains this before load() to resolve a per-book override.
+  // Keep it for load() so the ZIP central directory is not scanned twice.
+  mutable bool hasSourceFingerprint = false;
+  mutable uint64_t cachedSourceFingerprint = 0;
   // Spine and TOC cache
   std::unique_ptr<BookMetadataCache> bookMetadataCache;
   // CSS parser for styling

@@ -37,6 +37,7 @@
 #include "QrDisplayActivity.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
+#include "ReadingStatusHelper.h"
 #include "SdCardFontGlobals.h"
 #include "activities/settings/LineSpacingSelectionActivity.h"
 #include "activities/settings/SettingsActivity.h"
@@ -62,7 +63,7 @@ constexpr float BOOKMARK_PROGRESS_EPSILON = 0.0001f;
 // Small, short EPUBs are quick to build lazily as the reader reaches each
 // section. Avoid interrupting their first open with a full-cache prompt.
 constexpr size_t SMALL_BOOK_CACHE_PROMPT_MAX_TEXT_BYTES = 256 * 1024;
-constexpr int SMALL_BOOK_CACHE_PROMPT_MAX_SPINE_ITEMS = 15;
+constexpr int SMALL_BOOK_CACHE_PROMPT_MAX_SPINE_ITEMS = 10;
 // pages per minute, first item is 1 to prevent division by zero if accessed
 const std::vector<int> PAGE_TURN_LABELS = {1, 1, 3, 6, 12};
 
@@ -301,6 +302,10 @@ void EpubReaderActivity::onEnter() {
   // enterNewActivity() → OrientationHelper::applyOrientation() before onEnter().
 
   epub->setupCacheDir();
+  // Opening a book can change its progress or invalidate a complete cache
+  // marker. Drop the browser's summary entry once; it will be refreshed from
+  // the authoritative per-book files on the next folder view.
+  invalidateBookListStatusIndexEntry(epub->getPath(), "/.crosspoint");
   loadCachedBookmarks();
 
   FsFile f;

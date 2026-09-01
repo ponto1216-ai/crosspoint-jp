@@ -91,8 +91,13 @@ bool Epub::saveSourceFingerprint(const uint64_t fingerprint) const {
 }
 
 bool Epub::isFullCacheGenerated() const {
+  const std::string markerPath = cachePath + fullCacheMarkerFile;
+  // Missing completion markers are normal for books that have not had a full
+  // cache generated. Avoid reporting that expected state as a failed open.
+  if (!Storage.exists(markerPath.c_str())) return false;
+
   FsFile marker;
-  if (!Storage.openFileForRead("EBP", cachePath + fullCacheMarkerFile, marker)) {
+  if (!Storage.openFileForRead("EBP", markerPath, marker)) {
     return false;
   }
   uint8_t version = 0;
@@ -103,20 +108,32 @@ bool Epub::isFullCacheGenerated() const {
 }
 
 Epub::CacheGenerationStatus Epub::getCacheGenerationStatus() const {
-  if (!Storage.exists(cachePath.c_str())) return CacheGenerationStatus::NotGenerated;
   if (isFullCacheGenerated()) return CacheGenerationStatus::Complete;
 
   // A cache directory can be recreated solely to retain progress.bin after a
   // per-book cache deletion.  Only section files represent generated reading
-  // cache that a later full-cache run can reuse.
+  // cache that a later full-cache run can reuse.  Do not probe the parent
+  // cache directory first: the section lookup already distinguishes a missing
+  // cache from a resumable one, and this function runs once per visible book.
   return Storage.exists((cachePath + "/sections").c_str()) ? CacheGenerationStatus::Resumable
                                                             : CacheGenerationStatus::NotGenerated;
 }
 
 bool Epub::getSourceFingerprint(uint64_t* fingerprint) const {
   if (fingerprint == nullptr) return false;
+  if (hasSourceFingerprint) {
+    *fingerprint = cachedSourceFingerprint;
+    return true;
+  }
+
   ZipFile sourceZip(filepath);
-  return sourceZip.getArchiveFingerprint(fingerprint);
+  uint64_t computedFingerprint = 0;
+  if (!sourceZip.getArchiveFingerprint(&computedFingerprint)) return false;
+
+  cachedSourceFingerprint = computedFingerprint;
+  hasSourceFingerprint = true;
+  *fingerprint = computedFingerprint;
+  return true;
 }
 
 void Epub::clearFullCacheGeneratedMarker() const {
@@ -474,8 +491,8 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
 
   const uint32_t fingerprintStartedAt = millis();
   uint64_t sourceFingerprint = 0;
-  ZipFile sourceZip(filepath);
-  if (!sourceZip.getArchiveFingerprint(&sourceFingerprint)) {
+  const bool reusedSourceFingerprint = hasSourceFingerprint;
+  if (!getSourceFingerprint(&sourceFingerprint)) {
     LOG_ERR("EBP", "Could not fingerprint EPUB source: %s", filepath.c_str());
     return false;
   }
@@ -483,7 +500,8 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
   if (!prepareSourceFingerprint(sourceFingerprint, fingerprintNeedsWrite)) {
     return false;
   }
-  LOG_DBG("EBP", "EPUB source fingerprint checked in %lu ms", millis() - fingerprintStartedAt);
+  LOG_DBG("EBP", "EPUB source fingerprint %s in %lu ms", reusedSourceFingerprint ? "reused" : "checked",
+          millis() - fingerprintStartedAt);
 
   // Initialize spine/TOC cache
   bookMetadataCache.reset(new BookMetadataCache(cachePath));
