@@ -18,7 +18,7 @@ class ImageBlock final : public Block {
   int16_t getHeight() const { return height; }
 
   bool imageExists() const;
-  // Build a missing PNG pixel cache without drawing into the current framebuffer.
+  // Build a missing PNG BMP cache without drawing into the current framebuffer.
   bool pregeneratePngCache(GfxRenderer& renderer) const;
 
   BlockType getType() override { return IMAGE_BLOCK; }

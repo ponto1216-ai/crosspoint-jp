@@ -179,8 +179,11 @@ PngCachePreflightResult inspectPngCaches(const std::string& cacheRoot, const int
 
     result.sourceCount++;
     const std::string pixelCachePath = sourcePath.substr(0, sourcePath.size() - 4) + ".pxc5";
-    if (Storage.exists(pixelCachePath.c_str()) &&
-        ImageCacheValidation::validatePixelCacheFile(pixelCachePath, 0, 0)) {
+    const std::string bmpCachePath = pixelCachePath + ".bmp";
+    // PNG images now prefer a streamed BMP cache. Keep accepting a valid
+    // legacy pixel cache so existing books do not regenerate unnecessarily.
+    if ((Storage.exists(bmpCachePath.c_str()) && ImageCacheValidation::validateBmpCacheFile(bmpCachePath)) ||
+        (Storage.exists(pixelCachePath.c_str()) && ImageCacheValidation::validatePixelCacheFile(pixelCachePath, 0, 0))) {
       result.validCacheCount++;
     } else {
       result.missingOrInvalidCacheCount++;
