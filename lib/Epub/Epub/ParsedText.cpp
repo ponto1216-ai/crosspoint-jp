@@ -403,6 +403,12 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
   }
   const int sp = renderer.getVerticalCharSpacing();
   const int cjkSpacing = cjkCharAdvance * sp / 100;
+  // A body glyph can extend beyond its advance box. Inline images need that
+  // overflow as leading clearance, plus a minimum visible gutter on both
+  // sides, instead of being centered in an otherwise normal text cell.
+  const int cjkCellOverflow = std::max(0, renderer.getLineHeight(fontId) - cjkCharAdvance);
+  const uint16_t inlineImageLeadingGap = static_cast<uint16_t>(cjkCellOverflow + 3);
+  const uint16_t inlineImageTrailingGap = static_cast<uint16_t>(std::max(3, cjkSpacing));
 
   size_t imgIdx = 0;  // words 内の画像マーカー出現順 = inlineImages の index
   for (size_t i = 0; i < words.size(); i++) {
@@ -426,8 +432,13 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
     const bool isUprightHalfwidthKana =
         vb == VerticalTextUtils::VerticalBehavior::Upright && VerticalTextUtils::isHalfwidthKatakana(wordCp);
 
+    const bool isUprightEnclosedAlphanumeric =
+        vb == VerticalTextUtils::VerticalBehavior::Upright && VerticalTextUtils::isEnclosedAlphanumeric(wordCp);
+
+    const bool isInlineImage = words[i] == INLINE_IMAGE_MARKER && imgIdx < inlineImages.size();
+
     uint16_t baseHeight;
-    if (words[i] == INLINE_IMAGE_MARKER && imgIdx < inlineImages.size()) {
+    if (isInlineImage) {
       // インライン画像: 縦方向の送り = 表示高さ。画像は列内に収め、回転はしない。
       baseHeight = inlineImages[imgIdx].height > 0 ? static_cast<uint16_t>(inlineImages[imgIdx].height) : 1;
       imgIdx++;
@@ -442,6 +453,10 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       // advance so it does not leave a full-cell gap before the next kana.
       baseHeight = wordCp == 0xFF70 ? renderer.getTextAdvanceX(fontId, words[i].c_str(), wordStyles[i])
                                     : static_cast<uint16_t>(cjkCharAdvance);
+    } else if (isUprightEnclosedAlphanumeric) {
+      // Circled digits are visually narrow in many fonts, but Japanese
+      // vertical composition gives every one a normal character cell.
+      baseHeight = static_cast<uint16_t>(cjkCharAdvance);
     } else
       switch (vb) {
         case VerticalTextUtils::VerticalBehavior::Sideways:
@@ -466,6 +481,8 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
     uint16_t finalHeight;
     if (overlaysPreviousCharacter) {
       finalHeight = 0;
+    } else if (isInlineImage) {
+      finalHeight = baseHeight + inlineImageLeadingGap + inlineImageTrailingGap;
     } else if (vb == VerticalTextUtils::VerticalBehavior::Upright) {
       finalHeight = baseHeight + baseHeight * sp / 100;
     } else {

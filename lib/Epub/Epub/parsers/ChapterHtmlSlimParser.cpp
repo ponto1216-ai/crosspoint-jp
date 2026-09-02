@@ -176,6 +176,9 @@ bool isCjkCodepointForSplit(const uint32_t cp) {
   if (cp >= 0x3040 && cp <= 0x309F) return true;
   // Katakana: U+30A0 - U+30FF
   if (cp >= 0x30A0 && cp <= 0x30FF) return true;
+  // Circled digits and letters must stay individual upright cells in vertical
+  // text, rather than joining the surrounding sideways text run.
+  if (VerticalTextUtils::isEnclosedAlphanumeric(cp)) return true;
   // CJK Compatibility Ideographs: U+F900 - U+FAFF
   if (cp >= 0xF900 && cp <= 0xFAFF) return true;
   // Fullwidth forms: U+FF00 - U+FFEF

@@ -138,6 +138,12 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
     if (columnWidth <= 0) columnWidth = renderer.getLineHeight(effectiveFontId);
   }
 
+  // ParsedText reserves this before each inline image. The body glyph may
+  // occupy more pixels than its horizontal advance, so center alignment alone
+  // can place an image inside the previous glyph's visual cell.
+  const int inlineImageLeadingGap =
+      isVertical ? std::max(3, renderer.getLineHeight(effectiveFontId) - columnWidth + 3) : 0;
+
   // The bitmap center of a CJK body glyph can differ from half the advance
   // width. Sideways ASCII and symbols must use this same visual center.
   int verticalBodyCenterOffset = 0;
@@ -175,16 +181,8 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
       int imgX = x + wordXpos[i];
       int imgY = y;
       if (isVertical && i < wordYpos.size()) {
-        // 縦書き: 画像を、そのセル(=次の語までの送り)の縦中心に配置する。
-        // 横書きの行内中央配置と対称。列末・段落末(次の語がない)では残り画面全体を
-        // セル下端に使うと画像が中央まで下がるため、元の位置のままにしておく。
-        if (i + 1 < wordYpos.size()) {
-          int cellH = wordYpos[i + 1] - wordYpos[i];
-          if (cellH < imgH) cellH = imgH;  // 画像がセルより大きい場合は上詰め相当(はみ出さない)
-          imgY = y + wordYpos[i] + (cellH - imgH) / 2;
-        } else {
-          imgY = y + wordYpos[i];
-        }
+        // Keep the leading clearance reserved by ParsedText before the image.
+        imgY = y + wordYpos[i] + inlineImageLeadingGap;
         // 縦書き: 列セル内に中央配置（画像は回転しない）
         imgX += (columnWidth - imgW) / 2;
       } else {
@@ -302,18 +300,19 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
 
       if (isSingleCjk) {
         int uprightX = wx;
-        if (VerticalTextUtils::isHalfwidthKatakana(firstCp)) {
-          // Halfwidth kana are upright, but their advance box carries uneven
-          // side bearings. Align their visible ink with the body CJK glyph,
-          // just as TateChuYoko aligns halfwidth digits below.
-          int kanaMinX = 0;
-          int kanaMaxX = 0;
+        if (VerticalTextUtils::isHalfwidthKatakana(firstCp) ||
+            VerticalTextUtils::isEnclosedAlphanumeric(firstCp)) {
+          // Narrow upright glyphs can carry uneven side bearings. Align their
+          // visible ink with the body CJK glyph, just as TateChuYoko aligns
+          // halfwidth digits below.
+          int glyphMinX = 0;
+          int glyphMaxX = 0;
           int bodyMinX = 0;
           int bodyMaxX = 0;
-          renderer.getTextVisibleBoundsX(effectiveFontId, w, &kanaMinX, &kanaMaxX, currentStyle);
+          renderer.getTextVisibleBoundsX(effectiveFontId, w, &glyphMinX, &glyphMaxX, currentStyle);
           renderer.getTextVisibleBoundsX(effectiveFontId, "\xE4\xB8\x80", &bodyMinX, &bodyMaxX,
                                          currentStyle);  // U+4E00
-          uprightX += (bodyMinX + bodyMaxX - kanaMinX - kanaMaxX) / 2;
+          uprightX += (bodyMinX + bodyMaxX - glyphMinX - glyphMaxX) / 2;
         }
         // wordYpos already contains the halfwidth glyph advance plus the
         // fullwidth inter-cell spacing. Adding another half-cell inset here
