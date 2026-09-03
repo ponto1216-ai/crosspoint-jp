@@ -138,14 +138,22 @@ Typical persisted areas on SD:
 /.crosspoint/
   epub_<hash>/
     book.bin
-    progress.bin
     cover.bmp
     sections/*.bin
+  books/<source-fingerprint>/
+    progress.bin
+    bookmarks.json
+  book-identity-paths.json
   settings.bin
   state.bin
 ```
 
 For binary cache formats, see `docs/file-formats.md`.
+
+`book-identity-paths.json` records the latest source fingerprint for each normalized EPUB path. When an EPUB at the
+same path is updated, its path-keyed cache is rebuilt, while missing reader data is copied from the prior fingerprint
+to the new one. The prior data is retained; moving or renaming an EPUB remains fingerprint-based and does not use this
+update bridge.
 
 ## Networking architecture
 

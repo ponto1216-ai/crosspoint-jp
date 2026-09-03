@@ -47,6 +47,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/BookmarkUtil.h"
+#include "util/BookDataPath.h"
 #include "util/CacheGenerationControls.h"
 #include "util/ScreenshotUtil.h"
 
@@ -309,20 +310,33 @@ void EpubReaderActivity::onEnter() {
   invalidateBookListStatusIndexEntry(epub->getPath(), "/.crosspoint");
   loadCachedBookmarks();
 
-  FsFile f;
-  if (Storage.openFileForRead("ERS", epub->getCachePath() + "/progress.bin", f)) {
-    uint8_t data[6];
-    int dataSize = f.read(data, 6);
-    if (dataSize == 4 || dataSize == 6) {
+  const std::string legacyProgressPath = epub->getCachePath() + "/progress.bin";
+  uint64_t bookId = 0;
+  const bool hasBookId = epub->getSourceFingerprint(&bookId);
+  const std::string progressPath = hasBookId ? BookDataPath::getProgressPath(bookId) : legacyProgressPath;
+  uint8_t data[7] = {};
+  size_t dataSize = 0;
+  if (Storage.exists(progressPath.c_str())) {
+    dataSize = ProgressFile::readLegacyCompatible(progressPath, data);
+  } else if (hasBookId) {
+    dataSize = ProgressFile::readLegacyCompatible(legacyProgressPath, data);
+    if (dataSize != 0 && BookDataPath::ensureDirectory(bookId) &&
+        ProgressFile::writeAtomicPath(progressPath, data, dataSize)) {
+      LOG_INF("ERS", "Migrated progress to BookId %016llx", static_cast<unsigned long long>(bookId));
+    }
+  } else {
+    dataSize = ProgressFile::readLegacyCompatible(legacyProgressPath, data);
+  }
+  if (dataSize != 0) {
+    if (dataSize == 4 || dataSize == 6 || dataSize == 7) {
       currentSpineIndex = data[0] + (data[1] << 8);
       nextPageNumber = data[2] + (data[3] << 8);
       cachedSpineIndex = currentSpineIndex;
       LOG_DBG("ERS", "Loaded cache: %d, %d", currentSpineIndex, nextPageNumber);
     }
-    if (dataSize == 6) {
+    if (dataSize == 6 || dataSize == 7) {
       cachedChapterTotalPageCount = data[4] + (data[5] << 8);
     }
-    f.close();
   }
   // We may want a better condition to detect if we are opening for the first time.
   // This will trigger if the book is re-opened at Chapter 0.
@@ -1465,7 +1479,12 @@ void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
   data[4] = pageCount & 0xFF;
   data[5] = (pageCount >> 8) & 0xFF;
   data[6] = isFinished ? 1 : 0;
-  if (ProgressFile::writeAtomic(epub->getCachePath(), data, sizeof(data))) {
+  uint64_t bookId = 0;
+  const bool hasBookId = epub->getSourceFingerprint(&bookId);
+  const std::string progressPath = hasBookId ? BookDataPath::getProgressPath(bookId)
+                                             : epub->getCachePath() + "/progress.bin";
+  if ((!hasBookId || BookDataPath::ensureDirectory(bookId)) &&
+      ProgressFile::writeAtomicPath(progressPath, data, sizeof(data))) {
     LOG_DBG("ERS", "Progress saved: Chapter %d, Page %d, Finished: %d", spineIndex, currentPage, isFinished);
   } else {
     LOG_ERR("ERS", "Could not save progress!");
@@ -1634,11 +1653,24 @@ void EpubReaderActivity::loadCachedBookmarks() {
   cachedBookmarks.clear();
   currentPageBookmarked = false;
   if (!epub) return;
-  const std::string path = BookmarkUtil::getBookmarkPath(epub->getPath());
+  const std::string legacyPath = BookmarkUtil::getBookmarkPath(epub->getPath());
+  uint64_t bookId = 0;
+  const bool hasBookId = epub->getSourceFingerprint(&bookId);
+  const std::string path = hasBookId ? BookDataPath::getBookmarkPath(bookId) : legacyPath;
   BookmarkUtil::recoverBookmarkFile(path);
-  if (!Storage.exists(path.c_str())) return;
-  const String json = Storage.readFile(path.c_str());
-  if (!json.isEmpty()) JsonSettingsIO::loadBookmarks(cachedBookmarks, json.c_str(), MAX_BOOKMARKS_PER_BOOK);
+  if (Storage.exists(path.c_str())) {
+    const String json = Storage.readFile(path.c_str());
+    if (!json.isEmpty()) JsonSettingsIO::loadBookmarks(cachedBookmarks, json.c_str(), MAX_BOOKMARKS_PER_BOOK);
+  } else if (hasBookId) {
+    BookmarkUtil::recoverBookmarkFile(legacyPath);
+    if (Storage.exists(legacyPath.c_str())) {
+      const String json = Storage.readFile(legacyPath.c_str());
+      if (!json.isEmpty() && JsonSettingsIO::loadBookmarks(cachedBookmarks, json.c_str(), MAX_BOOKMARKS_PER_BOOK) &&
+          BookDataPath::ensureDirectory(bookId) && JsonSettingsIO::saveBookmarks(cachedBookmarks, path.c_str())) {
+        LOG_INF("BKM", "Migrated bookmarks to BookId %016llx", static_cast<unsigned long long>(bookId));
+      }
+    }
+  }
   updateBookmarkFlag();
 }
 
@@ -1683,8 +1715,12 @@ void EpubReaderActivity::toggleBookmark() {
     cachedBookmarks.insert(cachedBookmarks.begin(), std::move(entry));
     bookmarkNotice = BookmarkNotice::ADDED;
   }
-  Storage.mkdir(BookmarkUtil::getBookmarksDir().c_str());
-  if (!JsonSettingsIO::saveBookmarks(cachedBookmarks, BookmarkUtil::getBookmarkPath(epub->getPath()).c_str())) {
+  uint64_t bookId = 0;
+  const bool hasBookId = epub->getSourceFingerprint(&bookId);
+  const std::string path = hasBookId ? BookDataPath::getBookmarkPath(bookId)
+                                     : BookmarkUtil::getBookmarkPath(epub->getPath());
+  if (!((!hasBookId || BookDataPath::ensureDirectory(bookId)) &&
+        JsonSettingsIO::saveBookmarks(cachedBookmarks, path.c_str()))) {
     LOG_ERR("BKM", "Failed to save bookmarks");
   }
   updateBookmarkFlag();

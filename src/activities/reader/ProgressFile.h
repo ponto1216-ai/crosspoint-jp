@@ -9,7 +9,7 @@
 
 namespace ProgressFile {
 
-// Writes `len` bytes of reader progress to `<cachePath>/progress.bin` without
+// Writes `len` bytes of reader progress to a path without
 // ever leaving the canonical file half-written.
 //
 // The bytes go to a temporary `progress.bin.tmp` first; only once that is fully
@@ -29,9 +29,8 @@ namespace ProgressFile {
 // fail at the FAT level, in which case recovery still requires fsck on a host.
 //
 // Returns true only if the new progress.bin is fully in place.
-inline bool writeAtomic(const std::string& cachePath, const uint8_t* data, size_t len) {
-  const std::string finalPath = cachePath + "/progress.bin";
-  const std::string tmpPath = cachePath + "/progress.bin.tmp";
+inline bool writeAtomicPath(const std::string& finalPath, const uint8_t* data, size_t len) {
+  const std::string tmpPath = finalPath + ".tmp";
 
   {
     HalFile f;
@@ -59,6 +58,23 @@ inline bool writeAtomic(const std::string& cachePath, const uint8_t* data, size_
     return false;
   }
   return true;
+}
+
+// Legacy TXT/XTC callers still store progress in their path-keyed cache
+// directories. EPUB passes its fingerprint-keyed canonical file path above.
+inline bool writeAtomic(const std::string& cachePath, const uint8_t* data, size_t len) {
+  return writeAtomicPath(cachePath + "/progress.bin", data, len);
+}
+
+// EPUB progress historically used 4, 6, and 7 byte payloads. Keep all three
+// readable during the fingerprint-path migration; callers use the first six
+// bytes for the resume position and retain byte seven as the finished marker.
+inline size_t readLegacyCompatible(const std::string& path, uint8_t (&data)[7]) {
+  FsFile file;
+  if (!Storage.openFileForRead("PRG", path, file)) return 0;
+  const int bytesRead = file.read(data, sizeof(data));
+  file.close();
+  return bytesRead == 4 || bytesRead == 6 || bytesRead == 7 ? static_cast<size_t>(bytesRead) : 0;
 }
 
 }  // namespace ProgressFile

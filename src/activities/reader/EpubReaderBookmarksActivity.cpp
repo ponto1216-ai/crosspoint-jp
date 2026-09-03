@@ -12,6 +12,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/BookmarkUtil.h"
+#include "util/BookDataPath.h"
 
 namespace {
 // A 54px row places 12 two-line entries comfortably between the header and
@@ -28,19 +29,33 @@ EpubReaderBookmarksActivity::EpubReaderBookmarksActivity(GfxRenderer& renderer, 
 void EpubReaderBookmarksActivity::onEnter() {
   Activity::onEnter();
   if (epub) {
-    const std::string path = BookmarkUtil::getBookmarkPath(epubPath);
+    const std::string legacyPath = BookmarkUtil::getBookmarkPath(epubPath);
+    uint64_t bookId = 0;
+    const bool hasBookId = epub->getSourceFingerprint(&bookId);
+    const std::string path = hasBookId ? BookDataPath::getBookmarkPath(bookId) : legacyPath;
     BookmarkUtil::recoverBookmarkFile(path);
     if (Storage.exists(path.c_str())) {
       const String json = Storage.readFile(path.c_str());
       if (!json.isEmpty()) JsonSettingsIO::loadBookmarks(bookmarks, json.c_str(), MAX_BOOKMARKS);
+    } else if (hasBookId) {
+      BookmarkUtil::recoverBookmarkFile(legacyPath);
+      if (Storage.exists(legacyPath.c_str())) {
+        const String json = Storage.readFile(legacyPath.c_str());
+        if (!json.isEmpty() && JsonSettingsIO::loadBookmarks(bookmarks, json.c_str(), MAX_BOOKMARKS) &&
+            BookDataPath::ensureDirectory(bookId) && JsonSettingsIO::saveBookmarks(bookmarks, path.c_str())) {
+          LOG_INF("BKM", "Migrated bookmarks to BookId %016llx", static_cast<unsigned long long>(bookId));
+        }
+      }
     }
   }
   requestUpdate();
 }
 
 void EpubReaderBookmarksActivity::save() {
-  Storage.mkdir(BookmarkUtil::getBookmarksDir().c_str());
-  if (!JsonSettingsIO::saveBookmarks(bookmarks, BookmarkUtil::getBookmarkPath(epubPath).c_str())) {
+  uint64_t bookId = 0;
+  const bool hasBookId = epub && epub->getSourceFingerprint(&bookId);
+  const std::string path = hasBookId ? BookDataPath::getBookmarkPath(bookId) : BookmarkUtil::getBookmarkPath(epubPath);
+  if (!((!hasBookId || BookDataPath::ensureDirectory(bookId)) && JsonSettingsIO::saveBookmarks(bookmarks, path.c_str()))) {
     LOG_ERR("BKM", "Failed to save bookmarks");
   }
 }

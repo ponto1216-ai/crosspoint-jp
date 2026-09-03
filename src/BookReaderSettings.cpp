@@ -197,6 +197,27 @@ bool BookReaderSettings::save(const uint64_t fingerprint, const Override& value)
 
 bool BookReaderSettings::remove(const uint64_t fingerprint) { return save(fingerprint, Override{}); }
 
+bool BookReaderSettings::migrate(const uint64_t previousFingerprint, const uint64_t currentFingerprint) {
+  if (previousFingerprint == currentFingerprint || !Storage.ready() || !Storage.ensureDirectoryExists("/.crosspoint")) {
+    return previousFingerprint == currentFingerprint;
+  }
+  JsonDocument document;
+  if (!loadDocument(document)) return false;
+  char previousKey[17];
+  char currentKey[17];
+  fingerprintKey(previousFingerprint, previousKey);
+  fingerprintKey(currentFingerprint, currentKey);
+  JsonObject books = document["books"].as<JsonObject>();
+  if (!books[currentKey].isNull() || books[previousKey].isNull()) return true;
+  Override previous;
+  if (!readOverride(books[previousKey].as<JsonObjectConst>(), previous)) return false;
+  if (!hasAnyField(previous)) return true;
+  writeOverride(books[currentKey].to<JsonObject>(), previous);
+  String json;
+  serializeJson(document, json);
+  return Storage.writeFile(kSettingsPath, json);
+}
+
 void BookReaderSettings::apply(const Override& value, CrossPointSettings& settings) {
   applyDirection(value.horizontal, settings.horizontal);
   applyDirection(value.vertical, settings.vertical);

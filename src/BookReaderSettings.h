@@ -50,6 +50,9 @@ struct Override {
 bool load(uint64_t fingerprint, Override& result);
 bool save(uint64_t fingerprint, const Override& value);
 bool remove(uint64_t fingerprint);
+// Copies a missing override to a new archive fingerprint during a same-path
+// EPUB update. The prior override remains available under its original key.
+bool migrate(uint64_t previousFingerprint, uint64_t currentFingerprint);
 bool hasAnyField(const Override& value);
 Override captureAll(const CrossPointSettings& settings);
 

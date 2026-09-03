@@ -13,6 +13,8 @@
 #include "activities/util/BmpViewerActivity.h"
 #include "activities/util/FullScreenMessageActivity.h"
 #include "BookReaderSettings.h"
+#include "BookIdentity.h"
+#include "util/BookDataPath.h"
 
 bool ReaderActivity::isXtcFile(const std::string& path) { return FsHelpers::hasXtcExtension(path); }
 
@@ -33,8 +35,25 @@ std::unique_ptr<Epub> ReaderActivity::loadEpub(const std::string& path) {
   activeBookHasReaderOverride = false;
   activeBookFingerprint = 0;
   uint64_t fingerprint = 0;
+  if (epub->getSourceFingerprint(&fingerprint)) {
+    uint64_t previousFingerprint = 0;
+    const bool hasTrackedFingerprint = BookIdentity::getLastArchiveId(path, previousFingerprint);
+    const bool hasPreviousFingerprint =
+        hasTrackedFingerprint || BookIdentity::getCachedArchiveId(epub->getCachePath(), previousFingerprint);
+    if (hasPreviousFingerprint && previousFingerprint != fingerprint) {
+      if (BookDataPath::migrateArchiveData(previousFingerprint, fingerprint) &&
+          BookReaderSettings::migrate(previousFingerprint, fingerprint) && BookIdentity::recordArchiveId(path, fingerprint)) {
+        LOG_INF("BID", "Migrated same-path EPUB update %016llx -> %016llx",
+                static_cast<unsigned long long>(previousFingerprint), static_cast<unsigned long long>(fingerprint));
+      } else {
+        LOG_ERR("BID", "Could not migrate same-path EPUB update");
+      }
+    } else if (!hasTrackedFingerprint && !BookIdentity::recordArchiveId(path, fingerprint)) {
+      LOG_ERR("BID", "Could not record EPUB archive identity");
+    }
+  }
   BookReaderSettings::Override bookOverride;
-  if (epub->getSourceFingerprint(&fingerprint) && BookReaderSettings::load(fingerprint, bookOverride) &&
+  if (fingerprint != 0 && BookReaderSettings::load(fingerprint, bookOverride) &&
       BookReaderSettings::hasAnyField(bookOverride)) {
     // Apply before Epub::load(): section-cache validation must use the same
     // effective configuration that will render the book.
