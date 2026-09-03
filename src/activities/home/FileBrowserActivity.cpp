@@ -490,7 +490,13 @@ void FileBrowserActivity::loop() {
                     ? toCachedBookStatus(fileCacheStatuses[selectorIndex])
                     : CachedBookStatus::Unknown;
             updateBookListStatusIndex(fullPath, ReadingStatus::Finished, cacheStatus, bookListStatusIndex);
-            bookListStatusIndexDirty = true;
+            // A reset can happen before this activity exits. Persist the
+            // visible-state index now; canonical progress was already written
+            // by markAsFinished(), so both sources survive an immediate reboot.
+            if (!saveBookListStatusIndex("/.crosspoint", bookListStatusIndex)) {
+              LOG_ERR("FileBrowser", "Failed to save finished status index: %s", fullPath.c_str());
+            }
+            bookListStatusIndexDirty = false;
           } else {
             // Back ボタン → キャンセル
             LOG_DBG("FileBrowser", "Action cancelled by user");

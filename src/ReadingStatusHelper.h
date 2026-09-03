@@ -37,7 +37,7 @@ void invalidateBookListStatusIndexEntry(const std::string& filepath, const std::
 // ファイルパスからSDカード上のキャッシュを確認し、読書状態を返す。
 // filepath: 書籍ファイルの絶対パス（例: "/books/sample.epub"）
 // cacheDir: キャッシュルート（通常 "/.crosspoint"）
-ReadingStatus getReadingStatus(const std::string& filepath, const std::string& cacheDir);
+ReadingStatus getReadingStatus(const std::string& filepath, const std::string& cacheDir, uint64_t bookId = 0);
 
 // Build a sorted index of book-cache directory names once. Call
 // getReadingStatusFromCacheEntries() for visible files to avoid reading every

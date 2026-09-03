@@ -48,7 +48,7 @@ void HomeActivity::loadRecentBooks(int maxBooks) {
     }
 
     recentBooks.push_back(book);
-    recentBookStatuses.push_back(getReadingStatus(book.path, "/.crosspoint"));
+    recentBookStatuses.push_back(getReadingStatus(book.path, "/.crosspoint", book.bookId));
   }
 }
 

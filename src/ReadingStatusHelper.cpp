@@ -6,6 +6,7 @@
 #include <Logging.h>
 
 #include "Epub.h"
+#include "BookIdentity.h"
 #include "activities/reader/ProgressFile.h"
 #include "util/BookDataPath.h"
 
@@ -232,11 +233,23 @@ bool saveBookListStatusIndex(const std::string& cacheDir, const std::vector<Book
   return true;
 }
 
-ReadingStatus getReadingStatus(const std::string& filepath, const std::string& cacheDir) {
+ReadingStatus getReadingStatus(const std::string& filepath, const std::string& cacheDir, const uint64_t bookId) {
   std::string cacheEntryName;
   bool isEpub;
   if (!getCacheEntryName(filepath, cacheEntryName, isEpub)) {
     return ReadingStatus::Unread;
+  }
+
+  if (isEpub) {
+    // Recent/history records created before BookId support have no stored ID.
+    // The path index is a cheap bridge in that case; it lets those records
+    // find their canonical progress without opening the EPUB on the Home UI.
+    uint64_t resolvedBookId = bookId;
+    if (resolvedBookId == 0) BookIdentity::getLastArchiveId(filepath, resolvedBookId);
+    if (resolvedBookId != 0) {
+      const std::string canonicalPath = BookDataPath::getProgressPath(resolvedBookId);
+      if (Storage.exists(canonicalPath.c_str())) return readProgress(canonicalPath, true);
+    }
   }
 
   return readProgress(cacheDir + "/" + cacheEntryName + "/progress.bin", isEpub);
@@ -355,7 +368,7 @@ bool markAsFinished(const std::string& filepath, const std::string& cacheDir) {
   }
   data[flagOffset] = 1;
 
-  if (hasBookId && !BookDataPath::ensureDirectory(bookId)) return false;
+  if (hasBookId && (!BookDataPath::ensureDirectory(bookId) || !BookIdentity::recordArchiveId(filepath, bookId))) return false;
   if (!hasBookId) {
     Storage.mkdir(cacheDir.c_str());
     Storage.mkdir((cacheDir + "/" + prefix + hash).c_str());

@@ -48,8 +48,8 @@ void RecentBooksActivity::loadRecentBooks() {
 
   for (const auto& book : books) {
     if (book.seconds == 0 || !Storage.exists(book.path.c_str())) continue;
-    recentBooks.push_back({book.path, book.title, book.author, ""});
-    bookStatuses.push_back(getReadingStatus(book.path, "/.crosspoint"));
+    recentBooks.push_back({book.path, book.title, book.author, "", book.bookId});
+    bookStatuses.push_back(getReadingStatus(book.path, "/.crosspoint", book.bookId));
     bookCacheStatuses.push_back(FsHelpers::hasEpubExtension(book.path)
                                     ? Epub(book.path, "/.crosspoint").getCacheGenerationStatus()
                                     : Epub::CacheGenerationStatus::NotGenerated);
