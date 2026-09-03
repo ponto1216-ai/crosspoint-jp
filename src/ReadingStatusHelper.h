@@ -28,6 +28,8 @@ bool getBookListStatusFromIndex(const std::string& filepath, const std::vector<s
                                 CachedBookStatus& cacheStatus);
 void updateBookListStatusIndex(const std::string& filepath, ReadingStatus readingStatus, CachedBookStatus cacheStatus,
                                std::vector<BookListStatusEntry>& entries);
+void moveBookListStatusIndexEntry(const std::string& oldPath, const std::string& newPath,
+                                  std::vector<BookListStatusEntry>& entries);
 bool saveBookListStatusIndex(const std::string& cacheDir, const std::vector<BookListStatusEntry>& entries);
 void removeBookListStatusIndexEntry(const std::string& filepath, std::vector<BookListStatusEntry>& entries);
 void invalidateBookListStatusIndexEntry(const std::string& filepath, const std::string& cacheDir);

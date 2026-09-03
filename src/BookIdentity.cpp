@@ -2,6 +2,7 @@
 
 #include <ArduinoJson.h>
 #include <HalStorage.h>
+#include <Logging.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -11,6 +12,7 @@ namespace BookIdentity {
 namespace {
 
 constexpr char kIdentityPath[] = "/.crosspoint/book-identity-paths.json";
+constexpr char kArchiveLocationDirectory[] = "/.crosspoint/archive-locations";
 constexpr uint8_t kFormatVersion = 1;
 constexpr char kCacheFingerprintFile[] = "/source.fingerprint";
 constexpr uint8_t kCacheFingerprintVersion = 1;
@@ -46,15 +48,24 @@ bool parseFingerprint(const char* value, uint64_t& bookId) {
   return true;
 }
 
+std::string archiveLocationPath(const std::string& archivedPath) {
+  return std::string(kArchiveLocationDirectory) + "/" + std::to_string(std::hash<std::string>{}(archivedPath)) + ".path";
+}
+
 bool loadDocument(JsonDocument& document) {
   if (!Storage.exists(kIdentityPath)) {
     document["formatVersion"] = kFormatVersion;
     document["paths"].to<JsonObject>();
+    document["archives"].to<JsonObject>();
     return true;
   }
   const String json = Storage.readFile(kIdentityPath);
-  return !json.isEmpty() && !deserializeJson(document, json) && (document["formatVersion"] | 0) == kFormatVersion &&
-         document["paths"].is<JsonObject>();
+  if (json.isEmpty() || deserializeJson(document, json) || (document["formatVersion"] | 0) != kFormatVersion ||
+      !document["paths"].is<JsonObject>()) {
+    return false;
+  }
+  if (!document["archives"].is<JsonObject>()) document["archives"].to<JsonObject>();
+  return true;
 }
 
 }  // namespace
@@ -107,6 +118,36 @@ bool movePath(const std::string& oldPath, const std::string& newPath) {
   String json;
   serializeJson(document, json);
   return Storage.writeFile(kIdentityPath, json);
+}
+
+bool recordArchiveLocation(const std::string& originalPath, const std::string& archivedPath) {
+  if (!Storage.ready() || !Storage.ensureDirectoryExists(kArchiveLocationDirectory)) return false;
+  const std::string normalizedOriginalPath = normalizePath(originalPath);
+  const std::string normalizedArchivedPath = normalizePath(archivedPath);
+  const bool saved = Storage.writeFile(archiveLocationPath(normalizedArchivedPath).c_str(), normalizedOriginalPath.c_str());
+  if (saved) {
+    LOG_INF("BID", "Recorded archive location: %s -> %s", normalizedOriginalPath.c_str(), normalizedArchivedPath.c_str());
+  } else {
+    LOG_ERR("BID", "Could not record archive location: %s", normalizedArchivedPath.c_str());
+  }
+  return saved;
+}
+
+bool getArchiveRestorePath(const std::string& archivedPath, std::string& originalPath) {
+  originalPath.clear();
+  if (!Storage.ready()) return false;
+  const std::string normalizedArchivedPath = normalizePath(archivedPath);
+  const String storedPath = Storage.readFile(archiveLocationPath(normalizedArchivedPath).c_str());
+  if (storedPath.isEmpty()) return false;
+  originalPath = storedPath.c_str();
+  return !originalPath.empty();
+}
+
+bool clearArchiveLocation(const std::string& archivedPath) {
+  if (!Storage.ready()) return false;
+  const std::string normalizedArchivedPath = normalizePath(archivedPath);
+  const std::string locationPath = archiveLocationPath(normalizedArchivedPath);
+  return !Storage.exists(locationPath.c_str()) || Storage.remove(locationPath.c_str());
 }
 
 }  // namespace BookIdentity

@@ -402,9 +402,15 @@ void FileBrowserActivity::loop() {
       std::string cleanBasePath = basepath;
       if (cleanBasePath.back() != '/') cleanBasePath += "/";
       const std::string fullPath = cleanBasePath + (isDirectory ? entry.substr(0, entry.length() - 1) : entry);
+      std::string restorePath;
+      const bool inArchive = basepath == "/Archived" || basepath == "/Archived/";
+      const bool canRestore = inArchive && !isDirectory && BookIdentity::getArchiveRestorePath(fullPath, restorePath);
 
-      auto handler = [this, fullPath, isDirectory, entry](const ActivityResult& res) {
+      auto handler = [this, fullPath, isDirectory, entry, inArchive, canRestore, restorePath](const ActivityResult& res) {
         if (!res.isCancelled) {
+          // A restorable archived book must never expose deletion on this
+          // confirmation screen. The Right button is a labelled cancel.
+          if (inArchive) return;
           // Right ボタン → 削除
           LOG_DBG("FileBrowser", "Attempting to delete: %s", fullPath.c_str());
           if (!isDirectory) clearFileMetadata(fullPath);
@@ -420,6 +426,29 @@ void FileBrowserActivity::loop() {
         } else if (std::holds_alternative<MenuResult>(res.data)) {
           const int code = std::get<MenuResult>(res.data).action;
           if (code == ConfirmationActivity::RESULT_NEVER) {
+            if (inArchive) {
+              // Left ボタン → 書庫から元の場所へ戻す。
+              if (!canRestore) {
+                LOG_ERR("FileBrowser", "Cannot restore: original location was not recorded for %s", fullPath.c_str());
+                return;
+              }
+              if (Storage.exists(restorePath.c_str())) {
+                LOG_ERR("FileBrowser", "Cannot restore because destination exists: %s", restorePath.c_str());
+                return;
+              }
+              if (!Storage.rename(fullPath.c_str(), restorePath.c_str())) {
+                LOG_ERR("FileBrowser", "Failed to restore: %s", fullPath.c_str());
+                return;
+              }
+              READING_HISTORY.moveBook(fullPath, restorePath);
+              RECENT_BOOKS.moveBook(fullPath, restorePath);
+              BookIdentity::movePath(fullPath, restorePath);
+              BookIdentity::clearArchiveLocation(fullPath);
+              moveBookListStatusIndexEntry(fullPath, restorePath, bookListStatusIndex);
+              bookListStatusIndexDirty = true;
+              invalidateDirectoryCache("/Archived");
+              LOG_DBG("FileBrowser", "Restored to: %s", restorePath.c_str());
+            } else {
             // Left ボタン → アーカイブ（/Archived/ に移動）
             std::string filename = isDirectory ? entry.substr(0, entry.length() - 1) : entry;
             std::string destPath = "/Archived/" + filename;
@@ -431,17 +460,19 @@ void FileBrowserActivity::loop() {
             if (!isDirectory) clearFileMetadata(fullPath);
             if (Storage.rename(fullPath.c_str(), destPath.c_str())) {
               if (!isDirectory) {
+                BookIdentity::recordArchiveLocation(fullPath, destPath);
                 READING_HISTORY.moveBook(fullPath, destPath);
                 RECENT_BOOKS.moveBook(fullPath, destPath);
                 BookIdentity::movePath(fullPath, destPath);
+                moveBookListStatusIndexEntry(fullPath, destPath, bookListStatusIndex);
               }
-              removeBookListStatusIndexEntry(fullPath, bookListStatusIndex);
               bookListStatusIndexDirty = true;
               invalidateDirectoryCache("/Archived");
               LOG_DBG("FileBrowser", "Archived to: %s", destPath.c_str());
             } else {
               LOG_ERR("FileBrowser", "Failed to archive: %s", fullPath.c_str());
               return;
+            }
             }
           } else if (code == ConfirmationActivity::RESULT_MIDDLE) {
             // Confirm ボタン → 既読にする
@@ -485,8 +516,10 @@ void FileBrowserActivity::loop() {
 
       // ディレクトリには既読操作を提供しない（btn2を空にする）
       const char* markAsReadLabel = isDirectory ? "" : tr(STR_MARK_AS_READ);
-      startActivityForResult(std::make_unique<ConfirmationActivity>(renderer, mappedInput, heading, "", tr(STR_ARCHIVE),
-                                                                    tr(STR_DELETE), tr(STR_CANCEL), markAsReadLabel),
+      startActivityForResult(std::make_unique<ConfirmationActivity>(renderer, mappedInput, heading, "",
+                                                                    inArchive ? tr(STR_RESTORE) : tr(STR_ARCHIVE),
+                                                                    inArchive ? tr(STR_CANCEL) : tr(STR_DELETE), tr(STR_CANCEL),
+                                                                    inArchive ? "" : markAsReadLabel),
                              handler);
       return;
     } else {

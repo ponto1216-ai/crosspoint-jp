@@ -5,6 +5,10 @@
 #include <HalStorage.h>
 #include <Logging.h>
 
+#include "Epub.h"
+#include "activities/reader/ProgressFile.h"
+#include "util/BookDataPath.h"
+
 #include <algorithm>
 #include <cstring>
 #include <functional>
@@ -124,7 +128,7 @@ bool getBookListStatusFromIndex(const std::string& filepath, const std::vector<s
                                 CachedBookStatus& cacheStatus) {
   std::string cacheEntryName;
   bool isEpub = false;
-  if (!getCacheEntryName(filepath, cacheEntryName, isEpub) || !cacheEntryExists(cacheEntries, cacheEntryName)) return false;
+  if (!getCacheEntryName(filepath, cacheEntryName, isEpub)) return false;
   const auto entry = std::lower_bound(entries.begin(), entries.end(), cacheEntryName,
                                       [](const BookListStatusEntry& value, const std::string& name) {
                                         return value.cacheEntryName < name;
@@ -150,6 +154,22 @@ void updateBookListStatusIndex(const std::string& filepath, const ReadingStatus 
     return;
   }
   entries.insert(entry, {std::move(cacheEntryName), readingStatus, cacheStatus});
+}
+
+void moveBookListStatusIndexEntry(const std::string& oldPath, const std::string& newPath,
+                                  std::vector<BookListStatusEntry>& entries) {
+  std::string oldEntryName;
+  bool isEpub = false;
+  if (!getCacheEntryName(oldPath, oldEntryName, isEpub)) return;
+  const auto entry = std::lower_bound(entries.begin(), entries.end(), oldEntryName,
+                                      [](const BookListStatusEntry& value, const std::string& name) {
+                                        return value.cacheEntryName < name;
+                                      });
+  if (entry == entries.end() || entry->cacheEntryName != oldEntryName) return;
+  const ReadingStatus readingStatus = entry->readingStatus;
+  entries.erase(entry);
+  // Generated cache data is path-keyed and remains at the old location.
+  updateBookListStatusIndex(newPath, readingStatus, CachedBookStatus::Unknown, entries);
 }
 
 void removeBookListStatusIndexEntry(const std::string& filepath, std::vector<BookListStatusEntry>& entries) {
@@ -316,8 +336,10 @@ bool markAsFinished(const std::string& filepath, const std::string& cacheDir) {
   }
 
   const std::string hash = std::to_string(std::hash<std::string>{}(filepath));
-  const std::string bookDir = cacheDir + "/" + prefix + hash;
-  const std::string progressPath = bookDir + "/progress.bin";
+  const std::string legacyProgressPath = cacheDir + "/" + prefix + hash + "/progress.bin";
+  uint64_t bookId = 0;
+  const bool hasBookId = isEpub && Epub(filepath, cacheDir).getSourceFingerprint(&bookId);
+  const std::string progressPath = hasBookId ? BookDataPath::getProgressPath(bookId) : legacyProgressPath;
 
   // EPUB=7, XTC/TXT=5
   const size_t recordSize = isEpub ? 7 : 5;
@@ -325,24 +347,20 @@ bool markAsFinished(const std::string& filepath, const std::string& cacheDir) {
 
   // 既存progress.binを読み込んで読書位置を保持する（なければゼロ初期化）
   uint8_t data[7] = {0};
+  const std::string sourcePath = Storage.exists(progressPath.c_str()) ? progressPath : legacyProgressPath;
   FsFile rf;
-  if (Storage.openFileForRead("RSH", progressPath, rf)) {
+  if (Storage.openFileForRead("RSH", sourcePath, rf)) {
     rf.read(data, recordSize);
     rf.close();
   }
   data[flagOffset] = 1;
 
-  // ディレクトリを確保してから書き込む
-  Storage.mkdir(cacheDir.c_str());
-  Storage.mkdir(bookDir.c_str());
-
-  FsFile wf;
-  if (!Storage.openFileForWrite("RSH", progressPath, wf)) {
-    LOG_ERR("RSH", "markAsFinished: Could not open %s for write", progressPath.c_str());
-    return false;
+  if (hasBookId && !BookDataPath::ensureDirectory(bookId)) return false;
+  if (!hasBookId) {
+    Storage.mkdir(cacheDir.c_str());
+    Storage.mkdir((cacheDir + "/" + prefix + hash).c_str());
   }
-  wf.write(data, recordSize);
-  wf.close();
+  if (!ProgressFile::writeAtomicPath(progressPath, data, recordSize)) return false;
   LOG_DBG("RSH", "Marked as finished: %s", filepath.c_str());
   return true;
 }

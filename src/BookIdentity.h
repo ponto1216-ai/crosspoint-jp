@@ -16,5 +16,9 @@ bool recordArchiveId(const std::string& path, uint64_t bookId);
 // Moves the path-only update-detection hint after a file-browser rename.
 // Canonical per-book data remains keyed by the unchanged archive fingerprint.
 bool movePath(const std::string& oldPath, const std::string& newPath);
+// Stores the original locator for a file moved to the in-app archive.
+bool recordArchiveLocation(const std::string& originalPath, const std::string& archivedPath);
+bool getArchiveRestorePath(const std::string& archivedPath, std::string& originalPath);
+bool clearArchiveLocation(const std::string& archivedPath);
 
 }  // namespace BookIdentity

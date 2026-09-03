@@ -1489,6 +1489,11 @@ void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
                                              : epub->getCachePath() + "/progress.bin";
   if ((!hasBookId || BookDataPath::ensureDirectory(bookId)) &&
       ProgressFile::writeAtomicPath(progressPath, data, sizeof(data))) {
+    std::vector<BookListStatusEntry> statusEntries;
+    loadBookListStatusIndex("/.crosspoint", statusEntries);
+    updateBookListStatusIndex(epub->getPath(), isFinished ? ReadingStatus::Finished : ReadingStatus::Reading,
+                              CachedBookStatus::Unknown, statusEntries);
+    saveBookListStatusIndex("/.crosspoint", statusEntries);
     LOG_DBG("ERS", "Progress saved: Chapter %d, Page %d, Finished: %d", spineIndex, currentPage, isFinished);
   } else {
     LOG_ERR("ERS", "Could not save progress!");
