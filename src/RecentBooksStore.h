@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -7,6 +8,7 @@ struct RecentBook {
   std::string title;
   std::string author;
   std::string coverBmpPath;
+  uint64_t bookId = 0;  // EPUB archive fingerprint; zero for legacy/non-EPUB entries.
 
   bool operator==(const RecentBook& other) const { return path == other.path; }
 };
@@ -32,10 +34,13 @@ class RecentBooksStore {
 
   // Add a book to the recent list (moves to front if already exists)
   void addBook(const std::string& path, const std::string& title, const std::string& author,
-               const std::string& coverBmpPath);
+               const std::string& coverBmpPath, uint64_t bookId = 0);
 
   void updateBook(const std::string& path, const std::string& title, const std::string& author,
                   const std::string& coverBmpPath);
+
+  // Preserve a recent EPUB entry when it is archived or renamed in the file browser.
+  void moveBook(const std::string& oldPath, const std::string& newPath);
 
   // Get the list of recent books (most recent first)
   const std::vector<RecentBook>& getBooks() const { return recentBooks; }

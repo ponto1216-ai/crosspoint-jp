@@ -351,9 +351,9 @@ void EpubReaderActivity::onEnter() {
   // Save current epub as last opened epub and add to recent books
   APP_STATE.openEpubPath = epub->getPath();
   APP_STATE.saveToFile();
-  RECENT_BOOKS.addBook(epub->getPath(), epub->getTitle(), epub->getAuthor(), epub->getThumbBmpPath());
-  const auto beginReadingSession = [this] {
-    if (epub) READING_HISTORY.beginSession(epub->getPath(), epub->getTitle(), epub->getAuthor());
+  RECENT_BOOKS.addBook(epub->getPath(), epub->getTitle(), epub->getAuthor(), epub->getThumbBmpPath(), bookId);
+  const auto beginReadingSession = [this, bookId] {
+    if (epub) READING_HISTORY.beginSession(epub->getPath(), epub->getTitle(), epub->getAuthor(), bookId);
   };
 
   // Showing the prompt once is enough.  A cancelled generation remains resumable
@@ -981,7 +981,11 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       // never included in the meter.
       READING_HISTORY.endSession();
       pregenerateCache();
-      if (epub) READING_HISTORY.beginSession(epub->getPath(), epub->getTitle(), epub->getAuthor());
+      if (epub) {
+        uint64_t bookId = 0;
+        epub->getSourceFingerprint(&bookId);
+        READING_HISTORY.beginSession(epub->getPath(), epub->getTitle(), epub->getAuthor(), bookId);
+      }
       requestUpdate();
       break;
     case EpubReaderMenuActivity::MenuAction::DELETE_CACHE: {

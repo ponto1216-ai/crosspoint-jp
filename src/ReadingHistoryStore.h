@@ -10,6 +10,7 @@ struct ReadingHistoryBook {
   std::string title;
   std::string author;
   uint32_t seconds = 0;
+  uint64_t bookId = 0;  // EPUB archive fingerprint; zero for legacy/non-EPUB entries.
 };
 
 struct ReadingHistorySummary {
@@ -36,6 +37,7 @@ class ReadingHistoryStore {
   std::vector<DayEntry> days;
   uint32_t totalSeconds = 0;
   std::string activePath;
+  uint64_t activeBookId = 0;
   unsigned long lastTickMs = 0;
   unsigned long lastInteractionMs = 0;
   unsigned long lastSaveMs = 0;
@@ -54,13 +56,17 @@ class ReadingHistoryStore {
 
   // A session is deliberately separate from progress.bin.  It is used only by
   // readers and is periodically committed while the reader remains active.
-  void beginSession(const std::string& path, const std::string& title, const std::string& author);
+  void beginSession(const std::string& path, const std::string& title, const std::string& author, uint64_t bookId = 0);
   void noteInteraction();
   void tick();
   void endSession();
 
   // Keep a book's accumulated time when the file browser moves it to Archive.
   void moveBook(const std::string& oldPath, const std::string& newPath);
+  // Keep accumulated reading time attached to a same-path EPUB update.
+  // The previous archive data is retained elsewhere during the 0.7.x period,
+  // while history records are rewritten to the current archive identity.
+  void migrateBookId(uint64_t previousBookId, uint64_t currentBookId);
   ReadingHistorySummary getSummary();
   const std::vector<ReadingHistoryBook>& getBooks();
 };

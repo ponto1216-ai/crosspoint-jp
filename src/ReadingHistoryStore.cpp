@@ -5,6 +5,8 @@
 #include <Logging.h>
 
 #include <algorithm>
+#include <cstdlib>
+#include <cstring>
 #include <ctime>
 
 namespace {
@@ -38,20 +40,25 @@ uint32_t ReadingHistoryStore::currentDate() const {
   return static_cast<uint32_t>((localTime.tm_year + 1900) * 10000 + (localTime.tm_mon + 1) * 100 + localTime.tm_mday);
 }
 
-void ReadingHistoryStore::beginSession(const std::string& path, const std::string& title, const std::string& author) {
+void ReadingHistoryStore::beginSession(const std::string& path, const std::string& title, const std::string& author,
+                                       const uint64_t bookId) {
   ensureLoaded();
   endSession();
   activePath = path;
-  const auto it = std::find_if(books.begin(), books.end(),
-                               [&path](const ReadingHistoryBook& entry) { return entry.path == path; });
+  activeBookId = bookId;
+  const auto it = std::find_if(books.begin(), books.end(), [&path, bookId](const ReadingHistoryBook& entry) {
+    return entry.path == path || (bookId != 0 && entry.bookId == bookId);
+  });
   if (it == books.end()) {
-    books.insert(books.begin(), {path, title, author, 0});
+    books.insert(books.begin(), {path, title, author, 0, bookId});
     if (books.size() > MAX_BOOKS) books.resize(MAX_BOOKS);
     dirty = true;
   } else {
     ReadingHistoryBook updated = *it;
+    updated.path = path;
     updated.title = title;
     updated.author = author;
+    if (bookId != 0) updated.bookId = bookId;
     books.erase(it);
     books.insert(books.begin(), updated);
   }
@@ -72,7 +79,9 @@ void ReadingHistoryStore::addSeconds(const uint32_t seconds) {
   if (seconds == 0 || activePath.empty()) return;
   totalSeconds += seconds;
   const auto it = std::find_if(books.begin(), books.end(),
-                               [this](const ReadingHistoryBook& entry) { return entry.path == activePath; });
+                               [this](const ReadingHistoryBook& entry) {
+                                 return entry.path == activePath || (activeBookId != 0 && entry.bookId == activeBookId);
+                               });
   if (it != books.end()) it->seconds += seconds;
 
   const uint32_t date = currentDate();
@@ -112,6 +121,7 @@ void ReadingHistoryStore::endSession() {
   if (dirty) saveToFile();
   LOG_DBG("RH", "Finished reading session: %s", activePath.c_str());
   activePath.clear();
+  activeBookId = 0;
   pendingMilliseconds = 0;
 }
 
@@ -126,13 +136,65 @@ void ReadingHistoryStore::moveBook(const std::string& oldPath, const std::string
   saveToFile();
 }
 
+void ReadingHistoryStore::migrateBookId(const uint64_t previousBookId, const uint64_t currentBookId) {
+  if (previousBookId == 0 || currentBookId == 0 || previousBookId == currentBookId) return;
+  ensureLoaded();
+
+  bool changed = false;
+  for (auto& book : books) {
+    if (book.bookId != previousBookId) continue;
+    book.bookId = currentBookId;
+    changed = true;
+  }
+  if (activeBookId == previousBookId) activeBookId = currentBookId;
+  if (!changed) return;
+
+  // A reader session may already have created a record for the updated EPUB.
+  // Merge it now so the persisted history, as well as the meter, has one book.
+  std::vector<ReadingHistoryBook> merged;
+  for (const auto& book : books) {
+    const auto existing = std::find_if(merged.begin(), merged.end(), [&book](const ReadingHistoryBook& entry) {
+      return entry.path == book.path || (book.bookId != 0 && entry.bookId == book.bookId);
+    });
+    if (existing == merged.end()) {
+      merged.push_back(book);
+    } else {
+      existing->seconds += book.seconds;
+    }
+  }
+  books = std::move(merged);
+  dirty = true;
+  if (saveToFile()) {
+    LOG_INF("RH", "Migrated reading history BookId %016llx -> %016llx", static_cast<unsigned long long>(previousBookId),
+            static_cast<unsigned long long>(currentBookId));
+  }
+}
+
 ReadingHistorySummary ReadingHistoryStore::getSummary() {
   ensureLoaded();
   tick();
   ReadingHistorySummary result;
   result.totalSeconds = totalSeconds;
+
+  // Older path-only history may contain a stale entry after a move, and an
+  // EPUB update can leave an old BookId beside its replacement. The meter is
+  // a book-level view, so coalesce either representation before counting or
+  // ranking it. totalSeconds intentionally remains the original session sum.
+  std::vector<ReadingHistoryBook> summarizedBooks;
   for (const auto& book : books) {
     if (book.seconds == 0) continue;
+    const auto existing = std::find_if(summarizedBooks.begin(), summarizedBooks.end(), [&book](const auto& entry) {
+      return entry.path == book.path || (book.bookId != 0 && entry.bookId == book.bookId);
+    });
+    if (existing == summarizedBooks.end()) {
+      summarizedBooks.push_back(book);
+    } else {
+      existing->seconds += book.seconds;
+      if (existing->bookId == 0 && book.bookId != 0) existing->bookId = book.bookId;
+    }
+  }
+
+  for (const auto& book : summarizedBooks) {
     ++result.bookCount;
     for (size_t index = 0; index < result.topBooks.size(); ++index) {
       if (result.topBooks[index].seconds >= book.seconds) continue;
@@ -203,6 +265,11 @@ bool ReadingHistoryStore::saveToFile() {
     entry["title"] = book.title;
     entry["author"] = book.author;
     entry["seconds"] = book.seconds;
+    if (book.bookId != 0) {
+      char key[17];
+      snprintf(key, sizeof(key), "%016llx", static_cast<unsigned long long>(book.bookId));
+      entry["bookId"] = key;
+    }
   }
   JsonArray dayArray = doc["days"].to<JsonArray>();
   for (const auto& day : days) {
@@ -250,8 +317,17 @@ bool ReadingHistoryStore::loadFromFile() {
   for (JsonObject entry : doc["books"].as<JsonArray>()) {
     if (books.size() >= MAX_BOOKS) break;
     const std::string path = entry["path"] | std::string("");
-    if (!path.empty()) books.push_back({path, entry["title"] | std::string(""), entry["author"] | std::string(""),
-                                        entry["seconds"] | 0U});
+    if (!path.empty()) {
+      uint64_t bookId = 0;
+      const char* storedBookId = entry["bookId"] | nullptr;
+      if (storedBookId && strlen(storedBookId) == 16) {
+        char* end = nullptr;
+        bookId = static_cast<uint64_t>(strtoull(storedBookId, &end, 16));
+        if (!end || *end != '\0') bookId = 0;
+      }
+      books.push_back(
+          {path, entry["title"] | std::string(""), entry["author"] | std::string(""), entry["seconds"] | 0U, bookId});
+    }
   }
   days.clear();
   for (JsonObject entry : doc["days"].as<JsonArray>()) {

@@ -91,4 +91,22 @@ bool recordArchiveId(const std::string& path, const uint64_t bookId) {
   return Storage.writeFile(kIdentityPath, json);
 }
 
+bool movePath(const std::string& oldPath, const std::string& newPath) {
+  if (!Storage.ready()) return false;
+  JsonDocument document;
+  if (!loadDocument(document)) return false;
+  const std::string normalizedOldPath = normalizePath(oldPath);
+  const std::string normalizedNewPath = normalizePath(newPath);
+  uint64_t bookId = 0;
+  if (!parseFingerprint(document["paths"][normalizedOldPath].as<const char*>(), bookId)) return false;
+
+  char key[17];
+  fingerprintKey(bookId, key);
+  document["paths"][normalizedNewPath] = key;
+  document["paths"].as<JsonObject>().remove(normalizedOldPath.c_str());
+  String json;
+  serializeJson(document, json);
+  return Storage.writeFile(kIdentityPath, json);
+}
+
 }  // namespace BookIdentity

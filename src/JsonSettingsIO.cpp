@@ -6,6 +6,8 @@
 #include <ObfuscationUtils.h>
 
 #include <cstring>
+#include <cstdio>
+#include <cstdlib>
 #include <string>
 
 #include "CrossPointSettings.h"
@@ -506,6 +508,11 @@ bool JsonSettingsIO::saveRecentBooks(const RecentBooksStore& store, const char* 
     obj["title"] = book.title;
     obj["author"] = book.author;
     obj["coverBmpPath"] = book.coverBmpPath;
+    if (book.bookId != 0) {
+      char key[17];
+      snprintf(key, sizeof(key), "%016llx", static_cast<unsigned long long>(book.bookId));
+      obj["bookId"] = key;
+    }
   }
 
   String json;
@@ -530,6 +537,12 @@ bool JsonSettingsIO::loadRecentBooks(RecentBooksStore& store, const char* json) 
     book.title = obj["title"] | std::string("");
     book.author = obj["author"] | std::string("");
     book.coverBmpPath = obj["coverBmpPath"] | std::string("");
+    const char* bookId = obj["bookId"] | nullptr;
+    if (bookId && strlen(bookId) == 16) {
+      char* end = nullptr;
+      book.bookId = static_cast<uint64_t>(strtoull(bookId, &end, 16));
+      if (!end || *end != '\0') book.bookId = 0;
+    }
     store.recentBooks.push_back(book);
   }
 

@@ -9,6 +9,7 @@
 #include <Xtc.h>
 
 #include <algorithm>
+#include <cstdint>
 
 namespace {
 constexpr uint8_t RECENT_BOOKS_FILE_VERSION = 3;
@@ -21,16 +22,18 @@ constexpr int MAX_RECENT_BOOKS = 10;
 RecentBooksStore RecentBooksStore::instance;
 
 void RecentBooksStore::addBook(const std::string& path, const std::string& title, const std::string& author,
-                               const std::string& coverBmpPath) {
-  // Remove existing entry if present
-  auto it =
-      std::find_if(recentBooks.begin(), recentBooks.end(), [&](const RecentBook& book) { return book.path == path; });
+                               const std::string& coverBmpPath, const uint64_t bookId) {
+  // EPUB entries follow their archive fingerprint across moves. An exact path
+  // match also replaces a prior archive when a serialized EPUB is updated.
+  auto it = std::find_if(recentBooks.begin(), recentBooks.end(), [&](const RecentBook& book) {
+    return book.path == path || (bookId != 0 && book.bookId == bookId);
+  });
   if (it != recentBooks.end()) {
     recentBooks.erase(it);
   }
 
   // Add to front
-  recentBooks.insert(recentBooks.begin(), {path, title, author, coverBmpPath});
+  recentBooks.insert(recentBooks.begin(), {path, title, author, coverBmpPath, bookId});
 
   // Trim to max size
   if (recentBooks.size() > MAX_RECENT_BOOKS) {
@@ -51,6 +54,24 @@ void RecentBooksStore::updateBook(const std::string& path, const std::string& ti
     book.coverBmpPath = coverBmpPath;
     saveToFile();
   }
+}
+
+void RecentBooksStore::moveBook(const std::string& oldPath, const std::string& newPath) {
+  const auto it = std::find_if(recentBooks.begin(), recentBooks.end(),
+                               [&oldPath](const RecentBook& book) { return book.path == oldPath; });
+  if (it == recentBooks.end()) return;
+
+  RecentBook moved = *it;
+  recentBooks.erase(it);
+  moved.path = newPath;
+  // Thumbnails belong to the path-hash cache, which deliberately does not move.
+  moved.coverBmpPath.clear();
+  const auto duplicate = std::find_if(recentBooks.begin(), recentBooks.end(), [&moved](const RecentBook& book) {
+    return book.path == moved.path || (moved.bookId != 0 && book.bookId == moved.bookId);
+  });
+  if (duplicate != recentBooks.end()) recentBooks.erase(duplicate);
+  recentBooks.insert(recentBooks.begin(), std::move(moved));
+  saveToFile();
 }
 
 bool RecentBooksStore::saveToFile() const {

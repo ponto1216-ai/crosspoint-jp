@@ -14,6 +14,7 @@
 #include "activities/util/FullScreenMessageActivity.h"
 #include "BookReaderSettings.h"
 #include "BookIdentity.h"
+#include "ReadingHistoryStore.h"
 #include "util/BookDataPath.h"
 
 bool ReaderActivity::isXtcFile(const std::string& path) { return FsHelpers::hasXtcExtension(path); }
@@ -43,6 +44,7 @@ std::unique_ptr<Epub> ReaderActivity::loadEpub(const std::string& path) {
     if (hasPreviousFingerprint && previousFingerprint != fingerprint) {
       if (BookDataPath::migrateArchiveData(previousFingerprint, fingerprint) &&
           BookReaderSettings::migrate(previousFingerprint, fingerprint) && BookIdentity::recordArchiveId(path, fingerprint)) {
+        READING_HISTORY.migrateBookId(previousFingerprint, fingerprint);
         LOG_INF("BID", "Migrated same-path EPUB update %016llx -> %016llx",
                 static_cast<unsigned long long>(previousFingerprint), static_cast<unsigned long long>(fingerprint));
       } else {
