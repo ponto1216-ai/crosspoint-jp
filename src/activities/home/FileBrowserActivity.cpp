@@ -453,9 +453,13 @@ void FileBrowserActivity::loop() {
             std::string filename = isDirectory ? entry.substr(0, entry.length() - 1) : entry;
             std::string destPath = "/Archived/" + filename;
             Storage.mkdir("/Archived");
-            // 同名ファイルが存在する場合は先に削除
+            // Never replace an existing archived file. The archive command must
+            // be a move, not an implicit destructive overwrite.
             if (Storage.exists(destPath.c_str())) {
-              isDirectory ? Storage.removeDir(destPath.c_str()) : Storage.remove(destPath.c_str());
+              LOG_ERR("FileBrowser", "Archive destination already exists: %s", destPath.c_str());
+              statusMessage = tr(STR_ARCHIVE_NAME_EXISTS);
+              requestUpdate(true);
+              return;
             }
             if (!isDirectory) clearFileMetadata(fullPath);
             if (Storage.rename(fullPath.c_str(), destPath.c_str())) {
@@ -739,6 +743,9 @@ void FileBrowserActivity::render(RenderLock&&) {
   {
     const int pathY = pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - pathLineHeight;
     const int separatorY = pathY - metrics.verticalSpacing / 2;
+    if (!statusMessage.empty()) {
+      renderer.drawCenteredText(SMALL_FONT_ID, separatorY - pathLineHeight - 3, statusMessage.c_str(), true);
+    }
     renderer.drawLine(0, separatorY, pageWidth - 1, separatorY, 3, true);
     const int pathMaxWidth = pageWidth - metrics.contentSidePadding * 2;
     // Left-truncate so the deepest directory is always visible

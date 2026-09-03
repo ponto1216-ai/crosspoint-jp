@@ -54,6 +54,7 @@ class FileBrowserActivity final : public Activity {
   std::vector<Epub::CacheGenerationStatus> fileCacheStatuses;
   std::vector<bool> fileCacheStatusKnown;
   std::vector<DirectoryCacheEntry> directoryCache;
+  std::string statusMessage;
 
   // Data loading
   DirectoryLoadResult loadFiles(bool forceReload = false);
