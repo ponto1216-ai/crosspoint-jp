@@ -46,6 +46,16 @@ EPUBのCSS・固定レイアウト・段組み・特殊な位置指定を完全�
 
 - Noto Sans/Serif JP、BIZ UD Gothic/Mincho、Zen Maru Gothicの配布フォントを更新し、キリル文字、`℃`、`ℓ`などを追加しました。Noto系とZen Maru Gothicには`℉`も含まれます。
 
+## 参考・検証基準
+
+Yomukaの縦書き表示は、見た目だけで文字を回転させず、次の資料を基準に検証しています。
+
+- [Unicode UAX #50: Unicode Vertical Text Layout](https://www.unicode.org/reports/tr50/): 文字ごとの既定の縦書き方向（`U`、`R`、`Tu`、`Tr`）
+- [W3C 日本語組版処理の要件（JLREQ）](https://www.w3.org/TR/jlreq/): 日本語の縦書き、約物、組版上の慣行
+- [osakanataro/crosspoint-reader-mod](https://github.com/osakanataro/crosspoint-reader-mod): Xteink X3での縦書きEPUB表示に関する実機検証の参考
+
+これらは判定・検証の参考先です。YomukaではX3/X4共通構成、EPUB CSS、選択中のフォントと実機表示を踏まえて個別に実装・確認しています。
+
 ## v0.6.0 からの基盤機能
 
 ### X3 / X4 共通ファームと表示の安定化
