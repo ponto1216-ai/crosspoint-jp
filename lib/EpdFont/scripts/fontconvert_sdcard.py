@@ -76,6 +76,9 @@ INTERVAL_PRESETS = {
     # checking both the regular and bold source cmaps.  Keep these split so
     # unsupported symbols do not become empty placeholders in SD fonts.
     "jp-extra-noto": [
+        (0x2103, 0x2103),  # ℃
+        (0x2109, 0x2109),  # ℉
+        (0x2113, 0x2113),  # ℓ
         (0x2116, 0x2116),  # №
         (0x2121, 0x2121),  # ℡
         (0x2713, 0x2713),  # ✓
@@ -84,12 +87,17 @@ INTERVAL_PRESETS = {
         (0x2756, 0x2756),  # ❖
     ],
     "jp-extra-biz": [
+        (0x2103, 0x2103),  # ℃
+        (0x2113, 0x2113),  # ℓ
         (0x2116, 0x2116),  # №
         (0x2121, 0x2121),  # ℡
         (0x2713, 0x2713),  # ✓
         (0x2756, 0x2756),  # ❖
     ],
     "jp-extra-zen": [
+        (0x2103, 0x2103),  # ℃
+        (0x2109, 0x2109),  # ℉
+        (0x2113, 0x2113),  # ℓ
         (0x2116, 0x2116),  # №
         (0x2121, 0x2121),  # ℡
     ],
