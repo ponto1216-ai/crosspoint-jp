@@ -17,7 +17,7 @@ SDカードのルート
 
 導入後は端末を再起動し、**設定 → 読書 → 横書き設定** または **縦書き設定** からフォントを選びます。
 
-配布フォントには、BIZ UD Gothic、BIZ UD Mincho、Noto Sans JP、Noto Serif JPなどがあります。収録内容とライセンスは各配布物の案内を確認してください。
+配布フォントには、BIZ UD Gothic、BIZ UD Mincho、Noto Sans JP、Noto Serif JPなどがあります。更新済みの日本語フォントにはキリル文字、`℃`、`ℓ`が含まれ、Noto系とZen Maru Gothicには`℉`も含まれます。収録内容とライセンスは各配布物の案内を確認してください。
 
 > [!WARNING]
 > Zen Maru Gothicは収録文字が限られるため、日本語書籍の本文では文字が表示できない場合があります。本文用にはBIZ UDまたはNoto系のフォントを推奨します。
