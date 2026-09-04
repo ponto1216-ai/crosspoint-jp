@@ -1361,7 +1361,14 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
       continue;
     }
 
-    if (isCjkCodepointForSplit(cp)) {
+    // In horizontal text retain the existing CJK word splitter. In vertical
+    // text, UAX #50 is the source of truth: U/Tu characters are individual
+    // upright cells, Tr characters remain individual cells for a vertical
+    // glyph or rotation fallback, and R characters stay in sideways runs.
+    const bool splitIntoVerticalCell = self->verticalMode &&
+                                       (VerticalTextUtils::isUprightInVertical(cp) ||
+                                        VerticalTextUtils::isTransformedRotatedInVertical(cp));
+    if ((!self->verticalMode && isCjkCodepointForSplit(cp)) || splitIntoVerticalCell) {
       // CJK character: flush any buffered content first
       if (self->partWordBufferIndex > 0) {
         self->flushPartWordBuffer();
