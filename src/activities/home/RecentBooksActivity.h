@@ -25,7 +25,6 @@ class RecentBooksActivity final : public Activity {
   std::vector<RecentBook> recentBooks;
   std::vector<ReadingStatus> bookStatuses;
   std::vector<Epub::CacheGenerationStatus> bookCacheStatuses;
-  std::vector<uint32_t> bookReadingSeconds;
 
   // Data loading
   void loadRecentBooks();

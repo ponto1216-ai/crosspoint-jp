@@ -18,7 +18,6 @@
 namespace {
 constexpr unsigned long GO_HOME_MS = 1000;
 constexpr int CACHE_STATUS_ICON_RADIUS = 7;
-constexpr char CACHE_STATUS_VALUE_SPACER[] = "    ";
 constexpr int HISTORY_MENU_ITEM_COUNT = 2;
 constexpr StrId WEEKDAY_IDS[] = {StrId::STR_SUN, StrId::STR_MON, StrId::STR_TUE, StrId::STR_WED, StrId::STR_THU,
                                  StrId::STR_FRI, StrId::STR_SAT};
@@ -29,9 +28,9 @@ constexpr UIIcon HISTORY_MENU_ICONS[] = {UIIcon::Recent, UIIcon::Library};
 std::string formatDuration(const uint32_t seconds) {
   const uint32_t hours = seconds / 3600;
   const uint32_t minutes = (seconds % 3600) / 60;
-  char value[24];
-  snprintf(value, sizeof(value), "%lu:%02lu", static_cast<unsigned long>(hours), static_cast<unsigned long>(minutes));
-  return std::string(value);
+  if (hours == 0) return std::to_string(minutes) + tr(STR_READING_METER_MINUTES);
+  return std::to_string(hours) + tr(STR_READING_METER_HOURS) + std::to_string(minutes) +
+         tr(STR_READING_METER_MINUTES);
 }
 }  // namespace
 
@@ -39,12 +38,10 @@ void RecentBooksActivity::loadRecentBooks() {
   recentBooks.clear();
   bookStatuses.clear();
   bookCacheStatuses.clear();
-  bookReadingSeconds.clear();
   const auto& books = READING_HISTORY.getBooks();
   recentBooks.reserve(books.size());
   bookStatuses.reserve(books.size());
   bookCacheStatuses.reserve(books.size());
-  bookReadingSeconds.reserve(books.size());
 
   for (const auto& book : books) {
     if (book.seconds == 0 || !Storage.exists(book.path.c_str())) continue;
@@ -53,7 +50,6 @@ void RecentBooksActivity::loadRecentBooks() {
     bookCacheStatuses.push_back(FsHelpers::hasEpubExtension(book.path)
                                     ? Epub(book.path, "/.crosspoint").getCacheGenerationStatus()
                                     : Epub::CacheGenerationStatus::NotGenerated);
-    bookReadingSeconds.push_back(book.seconds);
   }
 }
 
@@ -74,7 +70,6 @@ void RecentBooksActivity::onExit() {
   recentBooks.clear();
   bookStatuses.clear();
   bookCacheStatuses.clear();
-  bookReadingSeconds.clear();
 }
 
 void RecentBooksActivity::loop() {
@@ -153,7 +148,10 @@ void RecentBooksActivity::render(RenderLock&&) {
       const std::string bookCount = std::string(tr(STR_READING_METER_BOOKS)) + ": " +
                                     std::to_string(summary.bookCount) + tr(STR_READING_METER_BOOKS_UNIT);
       renderer.drawCenteredText(UI_10_FONT_ID, topY, bookCount.c_str());
-      renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, topY + 42, tr(STR_READING_METER_TOP_BOOKS), true,
+      const std::string finishedCount = std::string(tr(STR_READING_METER_FINISHED)) + ": " +
+                                        std::to_string(summary.finishedBookCount) + tr(STR_READING_METER_BOOKS_UNIT);
+      renderer.drawCenteredText(UI_10_FONT_ID, topY + 22, finishedCount.c_str());
+      renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, topY + 64, tr(STR_READING_METER_TOP_BOOKS), true,
                         EpdFontFamily::BOLD);
       for (uint8_t index = 0; index < summary.topBookCount; ++index) {
         const auto& book = summary.topBooks[index];
@@ -161,7 +159,7 @@ void RecentBooksActivity::render(RenderLock&&) {
         const int valueWidth = renderer.getTextWidth(UI_10_FONT_ID, value.c_str());
         const int titleWidth = pageWidth - metrics.contentSidePadding * 2 - valueWidth - 18;
         const auto title = renderer.truncatedText(UI_10_FONT_ID, book.title.c_str(), titleWidth);
-        const int y = topY + 77 + index * 38;
+        const int y = topY + 99 + index * 38;
         renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, y, title.c_str());
         renderer.drawText(UI_10_FONT_ID, pageWidth - metrics.contentSidePadding - valueWidth, y, value.c_str());
       }
@@ -212,11 +210,7 @@ void RecentBooksActivity::render(RenderLock&&) {
     GUI.drawList(
         renderer, Rect{0, contentTop, pageWidth, contentHeight}, recentBooks.size(), selectorIndex,
         [this](int index) { return recentBooks[index].title; }, [this](int index) { return recentBooks[index].author; },
-        [this](int index) { return UITheme::getFileIcon(recentBooks[index].path, bookStatuses[index]); },
-        [this](int index) {
-          return formatDuration(bookReadingSeconds[index]) +
-                 (FsHelpers::hasEpubExtension(recentBooks[index].path) ? CACHE_STATUS_VALUE_SPACER : "");
-        });
+        [this](int index) { return UITheme::getFileIcon(recentBooks[index].path, bookStatuses[index]); });
 
     const int rowHeight = metrics.listWithSubtitleRowHeight;
     const int pageItems = std::max(1, contentHeight / rowHeight);

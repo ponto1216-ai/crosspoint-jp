@@ -40,6 +40,11 @@ uint32_t ReadingHistoryStore::currentDate() const {
   return static_cast<uint32_t>((localTime.tm_year + 1900) * 10000 + (localTime.tm_mon + 1) * 100 + localTime.tm_mday);
 }
 
+uint32_t ReadingHistoryStore::currentTimestamp() const {
+  const time_t now = time(nullptr);
+  return now >= MIN_VALID_UNIX_TIME ? static_cast<uint32_t>(now) : 0;
+}
+
 void ReadingHistoryStore::beginSession(const std::string& path, const std::string& title, const std::string& author,
                                        const uint64_t bookId) {
   ensureLoaded();
@@ -62,6 +67,16 @@ void ReadingHistoryStore::beginSession(const std::string& path, const std::strin
     books.erase(it);
     books.insert(books.begin(), updated);
   }
+  const uint32_t nowTimestamp = currentTimestamp();
+  if (!books.empty()) {
+    auto active = std::find_if(books.begin(), books.end(), [this](const ReadingHistoryBook& entry) {
+      return entry.path == activePath || (activeBookId != 0 && entry.bookId == activeBookId);
+    });
+    if (active != books.end()) {
+      ++active->sessionCount;
+      if (nowTimestamp != 0) active->lastReadAt = nowTimestamp;
+    }
+  }
   dirty = true;
   const unsigned long now = millis();
   lastTickMs = now;
@@ -69,6 +84,29 @@ void ReadingHistoryStore::beginSession(const std::string& path, const std::strin
   lastSaveMs = now;
   pendingMilliseconds = 0;
   LOG_DBG("RH", "Started reading session: %s", path.c_str());
+}
+
+void ReadingHistoryStore::markFinished(const std::string& path, const uint64_t bookId) {
+  ensureLoaded();
+  auto it = std::find_if(books.begin(), books.end(), [&path, bookId](const ReadingHistoryBook& entry) {
+    return entry.path == path || (bookId != 0 && entry.bookId == bookId);
+  });
+  if (it == books.end()) {
+    const size_t slash = path.find_last_of('/');
+    const std::string title = slash == std::string::npos ? path : path.substr(slash + 1);
+    books.insert(books.begin(), {path, title, "", 0, bookId});
+    it = books.begin();
+    if (books.size() > MAX_BOOKS) books.resize(MAX_BOOKS);
+  } else {
+    it->path = path;
+    if (bookId != 0) it->bookId = bookId;
+  }
+  const uint32_t nowTimestamp = currentTimestamp();
+  it->finished = true;
+  if (nowTimestamp != 0 && it->finishedAt == 0) it->finishedAt = nowTimestamp;
+  if (nowTimestamp != 0) it->lastReadAt = nowTimestamp;
+  dirty = true;
+  saveToFile();
 }
 
 void ReadingHistoryStore::noteInteraction() {
@@ -160,6 +198,12 @@ void ReadingHistoryStore::migrateBookId(const uint64_t previousBookId, const uin
       merged.push_back(book);
     } else {
       existing->seconds += book.seconds;
+      existing->sessionCount += book.sessionCount;
+      existing->lastReadAt = std::max(existing->lastReadAt, book.lastReadAt);
+      existing->finished = existing->finished || book.finished;
+      if (existing->finishedAt == 0 || (book.finishedAt != 0 && book.finishedAt < existing->finishedAt)) {
+        existing->finishedAt = book.finishedAt;
+      }
     }
   }
   books = std::move(merged);
@@ -182,7 +226,7 @@ ReadingHistorySummary ReadingHistoryStore::getSummary() {
   // ranking it. totalSeconds intentionally remains the original session sum.
   std::vector<ReadingHistoryBook> summarizedBooks;
   for (const auto& book : books) {
-    if (book.seconds == 0) continue;
+    if (book.seconds == 0 && !book.finished) continue;
     const auto existing = std::find_if(summarizedBooks.begin(), summarizedBooks.end(), [&book](const auto& entry) {
       return entry.path == book.path || (book.bookId != 0 && entry.bookId == book.bookId);
     });
@@ -196,6 +240,7 @@ ReadingHistorySummary ReadingHistoryStore::getSummary() {
 
   for (const auto& book : summarizedBooks) {
     ++result.bookCount;
+    if (book.finished) ++result.finishedBookCount;
     for (size_t index = 0; index < result.topBooks.size(); ++index) {
       if (result.topBooks[index].seconds >= book.seconds) continue;
       for (size_t moveIndex = result.topBooks.size() - 1; moveIndex > index; --moveIndex) {
@@ -256,7 +301,7 @@ const std::vector<ReadingHistoryBook>& ReadingHistoryStore::getBooks() {
 bool ReadingHistoryStore::saveToFile() {
   Storage.mkdir("/.crosspoint");
   JsonDocument doc;
-  doc["version"] = 1;
+  doc["version"] = 2;
   doc["totalSeconds"] = totalSeconds;
   JsonArray bookArray = doc["books"].to<JsonArray>();
   for (const auto& book : books) {
@@ -270,6 +315,10 @@ bool ReadingHistoryStore::saveToFile() {
       snprintf(key, sizeof(key), "%016llx", static_cast<unsigned long long>(book.bookId));
       entry["bookId"] = key;
     }
+    if (book.lastReadAt != 0) entry["lastReadAt"] = book.lastReadAt;
+    if (book.finishedAt != 0) entry["finishedAt"] = book.finishedAt;
+    if (book.sessionCount != 0) entry["sessionCount"] = book.sessionCount;
+    if (book.finished) entry["finished"] = true;
   }
   JsonArray dayArray = doc["days"].to<JsonArray>();
   for (const auto& day : days) {
@@ -311,7 +360,8 @@ bool ReadingHistoryStore::loadFromFile() {
   if (json.isEmpty()) return false;
   JsonDocument doc;
   if (deserializeJson(doc, json)) return false;
-  if ((doc["version"] | 0) != 1) return false;
+  const uint8_t version = doc["version"] | 0;
+  if (version != 1 && version != 2) return false;
   totalSeconds = doc["totalSeconds"] | 0U;
   books.clear();
   for (JsonObject entry : doc["books"].as<JsonArray>()) {
@@ -325,8 +375,15 @@ bool ReadingHistoryStore::loadFromFile() {
         bookId = static_cast<uint64_t>(strtoull(storedBookId, &end, 16));
         if (!end || *end != '\0') bookId = 0;
       }
-      books.push_back(
-          {path, entry["title"] | std::string(""), entry["author"] | std::string(""), entry["seconds"] | 0U, bookId});
+      ReadingHistoryBook book{path, entry["title"] | std::string(""), entry["author"] | std::string(""),
+                              entry["seconds"] | 0U, bookId};
+      if (version >= 2) {
+        book.lastReadAt = entry["lastReadAt"] | 0U;
+        book.finishedAt = entry["finishedAt"] | 0U;
+        book.sessionCount = entry["sessionCount"] | 0U;
+        book.finished = entry["finished"] | (book.finishedAt != 0);
+      }
+      books.push_back(std::move(book));
     }
   }
   days.clear();

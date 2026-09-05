@@ -7,6 +7,7 @@
 
 #include "Epub.h"
 #include "BookIdentity.h"
+#include "ReadingHistoryStore.h"
 #include "activities/reader/ProgressFile.h"
 #include "util/BookDataPath.h"
 
@@ -374,6 +375,7 @@ bool markAsFinished(const std::string& filepath, const std::string& cacheDir) {
     Storage.mkdir((cacheDir + "/" + prefix + hash).c_str());
   }
   if (!ProgressFile::writeAtomicPath(progressPath, data, recordSize)) return false;
+  READING_HISTORY.markFinished(filepath, hasBookId ? bookId : 0);
   LOG_DBG("RSH", "Marked as finished: %s", filepath.c_str());
   return true;
 }

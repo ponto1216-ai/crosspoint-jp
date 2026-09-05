@@ -1494,6 +1494,7 @@ void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
     updateBookListStatusIndex(epub->getPath(), isFinished ? ReadingStatus::Finished : ReadingStatus::Reading,
                               CachedBookStatus::Unknown, statusEntries);
     saveBookListStatusIndex("/.crosspoint", statusEntries);
+    if (isFinished) READING_HISTORY.markFinished(epub->getPath(), bookId);
     LOG_DBG("ERS", "Progress saved: Chapter %d, Page %d, Finished: %d", spineIndex, currentPage, isFinished);
   } else {
     LOG_ERR("ERS", "Could not save progress!");

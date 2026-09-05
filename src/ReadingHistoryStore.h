@@ -11,6 +11,10 @@ struct ReadingHistoryBook {
   std::string author;
   uint32_t seconds = 0;
   uint64_t bookId = 0;  // EPUB archive fingerprint; zero for legacy/non-EPUB entries.
+  uint32_t lastReadAt = 0;   // Unix time, or zero when the device clock is unavailable.
+  uint32_t finishedAt = 0;   // Unix time, or zero when not recorded with a valid clock.
+  uint32_t sessionCount = 0;
+  bool finished = false;
 };
 
 struct ReadingHistorySummary {
@@ -22,6 +26,7 @@ struct ReadingHistorySummary {
   std::array<uint8_t, 7> recentDayWeekdays = {};
   std::array<ReadingHistoryBook, 3> topBooks = {};
   uint16_t bookCount = 0;
+  uint16_t finishedBookCount = 0;
   uint8_t topBookCount = 0;
   bool hasCalendarTime = false;
 };
@@ -50,6 +55,7 @@ class ReadingHistoryStore {
   bool saveToFile();
   bool loadFromFile();
   uint32_t currentDate() const;
+  uint32_t currentTimestamp() const;
 
  public:
   static ReadingHistoryStore& getInstance() { return instance; }
@@ -60,6 +66,11 @@ class ReadingHistoryStore {
   void noteInteraction();
   void tick();
   void endSession();
+
+  // Completion remains compatible with progress.bin, but the timestamp is
+  // independent so history, library views, and a future sync layer do not
+  // need to infer it from a page position.
+  void markFinished(const std::string& path, uint64_t bookId = 0);
 
   // Keep a book's accumulated time when the file browser moves it to Archive.
   void moveBook(const std::string& oldPath, const std::string& newPath);
