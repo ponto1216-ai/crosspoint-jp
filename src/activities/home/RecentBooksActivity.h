@@ -14,12 +14,14 @@
 class RecentBooksActivity final : public Activity {
  private:
   enum class Screen : uint8_t { Menu, Meter, Books };
+  enum class MeterPage : uint8_t { Overview, Details };
 
   ButtonNavigator buttonNavigator;
 
   size_t selectorIndex = 0;
   size_t menuIndex = 0;
   Screen screen = Screen::Menu;
+  MeterPage meterPage = MeterPage::Overview;
 
   // Recent tab state
   std::vector<RecentBook> recentBooks;

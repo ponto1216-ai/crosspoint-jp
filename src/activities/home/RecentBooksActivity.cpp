@@ -62,6 +62,7 @@ void RecentBooksActivity::onEnter() {
   selectorIndex = 0;
   menuIndex = 0;
   screen = Screen::Menu;
+  meterPage = MeterPage::Overview;
   requestUpdate();
 }
 
@@ -78,6 +79,7 @@ void RecentBooksActivity::loop() {
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     if (screen == Screen::Menu) {
       screen = menuIndex == 0 ? Screen::Books : Screen::Meter;
+      meterPage = MeterPage::Overview;
       requestUpdate();
       return;
     }
@@ -97,7 +99,25 @@ void RecentBooksActivity::loop() {
     onGoHome();
   }
 
-  if (screen == Screen::Meter) return;
+  if (screen == Screen::Meter) {
+    // The X3 keeps its compact overview readable by moving the graph and book
+    // ranking to a second page. X4 has sufficient room for the full dashboard.
+    if (gpio.deviceIsX3() && READING_HISTORY.getSummary().hasCalendarTime) {
+      buttonNavigator.onNextRelease([this] {
+        if (meterPage == MeterPage::Overview) {
+          meterPage = MeterPage::Details;
+          requestUpdate();
+        }
+      });
+      buttonNavigator.onPreviousRelease([this] {
+        if (meterPage == MeterPage::Details) {
+          meterPage = MeterPage::Overview;
+          requestUpdate();
+        }
+      });
+    }
+    return;
+  }
 
   const int listSize = screen == Screen::Menu ? HISTORY_MENU_ITEM_COUNT : static_cast<int>(recentBooks.size());
   size_t& selectedIndex = screen == Screen::Menu ? menuIndex : selectorIndex;
@@ -143,7 +163,74 @@ void RecentBooksActivity::render(RenderLock&&) {
                  [](int index) { return HISTORY_MENU_ICONS[index]; });
   } else if (screen == Screen::Meter) {
     const auto summary = READING_HISTORY.getSummary();
+    const bool isX3 = gpio.deviceIsX3();
     renderer.drawCenteredText(UI_12_FONT_ID, contentTop + 4, tr(STR_READING_METER));
+    if (isX3) {
+      const int rowLeft = metrics.contentSidePadding + 8;
+      const int rowRight = pageWidth - metrics.contentSidePadding - 8;
+      const auto drawOverviewRow = [&](const int y, const char* label, const std::string& value) {
+        renderer.drawLine(rowLeft, y - 8, rowRight, y - 8);
+        renderer.drawText(UI_10_FONT_ID, rowLeft, y, label);
+        const int valueWidth = renderer.getTextWidth(UI_10_FONT_ID, value.c_str());
+        renderer.drawText(UI_10_FONT_ID, rowRight - valueWidth, y, value.c_str());
+      };
+      const auto drawTopBooks = [&](const int topY) {
+        renderer.drawText(UI_10_FONT_ID, rowLeft, topY, tr(STR_READING_METER_TOP_BOOKS), true, EpdFontFamily::BOLD);
+        const int maxBooks = std::min<int>(2, summary.topBookCount);
+        for (int index = 0; index < maxBooks; ++index) {
+          const auto& book = summary.topBooks[index];
+          const std::string value = formatDuration(book.seconds);
+          const int valueWidth = renderer.getTextWidth(UI_10_FONT_ID, value.c_str());
+          const auto title = renderer.truncatedText(UI_10_FONT_ID, book.title.c_str(), rowRight - rowLeft - valueWidth - 16);
+          const int y = topY + 29 + index * 34;
+          renderer.drawText(UI_10_FONT_ID, rowLeft, y, title.c_str());
+          renderer.drawText(UI_10_FONT_ID, rowRight - valueWidth, y, value.c_str());
+        }
+      };
+
+      if (meterPage == MeterPage::Overview || !summary.hasCalendarTime) {
+        const std::string primaryLabel = summary.hasCalendarTime ? tr(STR_READING_METER_WEEK) : tr(STR_READING_METER_TOTAL);
+        const uint32_t primarySeconds = summary.hasCalendarTime ? summary.weekSeconds : summary.totalSeconds;
+        renderer.drawCenteredText(UI_10_FONT_ID, contentTop + 43, primaryLabel.c_str());
+        renderer.drawCenteredText(UI_12_FONT_ID, contentTop + 68, formatDuration(primarySeconds).c_str(), true,
+                                  EpdFontFamily::BOLD);
+        int rowY = contentTop + 125;
+        if (summary.hasCalendarTime) {
+          drawOverviewRow(rowY, tr(STR_READING_METER_TODAY), formatDuration(summary.todaySeconds));
+          rowY += 38;
+          drawOverviewRow(rowY, tr(STR_READING_METER_MONTH), formatDuration(summary.monthSeconds));
+          rowY += 38;
+        }
+        const std::string books = std::to_string(summary.bookCount) + tr(STR_READING_METER_BOOKS_UNIT);
+        const std::string finished = std::to_string(summary.finishedBookCount) + tr(STR_READING_METER_BOOKS_UNIT);
+        drawOverviewRow(rowY, tr(STR_READING_METER_BOOKS), books);
+        drawOverviewRow(rowY + 38, tr(STR_READING_METER_FINISHED), finished);
+        renderer.drawLine(rowLeft, rowY + 68, rowRight, rowY + 68);
+      } else {
+        const int graphLeft = metrics.contentSidePadding + 18;
+        const int graphWidth = pageWidth - graphLeft * 2;
+        const int graphTop = contentTop + 48;
+        const int graphHeight = std::max(72, std::min(110, contentHeight / 3));
+        const int baselineY = graphTop + graphHeight;
+        uint32_t maximum = 0;
+        for (const auto seconds : summary.recentDaySeconds) maximum = std::max(maximum, seconds);
+        renderer.drawText(UI_10_FONT_ID, graphLeft, graphTop - 24, tr(STR_READING_METER_LAST_7_DAYS));
+        renderer.drawLine(graphLeft, baselineY, graphLeft + graphWidth, baselineY);
+        const int columnWidth = graphWidth / 7;
+        const int barWidth = std::max(5, columnWidth - 14);
+        for (int index = 0; index < 7; ++index) {
+          const int centerX = graphLeft + index * columnWidth + columnWidth / 2;
+          if (maximum > 0 && summary.recentDaySeconds[index] > 0) {
+            const int barHeight = std::max(3, static_cast<int>(summary.recentDaySeconds[index] * graphHeight / maximum));
+            renderer.fillRect(centerX - barWidth / 2, baselineY - barHeight, barWidth, barHeight);
+          }
+          const char* label = I18N.get(WEEKDAY_IDS[summary.recentDayWeekdays[index]]);
+          const int textWidth = renderer.getTextWidth(UI_10_FONT_ID, label);
+          renderer.drawText(UI_10_FONT_ID, centerX - textWidth / 2, baselineY + 10, label);
+        }
+        drawTopBooks(baselineY + 37);
+      }
+    } else {
     const auto drawBookSummary = [this, &summary, pageWidth, contentTop, &metrics](const int topY) {
       const std::string bookCount = std::string(tr(STR_READING_METER_BOOKS)) + ": " +
                                     std::to_string(summary.bookCount) + tr(STR_READING_METER_BOOKS_UNIT);
@@ -172,13 +259,19 @@ void RecentBooksActivity::render(RenderLock&&) {
       renderer.drawCenteredText(UI_10_FONT_ID, contentTop + 70, week.c_str());
       renderer.drawCenteredText(UI_10_FONT_ID, contentTop + 97, month.c_str());
 
+      uint32_t maximum = 0;
+      for (const auto seconds : summary.recentDaySeconds) maximum = std::max(maximum, seconds);
+      if (maximum == 0) {
+        // A large empty graph is less useful than the books that have been read
+        // before this week. Keep the time summary, then bring those books closer.
+        renderer.drawCenteredText(UI_10_FONT_ID, contentTop + 150, tr(STR_READING_METER_NO_RECENT_ACTIVITY));
+        drawBookSummary(contentTop + 185);
+      } else {
       const int graphLeft = metrics.contentSidePadding + 18;
       const int graphWidth = pageWidth - graphLeft * 2;
       const int graphTop = contentTop + 145;
       const int graphHeight = std::max(80, std::min(170, contentHeight - 215));
       const int baselineY = graphTop + graphHeight;
-      uint32_t maximum = 0;
-      for (const auto seconds : summary.recentDaySeconds) maximum = std::max(maximum, seconds);
       renderer.drawText(UI_10_FONT_ID, graphLeft, graphTop - 24, tr(STR_READING_METER_LAST_7_DAYS));
       renderer.drawLine(graphLeft, baselineY, graphLeft + graphWidth, baselineY);
       const int columnWidth = graphWidth / 7;
@@ -194,6 +287,7 @@ void RecentBooksActivity::render(RenderLock&&) {
         renderer.drawText(UI_10_FONT_ID, centerX - textWidth / 2, baselineY + 12, label);
       }
       drawBookSummary(baselineY + 45);
+      }
     } else {
       // X4 normally has no clock after a full power-off. Show persistent,
       // useful statistics instead of an empty daily graph.
@@ -204,6 +298,7 @@ void RecentBooksActivity::render(RenderLock&&) {
     }
     const std::string total = std::string(tr(STR_READING_METER_TOTAL)) + ": " + formatDuration(summary.totalSeconds);
     if (summary.hasCalendarTime) renderer.drawCenteredText(UI_10_FONT_ID, contentTop + contentHeight - 25, total.c_str());
+    }
   } else if (recentBooks.empty()) {
     renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, contentTop + 20, tr(STR_NO_BOOK_HISTORY));
   } else {
@@ -227,8 +322,14 @@ void RecentBooksActivity::render(RenderLock&&) {
   // Help text
   const char* backLabel = screen == Screen::Menu ? tr(STR_HOME) : tr(STR_BACK);
   const char* confirmLabel = screen == Screen::Menu ? tr(STR_SELECT) : (screen == Screen::Meter ? "" : tr(STR_OPEN));
-  const char* previousLabel = screen == Screen::Meter ? "" : tr(STR_DIR_UP);
-  const char* nextLabel = screen == Screen::Meter ? "" : tr(STR_DIR_DOWN);
+  const bool x3MeterPaging = screen == Screen::Meter && gpio.deviceIsX3() &&
+                              READING_HISTORY.getSummary().hasCalendarTime;
+  const char* previousLabel = x3MeterPaging && meterPage == MeterPage::Details
+                                  ? tr(STR_PREVIOUS)
+                                  : (screen == Screen::Meter ? "" : tr(STR_DIR_UP));
+  const char* nextLabel = x3MeterPaging && meterPage == MeterPage::Overview
+                              ? tr(STR_NEXT)
+                              : (screen == Screen::Meter ? "" : tr(STR_DIR_DOWN));
   const auto labels = mappedInput.mapLabels(backLabel, confirmLabel, previousLabel, nextLabel);
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
