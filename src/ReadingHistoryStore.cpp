@@ -17,6 +17,7 @@ constexpr uint32_t MIN_VALID_UNIX_TIME = 1704067200;  // 2024-01-01
 constexpr unsigned long INACTIVITY_TIMEOUT_MS = 5UL * 60UL * 1000UL;
 constexpr unsigned long SAVE_INTERVAL_MS = 60UL * 1000UL;
 constexpr size_t MAX_BOOKS = 100;
+constexpr uint32_t MIN_TOP_BOOK_SECONDS = 60;
 constexpr size_t MAX_DAYS = 366;
 }  // namespace
 
@@ -241,6 +242,9 @@ ReadingHistorySummary ReadingHistoryStore::getSummary() {
   for (const auto& book : summarizedBooks) {
     ++result.bookCount;
     if (book.finished) ++result.finishedBookCount;
+    // The meter displays whole minutes. Do not rank a book as "most read"
+    // when it would be shown as 0 minutes on either X3 or X4.
+    if (book.seconds < MIN_TOP_BOOK_SECONDS) continue;
     for (size_t index = 0; index < result.topBooks.size(); ++index) {
       if (result.topBooks[index].seconds >= book.seconds) continue;
       for (size_t moveIndex = result.topBooks.size() - 1; moveIndex > index; --moveIndex) {
