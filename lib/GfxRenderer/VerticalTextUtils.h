@@ -185,6 +185,12 @@ inline bool shouldUseVertGlyph(uint32_t cp) {
   return false;
 }
 
+// Small kana use horizontal glyphs in the bitmap renderer. In vertical text,
+// move their ink toward the conventional upper-right position while keeping
+// their cell advance unchanged.
+static constexpr int SMALL_KANA_DX_PERCENT = 11;
+static constexpr int SMALL_KANA_DY_PERCENT = 10;
+
 // Kinsoku (禁則) processing for vertical text column breaks.
 // Returns true if this codepoint must NOT appear at the start of a column.
 inline constexpr bool isSmallKana(uint32_t cp) {

@@ -2326,7 +2326,16 @@ void GfxRenderer::drawTextVertical(const int fontId, const int x, const int y, c
         }
         drawTextSideways(effectiveFontId, drawX, drawY, charBuf, black, style, columnWidth);
       } else {
-        drawText(effectiveFontId, x, yPos, charBuf, black, style);
+        // Small kana use horizontal glyph metrics. Shift only the visible ink
+        // into the upper-right of the vertical cell; the unchanged advance
+        // keeps line layout, ruby placement, and cached section geometry stable.
+        int drawX = x;
+        int drawY = yPos;
+        if (VerticalTextUtils::isSmallKana(cp)) {
+          drawX += (advance * VerticalTextUtils::SMALL_KANA_DX_PERCENT + 50) / 100;
+          drawY -= (advance * VerticalTextUtils::SMALL_KANA_DY_PERCENT + 50) / 100;
+        }
+        drawText(effectiveFontId, drawX, drawY, charBuf, black, style);
       }
       yPos += verticalAdvance;
     }
