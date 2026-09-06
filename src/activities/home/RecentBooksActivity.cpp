@@ -209,7 +209,10 @@ void RecentBooksActivity::render(RenderLock&&) {
       } else {
         const int graphLeft = metrics.contentSidePadding + 18;
         const int graphWidth = pageWidth - graphLeft * 2;
-        const int graphTop = contentTop + 48;
+        // Leave the same clear separation below the 12pt meter title as the
+        // overview page.  The old position put the graph label into the title
+        // glyph bounds on X3.
+        const int graphTop = contentTop + 74;
         const int graphHeight = std::max(72, std::min(110, contentHeight / 3));
         const int baselineY = graphTop + graphHeight;
         uint32_t maximum = 0;
