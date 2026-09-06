@@ -1,0 +1,937 @@
+{
+  "version": 1,
+  "baseUrl": "https://ponto1216-ai.github.io/crosspoint-jp/fonts/",
+  "families": [
+    {
+      "name": "Alegreya",
+      "description": "Calligraphic serif/display (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "Alegreya_12.cpfont",
+          "size": 423630,
+          "sha256": "f4816cccd54dd4696ff442269cfe71c79d76f3b9c91ca035ce9e9759f84742e6"
+        },
+        {
+          "name": "Alegreya_14.cpfont",
+          "size": 515616,
+          "sha256": "9c1f6db246d840a3b52aa170a719d8f51c7e78301d08bf00986400d1222584c3"
+        },
+        {
+          "name": "Alegreya_16.cpfont",
+          "size": 625146,
+          "sha256": "c6c249e7ed805d84d4b8dd9cc30f8f560c0e8fbc0d0ddc937dff59e3711d87dc"
+        },
+        {
+          "name": "Alegreya_18.cpfont",
+          "size": 747450,
+          "sha256": "b0bc314835937f064f4a99e060aea0c3b21bfb80d64554494c04ef43bd1fffac"
+        }
+      ]
+    },
+    {
+      "name": "AtkinsonHyperlegible",
+      "description": "Accessibility font for low vision (Latin)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "AtkinsonHyperlegible_12.cpfont",
+          "size": 178609,
+          "sha256": "3b58725ca54e17a294a336514b36751458a54dfae5ff0217bd625b8bfd03aa40"
+        },
+        {
+          "name": "AtkinsonHyperlegible_14.cpfont",
+          "size": 204425,
+          "sha256": "2304a203500b6ccbcb0b17e1bf70112eabce1e472357164ec40287e47c590242"
+        },
+        {
+          "name": "AtkinsonHyperlegible_16.cpfont",
+          "size": 232237,
+          "sha256": "6e72feb26d037a911f469b02d369e4aa67cad413c7726293bc9080f0dab00708"
+        },
+        {
+          "name": "AtkinsonHyperlegible_18.cpfont",
+          "size": 268712,
+          "sha256": "a8a0d54181fa2602b4a3031eeea2dd3b9bd7c31d48c94abb1d0e50c9f73836c5"
+        }
+      ]
+    },
+    {
+      "name": "BIZUDGothic",
+      "description": "UD Gothic Japanese (MORISAWA, with reading symbols)",
+      "styles": [
+        "regular",
+        "bold"
+      ],
+      "files": [
+        {
+          "name": "BIZUDGothic_10.cpfont",
+          "size": 2909521,
+          "sha256": "73502203e2d52dd8b73d254d55c1f28b32da07764d1d26bfa92a74445bea0afc"
+        },
+        {
+          "name": "BIZUDGothic_12.cpfont",
+          "size": 3742726,
+          "sha256": "457b09d034c4a8cf9e94393efe7482ff384d66811eef423fded8a3ed55d07fcd"
+        },
+        {
+          "name": "BIZUDGothic_14.cpfont",
+          "size": 4866587,
+          "sha256": "ac31782b2149d7044ebaca487ae0514c219e4e22e0727989c566e3633d04cd0c"
+        },
+        {
+          "name": "BIZUDGothic_16.cpfont",
+          "size": 5962915,
+          "sha256": "b5d31f92997c91772d31f38f0f63f6bc5815252ccc1c1d156e3d71179e1e8eaf"
+        },
+        {
+          "name": "BIZUDGothic_18.cpfont",
+          "size": 7699074,
+          "sha256": "0acd5027d8ba4b29e9c0a0080b3a2f29801fc69099caa6975c952e379003cce5"
+        },
+        {
+          "name": "BIZUDGothic_8.cpfont",
+          "size": 2243697,
+          "sha256": "10fd742af6673afb528b6c340e2aa195616dee4ba104d6e2f7bafd2ce7c7645d"
+        }
+      ]
+    },
+    {
+      "name": "BIZUDMincho",
+      "description": "UD Mincho Japanese (MORISAWA, with reading symbols)",
+      "styles": [
+        "regular",
+        "bold"
+      ],
+      "files": [
+        {
+          "name": "BIZUDMincho_10.cpfont",
+          "size": 2898984,
+          "sha256": "efbf01da59df762def9b658cd619a2bc4326244950d36203462e1c9a8d6ec7db"
+        },
+        {
+          "name": "BIZUDMincho_12.cpfont",
+          "size": 3718232,
+          "sha256": "466f69e12cb72dab377887869bba17c79c2d18898736c7a361be451c7bfb7c61"
+        },
+        {
+          "name": "BIZUDMincho_14.cpfont",
+          "size": 4785774,
+          "sha256": "f32cfa1e8d60f9fbce1eda5f40976d443f4344607a216316c547412d627301a4"
+        },
+        {
+          "name": "BIZUDMincho_16.cpfont",
+          "size": 5905805,
+          "sha256": "52d90ba56e286d1051b5517af9827ebe410ea6502e0df9a26c5ce94b3df28d85"
+        },
+        {
+          "name": "BIZUDMincho_18.cpfont",
+          "size": 7545276,
+          "sha256": "0c2d833b6012699bcd6f4eed6b6c27a1f7db102fd46b401739c20e46d8817370"
+        },
+        {
+          "name": "BIZUDMincho_8.cpfont",
+          "size": 2163886,
+          "sha256": "c3a6d2ba92be61b49cd8b3ace860f5c524126dcbd6aaf2fba18d23db5afb1213"
+        }
+      ]
+    },
+    {
+      "name": "Bitter",
+      "description": "Slab serif designed for e-ink (Latin, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "Bitter_12.cpfont",
+          "size": 375148,
+          "sha256": "09a90fbf4689f35621d4701b63566fd588949966a32f89e9521f39cc33b89e2a"
+        },
+        {
+          "name": "Bitter_14.cpfont",
+          "size": 453492,
+          "sha256": "a7688d6886ce05e41371e64c770285734e8a1724dbd010a7c9d638828754a321"
+        },
+        {
+          "name": "Bitter_16.cpfont",
+          "size": 540646,
+          "sha256": "0983fa93c156d539e691aa0d3504f4a3cd582e726e2441f475e7d82ddd8287d9"
+        },
+        {
+          "name": "Bitter_18.cpfont",
+          "size": 638446,
+          "sha256": "072e3e0e32ec48d59168fd6aa1f050d44ee671f6078f9e2939701c77b4c1ac5b"
+        }
+      ]
+    },
+    {
+      "name": "GentiumBookPlus",
+      "description": "Scholarly serif with wide Unicode coverage (Latin, Greek, Cyrillic, IPA)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "GentiumBookPlus_12.cpfont",
+          "size": 527143,
+          "sha256": "e433040c4f61daf598f568e7453ae1b08d8129cb031b84be1584c0e61326944e"
+        },
+        {
+          "name": "GentiumBookPlus_14.cpfont",
+          "size": 653800,
+          "sha256": "62a916662d6b70c435089bc0dcabc94563406b26d3f2a9a610b6476bf9cf1077"
+        },
+        {
+          "name": "GentiumBookPlus_16.cpfont",
+          "size": 808507,
+          "sha256": "c4e6aba09bccd9e8f65b580261a8fd9b335cd4ae192c88a3a7ba2b3d5b138e0c"
+        },
+        {
+          "name": "GentiumBookPlus_18.cpfont",
+          "size": 991988,
+          "sha256": "25b6015462918ecae50772395b6b560072c71d018d600e644821ab331f309d3a"
+        }
+      ]
+    },
+    {
+      "name": "IBMPlexMono",
+      "description": "Monospace for code and technical reading (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "IBMPlexMono_12.cpfont",
+          "size": 272914,
+          "sha256": "c382152ca01e52af7e09be8ecf4c38d40792793607edd39245b8593023f62fb3"
+        },
+        {
+          "name": "IBMPlexMono_14.cpfont",
+          "size": 329524,
+          "sha256": "fd6cdf28993c644ad68e4530b40f14645898fd51e0d3268c017bdcde308e648e"
+        },
+        {
+          "name": "IBMPlexMono_16.cpfont",
+          "size": 394154,
+          "sha256": "156c736f8832c037dda08498b5036e9a006032b0f457d87595760d8952e2fe82"
+        },
+        {
+          "name": "IBMPlexMono_18.cpfont",
+          "size": 487669,
+          "sha256": "d0a5dc08d8de7c77452bf3f0e735803c7a21da50649542695ed36123f0feb0e9"
+        }
+      ]
+    },
+    {
+      "name": "IBMPlexSans",
+      "description": "IBM corporate sans-serif (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "IBMPlexSans_12.cpfont",
+          "size": 457192,
+          "sha256": "9c51b8be60a41e19dae48ec45ded8175916740a2658ef660d4e4cbf286a5dce6"
+        },
+        {
+          "name": "IBMPlexSans_14.cpfont",
+          "size": 521444,
+          "sha256": "1d3d1c23b08070369a61283e7eddc03133132fc51cf3e9ccb546be40a91c0ae9"
+        },
+        {
+          "name": "IBMPlexSans_16.cpfont",
+          "size": 598478,
+          "sha256": "897f8c7638939f16e1618bbcbb2c8bec3f25df8c5389076218bc104682ee939c"
+        },
+        {
+          "name": "IBMPlexSans_18.cpfont",
+          "size": 713127,
+          "sha256": "d3ac59e396562d25633c79eb6ddaaa07639969fbf525782b5f6554029d57bf5d"
+        }
+      ]
+    },
+    {
+      "name": "IBMPlexSerif",
+      "description": "Professional serif (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "IBMPlexSerif_12.cpfont",
+          "size": 374415,
+          "sha256": "243bc90e1ee1180b977a0750ea25e95aacb6bee54623faa732fab0d6fe51316c"
+        },
+        {
+          "name": "IBMPlexSerif_14.cpfont",
+          "size": 434793,
+          "sha256": "022329485c3dab4b55a63355f4a4e66f09e92463f061c32acb17c99a108b3ead"
+        },
+        {
+          "name": "IBMPlexSerif_16.cpfont",
+          "size": 504876,
+          "sha256": "b47df7fecd5f9404cf3b49c4ccd924307fae3e4e8e29ec314080f78f912ffdfb"
+        },
+        {
+          "name": "IBMPlexSerif_18.cpfont",
+          "size": 605812,
+          "sha256": "3d86006b7d3bf74495b610c401690a554dcb363ca8c0956cb4610403b4e5e5ff"
+        }
+      ]
+    },
+    {
+      "name": "Inter",
+      "description": "Modern sans-serif (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "Inter_12.cpfont",
+          "size": 670092,
+          "sha256": "d64cf1a8411180ca4361acfdcabbaed584fb21e3e283baf95340df5884bf6244"
+        },
+        {
+          "name": "Inter_14.cpfont",
+          "size": 817554,
+          "sha256": "ce7e7322fcd6e5423e0ca39521377fc2eb44d5a21175fe19f0231a7815d346bb"
+        },
+        {
+          "name": "Inter_16.cpfont",
+          "size": 992520,
+          "sha256": "8be59974b6587ab9c54736f6f1afdf3bef69e90089d573bcfbbccc0d364c858c"
+        },
+        {
+          "name": "Inter_18.cpfont",
+          "size": 1185880,
+          "sha256": "a0b5c32c010fe220df26b280dab35a8a1e15280b9b809bc8bc2b3b964456c23b"
+        }
+      ]
+    },
+    {
+      "name": "Literata",
+      "description": "Screen-optimized serif (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "Literata_12.cpfont",
+          "size": 618138,
+          "sha256": "3fb54b2e74fb60c29bcd863c0f53020b976a525f03057c6afd7eca0b4c8131df"
+        },
+        {
+          "name": "Literata_14.cpfont",
+          "size": 726729,
+          "sha256": "9b39d2e662330097c706dc1f7dc52a0071ef0866030842f6ec8d7a4d3f12451e"
+        },
+        {
+          "name": "Literata_16.cpfont",
+          "size": 851205,
+          "sha256": "593d2e4a9bf681b694d3e39ebeba9399254ee7f19209309ec19a6ec463d47b9e"
+        },
+        {
+          "name": "Literata_18.cpfont",
+          "size": 1052415,
+          "sha256": "4b94d38ac35e9b51fbc6be5b431cfdbad6dccaa188801a8923b665eb665cbbb8"
+        }
+      ]
+    },
+    {
+      "name": "Lora",
+      "description": "Calligraphic serif for literary reading (Latin, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "Lora_12.cpfont",
+          "size": 334777,
+          "sha256": "1ce0b33065a2897cdde99520cdbfde30dc098237fc91e470e7075fe2c7dc14ab"
+        },
+        {
+          "name": "Lora_14.cpfont",
+          "size": 401886,
+          "sha256": "51029694a0ef3defab59c969fed3aaf84cd6c837db058aff4dc8b8a322e41c07"
+        },
+        {
+          "name": "Lora_16.cpfont",
+          "size": 485477,
+          "sha256": "0df5686137037bad3261b96d146737d3699db011b7d2b52b9fc76719de946bfb"
+        },
+        {
+          "name": "Lora_18.cpfont",
+          "size": 604364,
+          "sha256": "5cb001ff3094a937c62229330997f4555eed602441340c5f7a1bf5552ba156cb"
+        }
+      ]
+    },
+    {
+      "name": "Merriweather",
+      "description": "Warm serif for long-form reading (Latin, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "Merriweather_12.cpfont",
+          "size": 489821,
+          "sha256": "5524c70f262a3628fb9abbe34f702d17190b4fd3a4ec406450c6907d4492536e"
+        },
+        {
+          "name": "Merriweather_14.cpfont",
+          "size": 590595,
+          "sha256": "e8ce16b685fea8b9757eb4a7449de63a2837b611c141fd55e9f99647b06fe649"
+        },
+        {
+          "name": "Merriweather_16.cpfont",
+          "size": 708707,
+          "sha256": "52fd5f0a7cf59b3762efe239f5cd2f102ebb4ff1babfd8064a45e3933698659f"
+        },
+        {
+          "name": "Merriweather_18.cpfont",
+          "size": 841726,
+          "sha256": "a40c1ed199d7ac5c4473679376fbff93644909e6aac5d282a6b6041aa3382950"
+        }
+      ]
+    },
+    {
+      "name": "NotoSansArmenian",
+      "description": "Armenian script",
+      "styles": [
+        "regular"
+      ],
+      "files": [
+        {
+          "name": "NotoSansArmenian_12.cpfont",
+          "size": 10113,
+          "sha256": "83db0aa66f6098adf1e480b7e541604444c6f6321380dc904185f9ef85174980"
+        },
+        {
+          "name": "NotoSansArmenian_14.cpfont",
+          "size": 12202,
+          "sha256": "714290495d5363caf835cb096a902c6d032214e20397b357a126de1764f81678"
+        },
+        {
+          "name": "NotoSansArmenian_16.cpfont",
+          "size": 14474,
+          "sha256": "88880fe81028d3744244a8a1256cdc5dd7bb8d0fa7dd9cdf93da5a369261be7c"
+        },
+        {
+          "name": "NotoSansArmenian_18.cpfont",
+          "size": 16902,
+          "sha256": "0e2356766ced4085201ec571ebe79c11f35821ce5f439f8e7c6401c2c821bd4e"
+        }
+      ]
+    },
+    {
+      "name": "NotoSansCherokee",
+      "description": "Cherokee syllabary",
+      "styles": [
+        "regular"
+      ],
+      "files": [
+        {
+          "name": "NotoSansCherokee_12.cpfont",
+          "size": 30760,
+          "sha256": "704e40c0c4a649c6db2b1184092664c196bc4592b4174aa8ef791102ab3f9880"
+        },
+        {
+          "name": "NotoSansCherokee_14.cpfont",
+          "size": 34891,
+          "sha256": "b01ee1ba412c5864449c3bc11dae133839697cc948902ba42c9394dd48614bb5"
+        },
+        {
+          "name": "NotoSansCherokee_16.cpfont",
+          "size": 39723,
+          "sha256": "4ed7c26d081e59df8a07023a44ee3fcfcaa7893ffd5892812a71122f3ad55653"
+        },
+        {
+          "name": "NotoSansCherokee_18.cpfont",
+          "size": 45302,
+          "sha256": "e3470529ebca778f693c551caa81b9043b93da8e142105a59b2e4c22f6abe2f4"
+        }
+      ]
+    },
+    {
+      "name": "NotoSansEthiopic",
+      "description": "Ethiopic/Ge'ez script",
+      "styles": [
+        "regular"
+      ],
+      "files": [
+        {
+          "name": "NotoSansEthiopic_12.cpfont",
+          "size": 47658,
+          "sha256": "304d5fccd4b3ffeb1a001740feaf18920d045758483993b51a31384b19e54476"
+        },
+        {
+          "name": "NotoSansEthiopic_14.cpfont",
+          "size": 61103,
+          "sha256": "2c10ea938e0b2e1e7fffe453e173ebd94699a8ee44bef4698433f260c5464be2"
+        },
+        {
+          "name": "NotoSansEthiopic_16.cpfont",
+          "size": 76760,
+          "sha256": "6a7c45458d71087ce01762133a8e51c27c392e91b7cee3c8e621856cf5c33d11"
+        },
+        {
+          "name": "NotoSansEthiopic_18.cpfont",
+          "size": 95050,
+          "sha256": "71c4f46728a171a5bfd0fc6b086a5b3a584690e041d15b131312a1d7ff617233"
+        }
+      ]
+    },
+    {
+      "name": "NotoSansExtended",
+      "description": "Sans-serif (Latin, Greek, Cyrillic, Georgian, Armenian, Ethiopic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "NotoSansExtended_12.cpfont",
+          "size": 649709,
+          "sha256": "795ccb599a565247c38f7345cfe905bb01653f5344e9cfcaaa236e37c722513e"
+        },
+        {
+          "name": "NotoSansExtended_14.cpfont",
+          "size": 815596,
+          "sha256": "595618ac3c5c6abea37b856de75d2bbfb57d164ffa9087e9cc5da1fc58cece0d"
+        },
+        {
+          "name": "NotoSansExtended_16.cpfont",
+          "size": 1002205,
+          "sha256": "6d1a9518855314177ff30bfb27c9cf78fc02fd548f0d4c54c6a19431b4aab6b3"
+        },
+        {
+          "name": "NotoSansExtended_18.cpfont",
+          "size": 1211871,
+          "sha256": "8f1ef7e04f58fa02c7b7785dc42eae1d73207fc264eb57b4eed4e745c57e5485"
+        }
+      ]
+    },
+    {
+      "name": "NotoSansGeorgian",
+      "description": "Georgian script",
+      "styles": [
+        "regular"
+      ],
+      "files": [
+        {
+          "name": "NotoSansGeorgian_12.cpfont",
+          "size": 15593,
+          "sha256": "3d615ff1412a53634d80a768532aaca7833fd20df27546877db40103cdf58d62"
+        },
+        {
+          "name": "NotoSansGeorgian_14.cpfont",
+          "size": 18889,
+          "sha256": "868002afa330a07d2fa2c600d19fc57167b714ba0b51e9dd001a4983239f5093"
+        },
+        {
+          "name": "NotoSansGeorgian_16.cpfont",
+          "size": 22660,
+          "sha256": "7e0e306b7b191e65080ae878d4674f1a1146e227d76eb750795e565d95fe543c"
+        },
+        {
+          "name": "NotoSansGeorgian_18.cpfont",
+          "size": 26611,
+          "sha256": "1a95e6c23f94849fed4fc195c105fa64a3f453d8b446e30ac552b347c3ce34b9"
+        }
+      ]
+    },
+    {
+      "name": "NotoSansJp",
+      "description": "Sans-serif Japanese with reading symbols",
+      "styles": [
+        "regular",
+        "bold"
+      ],
+      "files": [
+        {
+          "name": "NotoSansJp_10.cpfont",
+          "size": 5432751,
+          "sha256": "5cd48bcb7b4b21a56883980e10534e0192ad1a8c488872095f29d2236eea1bfc"
+        },
+        {
+          "name": "NotoSansJp_12.cpfont",
+          "size": 7587046,
+          "sha256": "6dfb23e1c26959e85766866c70311302a90f4200311870b22232c1232cae79af"
+        },
+        {
+          "name": "NotoSansJp_14.cpfont",
+          "size": 10115743,
+          "sha256": "a141fad6d0b960b8db57d689f60692038ee05f3a41d58e4b8204a77243d821df"
+        },
+        {
+          "name": "NotoSansJp_16.cpfont",
+          "size": 12390910,
+          "sha256": "1c720842b44a53347b5b0249a91e1cc1dfefe5f438e9c9852c217344b4a7b3a3"
+        },
+        {
+          "name": "NotoSansJp_18.cpfont",
+          "size": 15487823,
+          "sha256": "47bded11dce5ce376f86cb63b8a4be29ca805f818b7ed1865a2c46e29ded5b9c"
+        },
+        {
+          "name": "NotoSansJp_8.cpfont",
+          "size": 4057620,
+          "sha256": "6b6ab70336d671e90716531a059a267637673616edd3715be3b3e0bda8766175"
+        }
+      ]
+    },
+    {
+      "name": "NotoSansTifinagh",
+      "description": "Tifinagh script",
+      "styles": [
+        "regular"
+      ],
+      "files": [
+        {
+          "name": "NotoSansTifinagh_12.cpfont",
+          "size": 6297,
+          "sha256": "83513e540e8ad7e67fa381f257cedda25f24f54af3e79f1e523fcc26c3497bd5"
+        },
+        {
+          "name": "NotoSansTifinagh_14.cpfont",
+          "size": 7503,
+          "sha256": "8ef0b0f3ae0f4404fad6a9bb73c905cec2f77125d3a7bf861255fa692b41eeda"
+        },
+        {
+          "name": "NotoSansTifinagh_16.cpfont",
+          "size": 8823,
+          "sha256": "fab298597588fae3f996b50876f5029d0b650a01bc4880915d62bf30e2552e14"
+        },
+        {
+          "name": "NotoSansTifinagh_18.cpfont",
+          "size": 10595,
+          "sha256": "06f6a395e0d8befb67861fef0f124f8d984706a374e3b0c820bd1e49d84978d8"
+        }
+      ]
+    },
+    {
+      "name": "NotoSerif",
+      "description": "Standard serif (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "NotoSerif_12.cpfont",
+          "size": 781127,
+          "sha256": "592f648256d390529d4580c194971eb0a48a37fb88241514a61b379c63c165dd"
+        },
+        {
+          "name": "NotoSerif_14.cpfont",
+          "size": 966509,
+          "sha256": "5329760398a135aee20f73f3ad609cee4e248dafc596ff1a890ce672afcb9e5b"
+        },
+        {
+          "name": "NotoSerif_16.cpfont",
+          "size": 1177704,
+          "sha256": "d863b4cf8d93bcf233c1ad1f46e7d8826f01452aed1ab887dd64bf26979c7426"
+        },
+        {
+          "name": "NotoSerif_18.cpfont",
+          "size": 1412877,
+          "sha256": "832f4a5b8ad056d0298ea7361b11068bf605e953f1d06829353ee43ee512b892"
+        }
+      ]
+    },
+    {
+      "name": "NotoSerifExtended",
+      "description": "Serif (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "NotoSerifExtended_12.cpfont",
+          "size": 659370,
+          "sha256": "fff10df85c5a17e5a0d41013dd352e81ca9c8a5cd69cff8c7ece7b590930db3f"
+        },
+        {
+          "name": "NotoSerifExtended_14.cpfont",
+          "size": 824665,
+          "sha256": "e30b6327d7a981e16d25fd8f59b3bc949a268234916f08d9730e6ebbc282a19b"
+        },
+        {
+          "name": "NotoSerifExtended_16.cpfont",
+          "size": 1010254,
+          "sha256": "d09b4fb5522b59136b7a8188340b709db01f6934e72cb5742de608eded464f37"
+        },
+        {
+          "name": "NotoSerifExtended_18.cpfont",
+          "size": 1258043,
+          "sha256": "9b94b260d6f1505265793d1fae9512e45c3818643f4aa2be21ac53a6c540b224"
+        }
+      ]
+    },
+    {
+      "name": "NotoSerifJp",
+      "description": "Serif Japanese with reading symbols",
+      "styles": [
+        "regular",
+        "bold"
+      ],
+      "files": [
+        {
+          "name": "NotoSerifJp_10.cpfont",
+          "size": 5542577,
+          "sha256": "3b402d692e2405e5a63ae4b8c577b6656225cc51b5359ce465106423b67e463c"
+        },
+        {
+          "name": "NotoSerifJp_12.cpfont",
+          "size": 7800189,
+          "sha256": "9571e463f079cf14f59f3207f0e6185f3872b4e2239e8d018a7917a826cdf6ba"
+        },
+        {
+          "name": "NotoSerifJp_14.cpfont",
+          "size": 10426200,
+          "sha256": "1110e936b2881944ccceb80d9042d92be7346f7cae4456adb798d61085ea4025"
+        },
+        {
+          "name": "NotoSerifJp_16.cpfont",
+          "size": 12768300,
+          "sha256": "835501f35782ccbc0a64fefd39b4d3dfa01dd43254b26c143783599d56c953a4"
+        },
+        {
+          "name": "NotoSerifJp_18.cpfont",
+          "size": 16057389,
+          "sha256": "733d20cecc19247beb54ea569507df6b766678b13524f83724ad74e3349ad19e"
+        },
+        {
+          "name": "NotoSerifJp_8.cpfont",
+          "size": 4140868,
+          "sha256": "94d08d023d2bbce08c82304c7f0a105a49e0059af77f14834a7f648377eab6fc"
+        }
+      ]
+    },
+    {
+      "name": "OpenDyslexic",
+      "description": "Accessibility font designed for dyslexia (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "OpenDyslexic_10.cpfont",
+          "size": 624446,
+          "sha256": "bc0ea12c82c551c9599deb26b9e3c56eb84b9fa7d419a40a046f2ed00247281f"
+        },
+        {
+          "name": "OpenDyslexic_12.cpfont",
+          "size": 803365,
+          "sha256": "874801e9b2c8b91f3bfe300d334e3f085751dbecfa8769de4a6c77511f932007"
+        },
+        {
+          "name": "OpenDyslexic_14.cpfont",
+          "size": 1012153,
+          "sha256": "feb35ff06c8a5efaa31482cfb6d383b94c01f8a4a311fe667dc623d7004d75d4"
+        },
+        {
+          "name": "OpenDyslexic_16.cpfont",
+          "size": 1250752,
+          "sha256": "d1c8b4a8df3a9e59d44e46386668aa0d9bf7de19eec459be9b50dfacb9caa4ee"
+        },
+        {
+          "name": "OpenDyslexic_18.cpfont",
+          "size": 1528672,
+          "sha256": "be040561cd285e6955db30e4d5bff58e093e3a5f9c83e9acc002a98b878a8c6b"
+        },
+        {
+          "name": "OpenDyslexic_8.cpfont",
+          "size": 474712,
+          "sha256": "1ffcc07334cd716f19c637520e3ca235d3d07fe9086bd9a6f664cce778e128cb"
+        }
+      ]
+    },
+    {
+      "name": "SourceCodePro",
+      "description": "Adobe monospace with excellent hinting (Latin)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "SourceCodePro_12.cpfont",
+          "size": 209582,
+          "sha256": "b70ecf941b1903c169787321278bd9f8dbb0c4eac43a61f0bbe69f46ccfb6623"
+        },
+        {
+          "name": "SourceCodePro_14.cpfont",
+          "size": 258785,
+          "sha256": "cb23c337448a869403db32d2b6ca27487cd92c97b25ea2ddc72c0ec79c9f189e"
+        },
+        {
+          "name": "SourceCodePro_16.cpfont",
+          "size": 313771,
+          "sha256": "7b367e74c085cbcc80a4c858672810dc20b815485b34bf6517efed2d38bb7d30"
+        },
+        {
+          "name": "SourceCodePro_18.cpfont",
+          "size": 380381,
+          "sha256": "b092b1015471def2062454148a3f86f928b161c77dd693596dbb49be54862694"
+        }
+      ]
+    },
+    {
+      "name": "SourceSans3",
+      "description": "Adobe humanist sans-serif (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "SourceSans3_12.cpfont",
+          "size": 498005,
+          "sha256": "a36fc2ed481042baabcaea119b6a3b216c6004f56d9211539bca6107b73d8853"
+        },
+        {
+          "name": "SourceSans3_14.cpfont",
+          "size": 588841,
+          "sha256": "9b14c96ef343f23d2eaa80ca3430d544cd54f555ca615ae45d6c3b4df4eb4431"
+        },
+        {
+          "name": "SourceSans3_16.cpfont",
+          "size": 696916,
+          "sha256": "55a4524061b98dc078052631012d3d73e15fe2826fb21de31d0906ab006ea35f"
+        },
+        {
+          "name": "SourceSans3_18.cpfont",
+          "size": 820416,
+          "sha256": "379af8fd587ff74363391d3a24f85a91c659d41248f417ee19cfb115fa08b435"
+        }
+      ]
+    },
+    {
+      "name": "SourceSerif4",
+      "description": "Adobe transitional serif (Latin, Greek, Cyrillic)",
+      "styles": [
+        "regular",
+        "bold",
+        "italic",
+        "bolditalic"
+      ],
+      "files": [
+        {
+          "name": "SourceSerif4_12.cpfont",
+          "size": 412452,
+          "sha256": "a7f135819c85a10c606cc5b0049e36ca8c9e51ea945394ee5b85ce9d44e2c503"
+        },
+        {
+          "name": "SourceSerif4_14.cpfont",
+          "size": 482157,
+          "sha256": "0cc90233641a1930205a085f39076218abf3bb57e7a030919a4372147b9473da"
+        },
+        {
+          "name": "SourceSerif4_16.cpfont",
+          "size": 561503,
+          "sha256": "6a34d4c2ab7567d99c4a9c678739d0e0f778c82e9f64dc56f59666619560c68c"
+        },
+        {
+          "name": "SourceSerif4_18.cpfont",
+          "size": 652310,
+          "sha256": "777831634c0ff3aebdc135599feff9e9c9410c169e519f069d52ec18e138f674"
+        }
+      ]
+    },
+    {
+      "name": "ZenMaruGothic",
+      "description": "Rounded Japanese Gothic (optional; curated CJK coverage)",
+      "styles": [
+        "regular",
+        "bold"
+      ],
+      "files": [
+        {
+          "name": "ZenMaruGothic_10.cpfont",
+          "size": 1938480,
+          "sha256": "2c13d9362dc3defd488acd6d6e6e271b4fa6bd9c449500812ca38431f47418ca"
+        },
+        {
+          "name": "ZenMaruGothic_12.cpfont",
+          "size": 2551612,
+          "sha256": "bb23e2935af2c78780787608023f41b6418231cdc08eaf3b0fa36da6b261e153"
+        },
+        {
+          "name": "ZenMaruGothic_14.cpfont",
+          "size": 3252734,
+          "sha256": "ee99988bb8b4bb0aae0cbcc0c1473990ee25fa5af1dd3ed3c21f103d8d869440"
+        },
+        {
+          "name": "ZenMaruGothic_16.cpfont",
+          "size": 4071406,
+          "sha256": "564274fa068750a32f95bd73e08f290c6406026bb1e68cd0607a3b0934a6587f"
+        },
+        {
+          "name": "ZenMaruGothic_18.cpfont",
+          "size": 5004427,
+          "sha256": "4a7dfb4063e53f811eafc2ed0b64af274bb5842a9c043a4f7bcaf56b175c425b"
+        },
+        {
+          "name": "ZenMaruGothic_8.cpfont",
+          "size": 1414796,
+          "sha256": "1e8fa032dafe7f59b254a8083139da0545664dd0df2748ecc00f83159a277c6d"
+        }
+      ]
+    }
+  ]
+}
