@@ -9,11 +9,16 @@
 #include "fontIds.h"
 
 FontSelectionActivity::FontSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
-                                             const SdCardFontRegistry* registry, bool isVertical)
+                                             SdCardFontRegistry* registry, bool isVertical)
     : Activity("FontSelect", renderer, mappedInput), registry_(registry), isVertical_(isVertical) {}
 
 void FontSelectionActivity::onEnter() {
   Activity::onEnter();
+
+  // A ZIP copied to the SD card while the reader was powered on is not visible
+  // in the boot-time registry until it is re-scanned.  This is metadata-only
+  // discovery; font files are still opened lazily when selected.
+  if (registry_) registry_->discover();
 
   // Build combined font list: built-in + SD card fonts
   fonts_.clear();

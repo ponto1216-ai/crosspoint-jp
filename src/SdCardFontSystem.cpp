@@ -107,6 +107,14 @@ void SdCardFontSystem::ensureLoaded(GfxRenderer& renderer, bool isVertical) {
   }
 }
 
+void SdCardFontSystem::releaseLoadedFamily(GfxRenderer& renderer) {
+  if (manager_.currentFamilyName().empty()) return;
+
+  LOG_DBG("SDFS", "Unloading SD font family before network transfer: %s", manager_.currentFamilyName().c_str());
+  manager_.unloadAll(renderer);
+  FontManager::getInstance().setSdCardFontActive(false);
+}
+
 int SdCardFontSystem::resolveFontId(const char* familyName, uint8_t fontSizeEnum) const {
   if (fontSizeEnum >= sizeof(FONT_SIZE_TO_PT)) return 0;
   uint8_t ptSize = FONT_SIZE_TO_PT[fontSizeEnum];

@@ -78,16 +78,26 @@ class FileWriteStream final : public Stream {
 constexpr size_t HTTP_STREAM_BUFFER_SIZE = 512;
 constexpr unsigned long HTTP_STREAM_IDLE_TIMEOUT_MS = 30000;
 
-bool copyResponseBytes(NetworkClient& client, FileWriteStream& output, size_t remaining) {
+bool copyResponseBytes(NetworkClient& client, FileWriteStream& output, size_t remaining,
+                       unsigned long streamIdleTimeoutMs) {
   uint8_t buffer[HTTP_STREAM_BUFFER_SIZE];
   unsigned long lastDataAt = millis();
   while (remaining > 0) {
     if (output.shouldAbort()) return false;
-    if (!client.connected()) return false;
 
     const size_t available = client.available();
     if (available == 0) {
-      if (millis() - lastDataAt >= HTTP_STREAM_IDLE_TIMEOUT_MS) return false;
+      // A TLS socket may report disconnected while it still has unread bytes
+      // buffered locally. Check available() first; only fail once both the
+      // buffer is empty and the connection has closed.
+      if (!client.connected()) {
+        LOG_ERR("HTTP", "Response stream closed (remaining=%zu)", remaining);
+        return false;
+      }
+      if (millis() - lastDataAt >= streamIdleTimeoutMs) {
+        LOG_ERR("HTTP", "Response stream timed out after %lums (remaining=%zu)", streamIdleTimeoutMs, remaining);
+        return false;
+      }
       delay(1);
       continue;
     }
@@ -95,7 +105,14 @@ bool copyResponseBytes(NetworkClient& client, FileWriteStream& output, size_t re
     size_t requested = available < sizeof(buffer) ? available : sizeof(buffer);
     if (requested > remaining) requested = remaining;
     const size_t read = client.readBytes(buffer, requested);
-    if (read == 0 || output.write(buffer, read) != read) return false;
+    if (read == 0) {
+      LOG_ERR("HTTP", "Response stream read failed (requested=%zu remaining=%zu)", requested, remaining);
+      return false;
+    }
+    if (output.write(buffer, read) != read) {
+      LOG_ERR("HTTP", "Response stream write failed (read=%zu remaining=%zu)", read, remaining);
+      return false;
+    }
     remaining -= read;
     lastDataAt = millis();
   }
@@ -120,13 +137,13 @@ bool readChunkSize(NetworkClient& client, size_t& chunkSize) {
   return true;
 }
 
-bool streamHttpResponse(HTTPClient& http, FileWriteStream& output) {
+bool streamHttpResponse(HTTPClient& http, FileWriteStream& output, unsigned long streamIdleTimeoutMs) {
   NetworkClient* client = http.getStreamPtr();
   if (!client) return false;
 
   const int64_t contentLength = http.getSize();
   if (contentLength >= 0) {
-    return copyResponseBytes(*client, output, static_cast<size_t>(contentLength));
+    return copyResponseBytes(*client, output, static_cast<size_t>(contentLength), streamIdleTimeoutMs);
   }
 
   // HTTPClient normally allocates a 4 KB buffer to decode chunks. Keep the
@@ -135,7 +152,7 @@ bool streamHttpResponse(HTTPClient& http, FileWriteStream& output) {
     size_t chunkSize = 0;
     if (!readChunkSize(*client, chunkSize)) return false;
     if (chunkSize == 0) return true;
-    if (!copyResponseBytes(*client, output, chunkSize)) return false;
+    if (!copyResponseBytes(*client, output, chunkSize, streamIdleTimeoutMs)) return false;
 
     uint8_t trailing[2] = {};
     if (client->readBytes(trailing, sizeof(trailing)) != sizeof(trailing) || trailing[0] != '\r' ||
@@ -268,7 +285,9 @@ bool HttpDownloader::fetchUrl(const std::string& url, std::string& outContent, c
 HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& url, const std::string& destPath,
                                                              ProgressCallback progress, int timeoutMs,
                                                              const std::string& username, const std::string& password,
-                                                             size_t resumeFrom, CancelCallback shouldCancel) {
+                                                             size_t resumeFrom, CancelCallback shouldCancel,
+                                                             bool preservePartialOnError,
+                                                             unsigned long streamIdleTimeoutMs) {
   // Use NetworkClientSecure for HTTPS, regular NetworkClient for HTTP
   std::unique_ptr<NetworkClient> client;
   if (UrlUtils::isHttpsUrl(url)) {
@@ -345,7 +364,8 @@ HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& 
   // Stream in small pieces to avoid HTTPClient's temporary 4 KB receive buffer.
   const size_t totalLength = contentLength > 0 ? resumeFrom + contentLength : 0;
   FileWriteStream fileStream(file, totalLength, resumeFrom, std::move(progress), std::move(shouldCancel));
-  const bool streamOk = streamHttpResponse(http, fileStream);
+  const unsigned long idleTimeout = streamIdleTimeoutMs > 0 ? streamIdleTimeoutMs : HTTP_STREAM_IDLE_TIMEOUT_MS;
+  const bool streamOk = streamHttpResponse(http, fileStream, idleTimeout);
 
   file.close();
   http.end();
@@ -358,7 +378,12 @@ HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& 
   if (!streamOk) {
     LOG_ERR("HTTP", "Response stream failed (len=%zu, written=%zu)", contentLength, fileStream.downloaded());
     lastHttpCode = -902;  // Custom code: response stream read/write failure.
-    Storage.remove(destPath.c_str());
+    if (!preservePartialOnError || !fileStream.ok()) {
+      Storage.remove(destPath.c_str());
+    } else {
+      LOG_INF("HTTP", "Keeping partial download for resume: %s (%zu bytes)", destPath.c_str(),
+              fileStream.downloaded());
+    }
     return HTTP_ERROR;
   }
 

@@ -15,8 +15,10 @@ void reclaimHeapForTls(GfxRenderer& renderer, const char* tag) {
   if (ExternalFont* readerFont = fontManager.getActiveFont()) readerFont->unload();
 
   if (FontCacheManager* cacheManager = renderer.getFontCacheManager()) {
-    cacheManager->clearCache();
-    cacheManager->freeKernLigatureData();
+    // SD reader fonts can retain glyph, kern and advance-table allocations
+    // after the reader has closed. Rebuild these lazily after the transfer so
+    // HTTPS has the largest possible contiguous heap block on X3.
+    cacheManager->releaseSdFontCaches();
   }
 
   LOG_DBG(tag, "Reclaimed for TLS: heap=%u->%u maxAlloc=%u->%u", heapBefore, ESP.getFreeHeap(), blockBefore,

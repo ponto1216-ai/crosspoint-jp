@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 #include "FontInstaller.h"
 #include "activities/Activity.h"
@@ -33,18 +34,22 @@ class FontDownloadActivity : public Activity {
     ERROR,
   };
 
+  // Keep manifest records in fixed-size storage.  The ESP32-C3 has enough
+  // total heap for this manifest, but hundreds of short std::string
+  // allocations fragment the largest free block and can starve the next TLS
+  // handshake used for a font download.
   struct ManifestFile {
-    std::string name;
-    size_t size = 0;
-    std::string sha256;
+    char name[40] = {0};
+    uint32_t size = 0;
+    char sha256[65] = {0};
   };
 
   struct ManifestFamily {
-    std::string name;
-    std::string description;
-    std::vector<std::string> styles;
-    std::vector<ManifestFile> files;
-    size_t totalSize = 0;
+    char name[32] = {0};
+    char description[80] = {0};
+    uint16_t fileStart = 0;
+    uint8_t fileCount = 0;
+    uint32_t totalSize = 0;
     bool installed = false;
     bool hasUpdate = false;
   };
@@ -54,8 +59,9 @@ class FontDownloadActivity : public Activity {
   ButtonNavigator buttonNavigator_;
 
   // Manifest data
-  std::string baseUrl_;
+  char baseUrl_[96] = {0};
   std::vector<ManifestFamily> families_;
+  std::vector<ManifestFile> allFiles_;
   int selectedIndex_ = 0;
 
   // Download progress
@@ -64,6 +70,7 @@ class FontDownloadActivity : public Activity {
   size_t fileProgress_ = 0;
   size_t fileTotal_ = 0;
   int downloadingFamilyIndex_ = 0;
+  bool screenshotHeldDuringDownload_ = false;
   std::string errorMessage_;
 
   void onWifiSelectionComplete(bool success);
