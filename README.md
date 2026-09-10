@@ -1,6 +1,6 @@
 # CrossPoint Yomuka
 
-> 日常の操作、キャッシュ、診断レポートは[基本操作と困ったときの確認](docs/basic-operations-ja.md)を、フォント導入は[日本語フォントの導入](docs/cjk-fonts.md)を参照してください。
+> 使い方は[ユーザーマニュアル](docs/manual-ja.md)、導入は[はじめて使う](docs/getting-started-ja.md)を参照してください。
 
 CrossPoint Yomuka は、Xteink X3 / X4 向けの日本語読書に重点を置くオープンソースファームウェアです。本家 CrossPoint Reader と CrossPoint JP を基にした、非公式のコミュニティフォークです。
 
@@ -29,83 +29,24 @@ CrossPoint Yomuka は、Xteink X3 / X4 向けの日本語読書に重点を置�
 
 EPUBのCSS・固定レイアウト・段組み・特殊な位置指定を完全に再現するものではありません。画像の多い書籍、複雑なCSS、特殊な画像形式では表示が簡略化されたり、初回解析に時間がかかったりする場合があります。
 
-## v0.7.3 の主な内容
+## はじめる
 
-### EPUBの画像と文字装飾
+- [はじめて使う](docs/getting-started-ja.md)
+- [ファームウェアの導入と更新](docs/firmware-update-ja.md)
+- [日本語フォントの導入](docs/cjk-fonts.md)
 
-- CSSの`max-width`と`max-height`、SVGで包まれた画像、SVG形式の表紙画像に対応しました。
-- 縦書きの本文中画像は前後の本文とつながり、画像だけのページでは中央に表示します。
-- 圏点、下線、取り消し線を縦書き・横書きで表示します。圏点の字形がないSDカードフォントでは代替表示を使います。
-- PNGとJPEGの本文画像は共通のPXCキャッシュへ保存します。
+## 使い方
 
-### 安定性とSDカードフォント
+[ユーザーマニュアル](docs/manual-ja.md)から、読書、表示設定、本の管理、Wi-Fi、診断の各ページへ進めます。
 
-- 多数の本・フォルダを含む場所で、大きな一覧キャッシュが積み重なりクラッシュすることを防ぎます。大きな一覧から戻る際は再読込する場合があります。
-- Noto Sans JP、Noto Serif JP、BIZ UD Gothic、BIZ UD MinchoのSDカードフォントを、圏点・ゴマルビに必要な字形を含む版へ更新します。
+## リリースと不具合報告
 
-## 参考・検証基準
+変更内容と更新時の注意は[Releases](https://github.com/ponto1216-ai/crosspoint-jp/releases)に掲載しています。不具合は[報告ガイド](docs/reporting-bugs-ja.md)を参照し、[GitHub Issues](https://github.com/ponto1216-ai/crosspoint-jp/issues)へお知らせください。
 
-Yomukaの縦書き表示は、見た目だけで文字を回転させず、次の資料を基準に検証しています。
+## 開発と今後の予定
 
-- [Unicode UAX #50: Unicode Vertical Text Layout](https://www.unicode.org/reports/tr50/): 文字ごとの既定の縦書き方向（`U`、`R`、`Tu`、`Tr`）
-- [W3C 日本語組版処理の要件（JLREQ）](https://www.w3.org/TR/jlreq/): 日本語の縦書き、約物、組版上の慣行
-- [osakanataro/crosspoint-reader-mod](https://github.com/osakanataro/crosspoint-reader-mod): Xteink X3での縦書きEPUB表示に関する実機検証の参考
-
-これらは判定・検証の参考先です。YomukaではX3/X4共通構成、EPUB CSS、選択中のフォントと実機表示を踏まえて個別に実装・確認しています。
-
-## v0.6.0 からの基盤機能
-
-### X3 / X4 共通ファームと表示の安定化
-
-- FreeInk SDKを使うX3/X4共通ファームへ移行
-- X3のUC8279を含む表示コントローラ判別に対応
-- 縦書き、ルビ、太字、SDフォント、画像、ページ送り、スリープ・復帰をX3/X4で確認する運用へ更新
-
-### EPUB読書とキャッシュ
-
-- 縦書き・横書き別のフォント、文字サイズ、行間、字間、余白、ルビ設定
-- `CrossPoint優先`、`書籍優先`、`バランス`の書籍スタイル
-- 読書キャッシュの進捗表示、中断・再開、書籍単位の削除と再生成
-- CSSや長い本文、画像キャッシュに関するメモリ保護と検証の改善
-
-### SDカード日本語フォント
-
-- 日本語フォントをファームウェアへ埋め込まず、SDカードへ導入できる方式
-- [SD Card Fonts Release](https://github.com/ponto1216-ai/crosspoint-jp/releases/tag/sd-fonts)から、フォントごとの`Yomuka-Font-<family>.zip`をSDカード直下へ展開
-- 端末からのフォントダウンロード、途中中断、HTTP Rangeを使った再開、完了前の既存フォント保護
-
-### 診断と安全な調査
-
-- 設定の`本体` → `診断`で、ファームウェア版、端末、SD状態、heap、読書キャッシュ数、直近ログを確認
-- 診断レポートをSDカードへ保存し、書籍本文や画像を共有せずに不具合報告へ添付可能
-
-今後の優先順位は[ロードマップ](docs/roadmap.md)を参照してください。
-
-## インストールと更新
-
-1. [Releases](https://github.com/ponto1216-ai/crosspoint-jp/releases)から、使用する版の説明と配布物を確認します。
-2. 更新前に、必要な書籍、フォント、設定、診断レポートをバックアップします。
-3. リリースノートに記載された方法で更新します。SDカード更新を使う場合は、端末の`設定` → `本体` → `SDカードファームウェア更新`を開きます。
-4. 更新中は電源を切ったり、SDカードを抜いたりしません。
-5. 更新後は、少なくとも書籍を1冊開き、フォント、ページ送り、スリープ・復帰を確認します。
-
-> [!CAUTION]
-> 配布物、対応する更新手順、既知の制限はリリースごとに異なります。古い手順や別プロジェクト用のファイルを混ぜず、必ず導入する版のリリースノートを確認してください。
-
-## フォント
-
-日本語読書用フォントは、PCでSDカードへ展開する方法を推奨します。ZIPをSDカード直下へ展開すると、`/.fonts/<family>/`へ必要な`.cpfont`ファイルが配置されます。詳しい手順、Wi-Fiダウンロードとの違い、再開、フォントごとの文字範囲の注意は[日本語フォントの導入](docs/cjk-fonts.md)を参照してください。
-
-## 不具合報告
-
-不具合は[GitHub Issues](https://github.com/ponto1216-ai/crosspoint-jp/issues)で報告してください。次の情報があると調査を進めやすくなります。
-
-- Yomukaのバージョン、端末（X3 / X4）、発生日時
-- 問題が分かる写真と再現手順
-- 書籍の形式と、問題のページが画像ページかどうか
-- `設定` → `本体` → `診断`から保存したレポート
-
-購入書籍など、著作権のあるEPUB本文・画像そのものはIssueへ添付しないでください。書籍名、画像形式・寸法・容量、問題ページの構造、診断レポートだけで調査できる場合があります。
+- [開発者ガイド](docs/contributing/README.md)
+- [ロードマップ](docs/roadmap.md)
 
 ## ライセンスと謝辞
 

@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide helps you build and run CrossPoint locally.
+This guide helps you build and run Yomuka locally.
 
 ## Prerequisites
 
@@ -8,7 +8,7 @@ This guide helps you build and run CrossPoint locally.
 - Python 3.8+
 - `clang-format` 21+ in your `PATH` (CI uses clang-format 21)
 - USB-C cable
-- Xteink X4 device for hardware testing
+- Xteink X3 / X4 devices for hardware testing
 
 If `./bin/clang-format-fix` fails with either of these errors, install clang-format 21:
 
@@ -43,8 +43,8 @@ The reported major version must be 21 or newer.
 ## Clone and initialize
 
 ```sh
-git clone --recursive https://github.com/crosspoint-reader/crosspoint-reader
-cd crosspoint-reader
+git clone --recursive https://github.com/ponto1216-ai/crosspoint-jp.git
+cd crosspoint-jp
 ```
 
 If you already cloned without submodules:
@@ -85,3 +85,5 @@ pio run
 - [Architecture Overview](./architecture.md)
 - [Development Workflow](./development-workflow.md)
 - [Testing and Debugging](./testing-debugging.md)
+
+On Windows, use the PlatformIO terminal to run `pio`. The `default` environment builds the common X3/X4 firmware. Initialize the `freeink-sdk` submodule before building. See [device verification](../development/device-verification-ja.md) for hardware checks.

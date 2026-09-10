@@ -1,61 +1,67 @@
 # Translators
 
-Below is a list of users and languages CrossPoint may support in the future.
-Note because a language is below does not mean there is official support for the language at this time.
+この文書は[移行先](archive/upstream/translators.md)へ移しました。
 
 ## Contributing
 
-If you'd like to add your name to this list, please open a PR adding yourself and your Github link. Thank you!
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## French
-- [Spigaw](https://github.com/Spigaw)
-- [CaptainFrito](https://github.com/CaptainFrito)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## German
-- [DavidOrtmann](https://github.com/DavidOrtmann)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Czech
-- [brbla](https://github.com/brbla)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Portuguese (Brazil)
-- [yagofarias](https://github.com/yagofarias)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Portuguese (Portugal)
-- [victordomingos](https://github.com/victordomingos)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Italian
-- [andreaturchet](https://github.com/andreaturchet)
-- [fragolinux](https://github.com/fragolinux)
-- [alan0ford](https://github.com/alan0ford)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Russian
-- [madebyKir](https://github.com/madebyKir)
-- [mrtnvgr](https://github.com/mrtnvgr)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Spanish
-- [yeyeto2788](https://github.com/yeyeto2788)
-- [Skrzakk](https://github.com/Skrzakk)
-- [pablohc](https://github.com/pablohc)
-- [DaniPhii](https://github.com/DaniPhii)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Swedish
-- [dawiik](https://github.com/dawiik)
-- [steka](https://github.com/steka)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Romanian
-- [ariel-lindemann](https://github.com/ariel-lindemann)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Catalan
-- [angeldenom](https://github.com/angeldenom)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Finnish
-- [plahteenlahti](https://github.com/plahteenlahti)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Ukrainian
-- [mirus-ua](https://github.com/mirus-ua)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Belarusian
-- [Dexif](https://github.com/dexif)
+
+[移行先](archive/upstream/translators.md)を参照してください。
 
 ## Danish
-- [hajisan](https://github.com/hajisan)
+
+[移行先](archive/upstream/translators.md)を参照してください。

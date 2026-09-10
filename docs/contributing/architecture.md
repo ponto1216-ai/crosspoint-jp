@@ -1,6 +1,6 @@
 # Architecture Overview
 
-CrossPoint is firmware for the Xteink X4 (unaffiliated with Xteink), built with PlatformIO targeting the ESP32-C3 microcontroller.
+Yomuka is firmware for the Xteink X3 / X4 (unaffiliated with Xteink), built with PlatformIO targeting the ESP32-C3 microcontroller.
 
 At a high level, it is firmware that uses an activity-driven application architecture loop with persistent settings/state, SD-card-first caching, and a rendering pipeline optimized for e-ink constraints.
 
@@ -148,7 +148,7 @@ Typical persisted areas on SD:
   state.bin
 ```
 
-For binary cache formats, see `docs/file-formats.md`.
+For binary cache formats, see [EPUB cache formats](../development/file-formats.md).
 
 `book-identity-paths.json` records the latest source fingerprint for each normalized EPUB path. When an EPUB at the
 same path is updated, its path-keyed cache is rebuilt, while missing reader data is copied from the prior fingerprint
@@ -203,5 +203,5 @@ When editing related source assets, regenerate via normal build steps/scripts.
 
 Before implementing larger ideas, check:
 
-- [SCOPE.md](../../SCOPE.md)
-- [GOVERNANCE.md](../../GOVERNANCE.md)
+- [Yomuka roadmap](../roadmap.md)
+- [Development workflow](development-workflow.md)
