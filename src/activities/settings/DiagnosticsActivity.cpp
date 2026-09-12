@@ -253,7 +253,8 @@ bool DiagnosticsActivity::saveReport() {
 }
 
 void DiagnosticsActivity::loop() {
-  if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+  // Consume the release here so the reader does not treat it as a second Back.
+  if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     finish();
     return;
   }
