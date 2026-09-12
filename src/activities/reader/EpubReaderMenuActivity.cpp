@@ -123,14 +123,14 @@ void EpubReaderMenuActivity::loop() {
     return;
   }
 
-  // Keep side buttons reserved for reading.  Front Left/Right move through
-  // the menu, then change a value after Confirm enters edit mode.
-  buttonNavigator.onPress({MappedInputManager::Button::Right}, [this] {
+  // Front and side buttons both move through the menu. Values remain bound to
+  // Front Left/Right after Confirm enters edit mode.
+  buttonNavigator.onPress({MappedInputManager::Button::Right, MappedInputManager::Button::Down}, [this] {
     selectedIndex = ButtonNavigator::nextIndex(selectedIndex, static_cast<int>(menuItems.size()));
     requestUpdate();
   });
 
-  buttonNavigator.onPress({MappedInputManager::Button::Left}, [this] {
+  buttonNavigator.onPress({MappedInputManager::Button::Left, MappedInputManager::Button::Up}, [this] {
     selectedIndex = ButtonNavigator::previousIndex(selectedIndex, static_cast<int>(menuItems.size()));
     requestUpdate();
   });
@@ -198,10 +198,13 @@ void EpubReaderMenuActivity::render(RenderLock&&) {
   // vertical space to keep the header and list clear.
   const bool isPortraitInverted = orientation == GfxRenderer::Orientation::PortraitInverted;
   constexpr int landscapeHintGutterWidth = 100;
-  const int hintGutterWidth = (isLandscapeCw || isLandscapeCcw) ? landscapeHintGutterWidth : 0;
-  // Landscape CW places hints on the left edge; CCW keeps them on the right.
-  const int contentX = isLandscapeCw ? hintGutterWidth : 0;
-  const int contentWidth = pageWidth - hintGutterWidth;
+  constexpr int landscapeSideHintGutterWidth = 54;
+  const bool isLandscape = isLandscapeCw || isLandscapeCcw;
+  const int frontHintGutterWidth = isLandscape ? landscapeHintGutterWidth : 0;
+  const int sideHintGutterWidth = isLandscape ? landscapeSideHintGutterWidth : 0;
+  // Front hints and side hints occupy opposite edges in landscape.
+  const int contentX = isLandscapeCw ? frontHintGutterWidth : sideHintGutterWidth;
+  const int contentWidth = pageWidth - frontHintGutterWidth - sideHintGutterWidth;
   const int hintGutterHeight = isPortraitInverted ? 50 : 0;
   const int contentY = hintGutterHeight;
 
@@ -267,6 +270,9 @@ void EpubReaderMenuActivity::render(RenderLock&&) {
                                                                         : (currentValueIsEditable() ? tr(STR_EDIT) : tr(STR_SELECT)),
                                             tr(STR_PREVIOUS), tr(STR_NEXT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  if (!editingValue) {
+    GUI.drawSideButtonHints(renderer, tr(STR_PREVIOUS), tr(STR_NEXT));
+  }
 
   renderer.displayBuffer();
 }

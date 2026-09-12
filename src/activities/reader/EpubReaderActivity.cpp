@@ -583,9 +583,12 @@ void EpubReaderActivity::loop() {
   }
 
   const auto orientation = renderer.getOrientation();
-  const bool reverseSideButtons = verticalMode && (orientation == GfxRenderer::Orientation::LandscapeClockwise ||
-                                                   orientation == GfxRenderer::Orientation::LandscapeCounterClockwise);
-  auto [prevTriggered, nextTriggered, fromTilt] = ReaderUtils::detectPageTurn(mappedInput, reverseSideButtons);
+  // MappedInputManager rotates the side controls with the device. Keep that
+  // physical direction in landscape; only the CCW front controls need a
+  // reading-direction correction.
+  const bool reverseFrontButtons =
+      verticalMode && orientation == GfxRenderer::Orientation::LandscapeCounterClockwise;
+  auto [prevTriggered, nextTriggered, fromTilt] = ReaderUtils::detectPageTurn(mappedInput, reverseFrontButtons);
   (void)fromTilt;
   if (!prevTriggered && !nextTriggered) {
     return;

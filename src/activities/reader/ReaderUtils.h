@@ -36,7 +36,7 @@ struct PageTurnResult {
   bool fromTilt;
 };
 
-inline PageTurnResult detectPageTurn(const MappedInputManager& input, const bool reverseSideButtons = false) {
+inline PageTurnResult detectPageTurn(const MappedInputManager& input, const bool reverseFrontButtons = false) {
   const bool usePress = !SETTINGS.longPressChapterSkip;
   const bool tiltNext = SETTINGS.tiltPageTurn && halTiltSensor.wasTiltedForward();
   const bool tiltPrev = SETTINGS.tiltPageTurn && halTiltSensor.wasTiltedBack();
@@ -50,8 +50,8 @@ inline PageTurnResult detectPageTurn(const MappedInputManager& input, const bool
                                      : input.wasReleased(MappedInputManager::Button::Right);
   const bool powerTurn = SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::PAGE_TURN &&
                          input.wasReleased(MappedInputManager::Button::Power);
-  const bool prev = tiltPrev || frontBack || (reverseSideButtons ? sideForward : sideBack);
-  const bool next = tiltNext || powerTurn || frontForward || (reverseSideButtons ? sideBack : sideForward);
+  const bool prev = tiltPrev || (reverseFrontButtons ? frontForward : frontBack) || sideBack;
+  const bool next = tiltNext || powerTurn || (reverseFrontButtons ? frontBack : frontForward) || sideForward;
   return {prev, next, tiltPrev || tiltNext};
 }
 
