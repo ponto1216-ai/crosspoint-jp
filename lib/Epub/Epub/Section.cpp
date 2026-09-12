@@ -1,6 +1,7 @@
 #include "Section.h"
 
 #include <Arduino.h>
+#include <FontCacheManager.h>
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <Logging.h>
@@ -198,7 +199,7 @@ constexpr size_t CSS_SECTION_BUILD_RESERVE = 32 * 1024;  // 32KB
 // retains only the few matching rules instead of the complete stylesheet.
 constexpr size_t MIN_FREE_HEAP_WITH_EXTERNAL_CSS = 64 * 1024;  // 64KB
 // ZIP inflate streaming needs a 32KB sliding window plus a little room for file and temp allocations.
-constexpr size_t MIN_MAX_ALLOC_FOR_SECTION_STREAM = 30 * 1024;  // 30KB
+constexpr size_t MIN_MAX_ALLOC_FOR_SECTION_STREAM = 32 * 1024;  // 32KB
 constexpr size_t MIN_FREE_HEAP_FOR_SECTION_STREAM = 30 * 1024;  // 30KB
 constexpr size_t LUT_VALIDATION_BATCH_SIZE = 64;
 constexpr uint32_t HEADER_SIZE = sizeof(uint8_t) + sizeof(int) + sizeof(float) + sizeof(uint8_t) + sizeof(uint8_t) +
@@ -785,6 +786,19 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
     Storage.mkdir(sectionsDir.c_str());
   }
 
+  // The previous section may leave an SD-font advance table resident. Release
+  // that rebuildable table before the ZIP stream admission check; otherwise a
+  // long book can fail every remaining section with an almost-large-enough
+  // contiguous block (Issue #36 observed 32,756 bytes for a 32,768-byte allocation).
+  renderer.resetSdCardAdvanceBuildTiming();
+  if (ESP.getMaxAllocHeap() < MIN_MAX_ALLOC_FOR_SECTION_STREAM) {
+    if (auto* fontCache = renderer.getFontCacheManager()) {
+      fontCache->releaseSdFontCaches();
+      LOG_INF("SCT", "Released SD-font caches before section stream (free=%u, maxAlloc=%u)", ESP.getFreeHeap(),
+              ESP.getMaxAllocHeap());
+    }
+  }
+
   // ZIP inflation needs a 32KB contiguous buffer. Check this before we spend
   // memory on CSS/cache setup or temp-file retries.
   if (!hasEnoughHeapForSectionStream()) {
@@ -851,7 +865,6 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
           static_cast<unsigned long>(fileSize));
 
   const uint32_t parseBuildStart = millis();
-  renderer.resetSdCardAdvanceBuildTiming();
   if (renderer.isSdCardFont(fontId)) {
     std::string sectionFontText;
     if (collectSectionFontCodepoints(tmpHtmlPath, sectionFontText)) {

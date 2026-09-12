@@ -28,8 +28,9 @@ constexpr size_t PARSE_BUFFER_SIZE = 1024;
 constexpr size_t MIN_FREE_HEAP_FOR_PARSING = 20 * 1024;  // 20KB
 // Laying out a buffered block allocates line/column metadata and may preload
 // SD-font metrics. Do not enter that path once either total or contiguous heap
-// has fallen below the amounts seen immediately before the Issue #37 crash.
-constexpr size_t MIN_FREE_HEAP_FOR_BLOCK_FLUSH = 40 * 1024;  // 40KB
+// has fallen below the section-build reserve. Issue #36 reached this path on
+// X3 with about 57KB free and then exhausted the heap while emitting columns.
+constexpr size_t MIN_FREE_HEAP_FOR_BLOCK_FLUSH = 64 * 1024;  // 64KB
 constexpr size_t MIN_MAX_ALLOC_FOR_BLOCK_FLUSH = 30 * 1024;  // 30KB
 // ParsedText reserves 800 word slots. Check before each normal word so one
 // 1KB Expat callback cannot grow a vector past that reservation before its
