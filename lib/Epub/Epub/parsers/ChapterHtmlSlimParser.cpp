@@ -1,6 +1,7 @@
 #include "ChapterHtmlSlimParser.h"
 
 #include <Arduino.h>
+#include <FontCacheManager.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <HalStorage.h>
@@ -28,10 +29,12 @@ constexpr size_t PARSE_BUFFER_SIZE = 1024;
 constexpr size_t MIN_FREE_HEAP_FOR_PARSING = 20 * 1024;  // 20KB
 // Laying out a buffered block allocates line/column metadata and may preload
 // SD-font metrics. Do not enter that path once either total or contiguous heap
-// has fallen below the section-build reserve. Issue #36 reached this path on
-// X3 with about 57KB free and then exhausted the heap while emitting columns.
-constexpr size_t MIN_FREE_HEAP_FOR_BLOCK_FLUSH = 64 * 1024;  // 64KB
-constexpr size_t MIN_MAX_ALLOC_FOR_BLOCK_FLUSH = 30 * 1024;  // 30KB
+// has fallen below the medium section-build reserve. The bounded SD-font
+// prewarm string and cache-recovery path keep each split substantially smaller
+// than a complete large-section build.
+constexpr size_t MIN_FREE_HEAP_FOR_BLOCK_FLUSH = 48 * 1024;  // 48KB
+constexpr size_t MIN_MAX_ALLOC_FOR_BLOCK_FLUSH = 32 * 1024;  // 32KB
+constexpr size_t EARLY_BLOCK_FLUSH_FREE_HEAP = 80 * 1024;    // start splitting well before the reserve is reached
 // ParsedText reserves 800 word slots. Check before each normal word so one
 // 1KB Expat callback cannot grow a vector past that reservation before its
 // end-of-callback flush runs.
@@ -424,9 +427,25 @@ void ChapterHtmlSlimParser::flushTextBlockForMemory() {
 }
 
 bool ChapterHtmlSlimParser::canFlushTextBlockForMemory() {
-  const uint32_t freeHeap = ESP.getFreeHeap();
-  const uint32_t maxAlloc = ESP.getMaxAllocHeap();
+  uint32_t freeHeap = ESP.getFreeHeap();
+  uint32_t maxAlloc = ESP.getMaxAllocHeap();
   if (freeHeap >= MIN_FREE_HEAP_FOR_BLOCK_FLUSH && maxAlloc >= MIN_MAX_ALLOC_FOR_BLOCK_FLUSH) return true;
+
+  // A long section can fill the rebuildable SD-font advance tables before its
+  // buffered text is ready to split. Reclaim those tables and retry the
+  // admission check; layout below rebuilds only the metrics needed by the
+  // current block. Persistent font metadata and vertical glyphs remain loaded.
+  if (renderer.isSdCardFont(fontId)) {
+    if (auto* fontCache = renderer.getFontCacheManager()) {
+      fontCache->releaseSdFontCaches();
+      freeHeap = ESP.getFreeHeap();
+      maxAlloc = ESP.getMaxAllocHeap();
+      if (freeHeap >= MIN_FREE_HEAP_FOR_BLOCK_FLUSH && maxAlloc >= MIN_MAX_ALLOC_FOR_BLOCK_FLUSH) {
+        LOG_INF("EHP", "Recovered heap for text block flush (free=%u, maxAlloc=%u)", freeHeap, maxAlloc);
+        return true;
+      }
+    }
+  }
 
   LOG_ERR("EHP", "Insufficient heap for text block flush (free=%u, maxAlloc=%u), stopping chapter gracefully",
           freeHeap, maxAlloc);
@@ -1513,7 +1532,7 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
   // cannot return nullptr without std::nothrow, and C++ exceptions are disabled on ESP32).
   const size_t wordCount = self->currentTextBlock->size();
   const bool normalFlush = wordCount > 750;
-  const bool earlyFlush = wordCount > 100 && ESP.getFreeHeap() < MIN_FREE_HEAP_FOR_PARSING * 2;
+  const bool earlyFlush = wordCount > 100 && ESP.getFreeHeap() < EARLY_BLOCK_FLUSH_FREE_HEAP;
   // A group ruby annotation is applied only when its closing </ruby> arrives.
   // Flushing its base words beforehand loses that span and can split or drop
   // the annotation, so defer the memory flush until the group is complete.
