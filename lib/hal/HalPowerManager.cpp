@@ -1,5 +1,6 @@
 #include "HalPowerManager.h"
 
+#include <BoardConfig.h>
 #include <Logging.h>
 #include <PowerManager.h>
 #include <WiFi.h>
@@ -12,15 +13,20 @@
 HalPowerManager powerManager;  // Singleton instance
 
 void HalPowerManager::begin() {
+#if FREEINK_MCU_C3
   if (gpio.deviceIsX3()) {
-    // X3 uses an I2C fuel gauge for battery monitoring.
-    // I2C init must come AFTER gpio.begin() so early hardware detection/probes are finished.
+    // I2C initialization must follow the C3 X3/X4 fingerprint probe.
     Wire.begin(X3_I2C_SDA, X3_I2C_SCL, X3_I2C_FREQ);
     Wire.setTimeOut(4);
     _batteryUseI2C = true;
   } else {
     pinMode(BAT_GPIO0, INPUT);
   }
+#else
+  if (BoardConfig::ACTIVE.batteryAdc >= 0) {
+    pinMode(BoardConfig::ACTIVE.batteryAdc, INPUT);
+  }
+#endif
   normalFreq = getCpuFrequencyMhz();
   modeMutex = xSemaphoreCreateMutex();
   assert(modeMutex != nullptr);
@@ -74,39 +80,29 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio, bool useFullPowerOff) const 
     freeink::PowerManager::powerDownRailsForSleep();
   }
 
-  // Pre-sleep routines from the original firmware (crosspoint-reader/crosspoint-reader#1298)
-  // X4ではGPIO13がバッテリーラッチMOSFET、X3ではSD/RTC電源レール。
-  // useFullPowerOff=false（X3 + RTC有効時）ではGPIO13を触らない。
-  constexpr gpio_num_t GPIO_SPIWP = GPIO_NUM_13;
-  if (useFullPowerOff) {
-    gpio_set_direction(GPIO_SPIWP, GPIO_MODE_OUTPUT);
-    gpio_set_level(GPIO_SPIWP, 0);
-    gpio_hold_en(GPIO_SPIWP);
-  }
-  esp_sleep_config_gpio_isolate();
-  gpio_deep_sleep_hold_en();
-  pinMode(InputManager::POWER_BUTTON_PIN, INPUT_PULLUP);
-  esp_deep_sleep_enable_gpio_wakeup(1ULL << InputManager::POWER_BUTTON_PIN, ESP_GPIO_WAKEUP_GPIO_LOW);
-  // Enter Deep Sleep
-  esp_deep_sleep_start();
+  // The SDK uses the active BoardConfig profile for both the power button and
+  // its wakeup API.  In particular, GPIO13 is a C3 X4 battery latch but an
+  // X4C display signal, so it must never be hard-coded in an S3 build.
+  freeink::PowerManager::deepSleepUntilPowerButton();
 }
 
 uint16_t HalPowerManager::getBatteryPercentage() const {
+#if FREEINK_MCU_C3
+  // Keep the X3/X4 code byte-for-byte compatible in its value scale: the
+  // smoothing cache stores tenths, while this method returns a whole percent.
   if (_batteryUseI2C) {
     const unsigned long now = millis();
     if (_batteryLastPollMs != 0 && (now - _batteryLastPollMs) < BATTERY_POLL_MS) {
       return _batteryCachedPercent;
     }
 
-    // Read SOC directly from I2C fuel gauge (16-bit LE register).
-    // On I2C error, keep last known value to avoid UI jitter/slowdowns.
     Wire.beginTransmission(I2C_ADDR_BQ27220);
     Wire.write(BQ27220_SOC_REG);
     if (Wire.endTransmission(false) != 0) {
       _batteryLastPollMs = now;
       return _batteryCachedPercent;
     }
-    Wire.requestFrom(I2C_ADDR_BQ27220, (uint8_t)2);
+    Wire.requestFrom(I2C_ADDR_BQ27220, static_cast<uint8_t>(2));
     if (Wire.available() < 2) {
       _batteryLastPollMs = now;
       return _batteryCachedPercent;
@@ -120,13 +116,35 @@ uint16_t HalPowerManager::getBatteryPercentage() const {
   }
   static const BatteryMonitor battery = BatteryMonitor(BAT_GPIO0);
 
-  // smooth the battery %.
   if (_batteryCachedPercent == 0) {
     _batteryCachedPercent = 10 * battery.readPercentage();
   } else {
     _batteryCachedPercent = (_batteryCachedPercent * 9 + battery.readPercentage() * 10) / 10;
   }
   return _batteryCachedPercent / 10;
+#else
+  static const BatteryMonitor battery;
+  const unsigned long now = millis();
+  if (_batteryLastPollMs != 0 && (now - _batteryLastPollMs) < BATTERY_POLL_MS) {
+    return _batteryCachedPercent;
+  }
+
+  uint16_t percent = 0;
+  if (!battery.readPercentageChecked(percent)) {
+    _batteryLastPollMs = now;
+    return _batteryCachedPercent;
+  }
+
+  // S3 cache is stored directly in whole percent; C3 keeps its historic
+  // tenths-based cache above for compatibility with the existing X4 UI.
+  if (_batteryCachedPercent == 0) {
+    _batteryCachedPercent = percent;
+  } else {
+    _batteryCachedPercent = (_batteryCachedPercent * 9 + percent) / 10;
+  }
+  _batteryLastPollMs = now;
+  return _batteryCachedPercent;
+#endif
 }
 
 HalPowerManager::Lock::Lock() {

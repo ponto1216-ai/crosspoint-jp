@@ -47,7 +47,9 @@ class HalGPIO {
   bool usbStateChanged = false;
 
  public:
-  enum class DeviceType : uint8_t { X4, X3 };
+  // C3 builds determine X3/X4 at runtime.  S3 builds select a single board
+  // profile at build time, beginning with the button-only X4 Classic.
+  enum class DeviceType : uint8_t { X4, X3, X4Classic };
 
  private:
   DeviceType _deviceType = DeviceType::X4;
@@ -58,6 +60,7 @@ class HalGPIO {
   // Inline device type helpers for cleaner downstream checks
   inline bool deviceIsX3() const { return _deviceType == DeviceType::X3; }
   inline bool deviceIsX4() const { return _deviceType == DeviceType::X4; }
+  inline bool deviceIsX4Classic() const { return _deviceType == DeviceType::X4Classic; }
 
   // Start button GPIO and setup SPI for screen and SD card
   void begin();
