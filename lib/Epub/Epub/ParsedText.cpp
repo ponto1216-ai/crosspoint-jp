@@ -18,6 +18,10 @@ namespace {
 // Soft hyphen byte pattern used throughout EPUBs (UTF-8 for U+00AD).
 constexpr char SOFT_HYPHEN_UTF8[] = "\xC2\xAD";
 constexpr size_t SOFT_HYPHEN_BYTES = 2;
+// Prewarming SD-font metrics is an optimization. Bound its temporary string so
+// an unusually large paragraph or ruby group cannot request one large heap
+// allocation while the reader is already memory constrained.
+constexpr size_t MAX_SD_FONT_PREWARM_TEXT_BYTES = 4 * 1024;
 
 // Returns the first rendered codepoint of a word (skipping leading soft hyphens).
 uint32_t firstCodepoint(const std::string& word) {
@@ -258,12 +262,19 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
   // (advanceX only, no bitmaps) for all unique codepoints in this paragraph so
   // that calculateWordWidths() can measure text without on-demand SD I/O.
   if (renderer.isSdCardFont(fontId)) {
+    size_t prewarmBytes = hyphenationEnabled ? 1 : 0;
+    for (size_t i = 0; i < words.size() && prewarmBytes < MAX_SD_FONT_PREWARM_TEXT_BYTES; i++) {
+      prewarmBytes = std::min(MAX_SD_FONT_PREWARM_TEXT_BYTES, prewarmBytes + (i > 0 ? 1 : 0) + words[i].size());
+    }
     std::string allText;
+    allText.reserve(prewarmBytes);
     for (size_t i = 0; i < words.size(); i++) {
-      if (i > 0) allText += ' ';
+      const size_t separatorBytes = i > 0 ? 1 : 0;
+      if (allText.size() + separatorBytes + words[i].size() > MAX_SD_FONT_PREWARM_TEXT_BYTES) break;
+      if (separatorBytes > 0) allText += ' ';
       allText += words[i];
     }
-    if (hyphenationEnabled) allText += '-';
+    if (hyphenationEnabled && allText.size() < MAX_SD_FONT_PREWARM_TEXT_BYTES) allText += '-';
     renderer.ensureSdCardFontReady(fontId, allText.c_str(), usedStyleMask(wordStyles));
   }
 
@@ -337,8 +348,16 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
 
   // Ensure SD card font metrics are loaded
   if (renderer.isSdCardFont(fontId)) {
-    std::string allText;
+    size_t prewarmBytes = 3;  // U+4E00 reference below
     for (const auto& w : words) {
+      if (prewarmBytes >= MAX_SD_FONT_PREWARM_TEXT_BYTES) break;
+      prewarmBytes = std::min(MAX_SD_FONT_PREWARM_TEXT_BYTES, prewarmBytes + w.size() + 1);
+    }
+    std::string allText;
+    allText.reserve(prewarmBytes);
+    for (const auto& w : words) {
+      // Leave room for the separator and the U+4E00 reference below.
+      if (allText.size() + w.size() + 1 + 3 > MAX_SD_FONT_PREWARM_TEXT_BYTES) break;
       allText += w;
       allText += ' ';
     }

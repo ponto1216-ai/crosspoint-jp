@@ -26,6 +26,11 @@ constexpr size_t PARSE_BUFFER_SIZE = 1024;
 // Minimum free heap to continue parsing. Below this, stop gracefully
 // to prevent abort() from failed allocations (no C++ exceptions on ESP32).
 constexpr size_t MIN_FREE_HEAP_FOR_PARSING = 20 * 1024;  // 20KB
+// Laying out a buffered block allocates line/column metadata and may preload
+// SD-font metrics. Do not enter that path once either total or contiguous heap
+// has fallen below the amounts seen immediately before the Issue #37 crash.
+constexpr size_t MIN_FREE_HEAP_FOR_BLOCK_FLUSH = 40 * 1024;  // 40KB
+constexpr size_t MIN_MAX_ALLOC_FOR_BLOCK_FLUSH = 30 * 1024;  // 30KB
 // ParsedText reserves 800 word slots. Check before each normal word so one
 // 1KB Expat callback cannot grow a vector past that reservation before its
 // end-of-callback flush runs.
@@ -362,6 +367,7 @@ void ChapterHtmlSlimParser::flushPartWordBuffer() {
   const bool hasBufferedWord = partWordBufferIndex > 0;
   // flush the buffer
   ensureTextBlockCapacityForWord();
+  if (lowMemoryAbortRequested) return;
   const size_t emphasisStart = currentTextBlock->size();
   partWordBuffer[partWordBufferIndex] = '\0';
   if (verticalMode) {
@@ -398,6 +404,7 @@ void ChapterHtmlSlimParser::flushPendingVerticalWhitespace() {
 
 void ChapterHtmlSlimParser::flushTextBlockForMemory() {
   if (!currentTextBlock || currentTextBlock->isEmpty()) return;
+  if (!canFlushTextBlockForMemory()) return;
 
   LOG_DBG("EHP", "Text block approaching word capacity, splitting into multiple pages");
   if (verticalMode) {
@@ -413,6 +420,17 @@ void ChapterHtmlSlimParser::flushTextBlockForMemory() {
         renderer, fontId, effectiveWidth,
         [this](const std::shared_ptr<TextBlock>& textBlock) { addLineToPage(textBlock); }, false);
   }
+}
+
+bool ChapterHtmlSlimParser::canFlushTextBlockForMemory() {
+  const uint32_t freeHeap = ESP.getFreeHeap();
+  const uint32_t maxAlloc = ESP.getMaxAllocHeap();
+  if (freeHeap >= MIN_FREE_HEAP_FOR_BLOCK_FLUSH && maxAlloc >= MIN_MAX_ALLOC_FOR_BLOCK_FLUSH) return true;
+
+  LOG_ERR("EHP", "Insufficient heap for text block flush (free=%u, maxAlloc=%u), stopping chapter gracefully",
+          freeHeap, maxAlloc);
+  lowMemoryAbortRequested = true;
+  return false;
 }
 
 void ChapterHtmlSlimParser::ensureTextBlockCapacityForWord() {
@@ -455,6 +473,7 @@ void ChapterHtmlSlimParser::startNewTextBlock(const BlockStyle& blockStyle) {
 
 void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char* name, const XML_Char** atts) {
   auto* self = static_cast<ChapterHtmlSlimParser*>(userData);
+  if (self->lowMemoryAbortRequested) return;
 
   // Middle of skip
   if (self->skipUntilDepth < self->depth) {
@@ -929,6 +948,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       self->updateEffectiveInlineStyle();
     }
     self->ensureTextBlockCapacityForWord();
+    if (self->lowMemoryAbortRequested) return;
     self->inRuby = true;
     self->rubyStartWordIndex = self->currentTextBlock ? static_cast<int>(self->currentTextBlock->size()) : 0;
     self->rubyTextBuffer.clear();
@@ -1289,6 +1309,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
 
 void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char* s, const int len) {
   auto* self = static_cast<ChapterHtmlSlimParser*>(userData);
+  if (self->lowMemoryAbortRequested) return;
 
   // Skip content of nested table
   if (self->tableDepth > 1) {
@@ -1439,6 +1460,7 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
       self->flushPendingVerticalWhitespace();
 
       self->ensureTextBlockCapacityForWord();
+      if (self->lowMemoryAbortRequested) return;
 
       // Add this CJK character as its own "word"
       char cjkWord[5] = {0};  // Max 4 bytes for UTF-8 + null terminator
@@ -1498,6 +1520,9 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
 }
 
 void XMLCALL ChapterHtmlSlimParser::defaultHandlerExpand(void* userData, const XML_Char* s, const int len) {
+  auto* self = static_cast<ChapterHtmlSlimParser*>(userData);
+  if (self->lowMemoryAbortRequested) return;
+
   // Check if this looks like an entity reference (&...;)
   if (len >= 3 && s[0] == '&' && s[len - 1] == ';') {
     const char* utf8Value = lookupHtmlEntity(s, static_cast<size_t>(len));
@@ -1515,6 +1540,7 @@ void XMLCALL ChapterHtmlSlimParser::defaultHandlerExpand(void* userData, const X
 
 void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* name) {
   auto* self = static_cast<ChapterHtmlSlimParser*>(userData);
+  if (self->lowMemoryAbortRequested) return;
 
   // Check if any style state will change after we decrement depth
   // If so, we MUST flush the partWordBuffer with the CURRENT style first
@@ -1844,6 +1870,15 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
               XML_ErrorString(XML_GetErrorCode(parser)));
       XML_StopParser(parser, XML_FALSE);                // Stop any pending processing
       XML_SetElementHandler(parser, nullptr, nullptr);  // Clear callbacks
+      XML_SetCharacterDataHandler(parser, nullptr);
+      XML_ParserFree(parser);
+      file.close();
+      return false;
+    }
+
+    if (lowMemoryAbortRequested) {
+      XML_StopParser(parser, XML_FALSE);
+      XML_SetElementHandler(parser, nullptr, nullptr);
       XML_SetCharacterDataHandler(parser, nullptr);
       XML_ParserFree(parser);
       file.close();

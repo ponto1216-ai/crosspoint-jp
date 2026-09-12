@@ -140,12 +140,17 @@ class ChapterHtmlSlimParser {
   // Once the document root has closed, malformed trailing bytes are outside
   // the rendered XHTML and can be ignored safely.
   bool htmlEnded = false;
+  // XML callbacks cannot safely stop Expat while they are mutating parser
+  // state. Set this when a memory-heavy flush would be unsafe, then let the
+  // outer parse loop release Expat and the file normally.
+  bool lowMemoryAbortRequested = false;
 
   void updateEffectiveInlineStyle();
   void startNewTextBlock(const BlockStyle& blockStyle);
   void flushPartWordBuffer();
   void flushPendingVerticalWhitespace();
   void flushTextBlockForMemory();
+  bool canFlushTextBlockForMemory();
   void ensureTextBlockCapacityForWord();
   void noteEmptyBlockContent();
   void noteEmptyBlockBreak();
