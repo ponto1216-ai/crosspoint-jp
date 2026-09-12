@@ -40,6 +40,7 @@ constexpr size_t HIDDEN_ITEMS_COUNT = sizeof(HIDDEN_ITEMS) / sizeof(HIDDEN_ITEMS
 constexpr uint16_t UDP_PORTS[] = {54982, 48123, 39001, 44044, 59678};
 constexpr uint16_t LOCAL_UDP_PORT = 8134;
 constexpr char WEB_SLEEP_IMAGE_DIR[] = "/.sleep";
+constexpr char WEB_SLEEP_OVERLAY_DIR[] = "/.sleep-overlay";
 
 // Static pointer for WebSocket callback (WebSocketsServer requires C-style callback)
 CrossPointWebServer* wsInstance = nullptr;
@@ -292,6 +293,9 @@ void CrossPointWebServer::begin() {
   server->on("/api/sleep/images", HTTP_GET, [this] { handleSleepImageList(); });
   server->on("/api/sleep/thumbnail", HTTP_GET, [this] { handleSleepThumbnail(); });
   server->on("/api/sleep/delete", HTTP_POST, [this] { handleSleepDelete(); });
+  server->on("/api/sleep/overlays", HTTP_GET, [this] { handleSleepOverlayList(); });
+  server->on("/api/sleep/overlay-thumbnail", HTTP_GET, [this] { handleSleepOverlayThumbnail(); });
+  server->on("/api/sleep/overlay-delete", HTTP_POST, [this] { handleSleepOverlayDelete(); });
 
   // WiFi credential management endpoints (CJK)
   server->on("/api/wifi/scan", HTTP_GET, [this] { handleWifiScan(); });
@@ -736,7 +740,8 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
     state.success = false;
     state.error = "";
     state.errorCode = "";
-    state.structuredResponse = server->hasArg("context") && server->arg("context") == "sleep";
+    state.structuredResponse = server->hasArg("context") &&
+                               (server->arg("context") == "sleep" || server->arg("context") == "sleep-overlay");
     uploadStartTime = millis();
     lastLoggedSize = 0;
     state.bufferPos = 0;
@@ -765,12 +770,20 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
 
     // The Sleep page is usable on a fresh SD card. Its dedicated destination
     // may not exist yet, unlike a path reached through the file manager.
-    if (state.structuredResponse && state.path == WEB_SLEEP_IMAGE_DIR && !Storage.exists(state.path.c_str()) &&
+    if (state.structuredResponse && (state.path == WEB_SLEEP_IMAGE_DIR || state.path == WEB_SLEEP_OVERLAY_DIR) &&
+        !Storage.exists(state.path.c_str()) &&
         !Storage.mkdir(state.path.c_str())) {
       state.errorCode = "SLEEP_FOLDER_CREATE_FAILED";
       state.error = "Could not create the sleep image directory";
       LOG_ERR("WEB", "[SLEEP_UPLOAD] code=%s path=%s free=%u maxAlloc=%u", state.errorCode.c_str(),
               state.path.c_str(), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+      return;
+    }
+
+    if (state.path == WEB_SLEEP_OVERLAY_DIR && !FsHelpers::hasBmpExtension(std::string(state.fileName.c_str()))) {
+      state.errorCode = "OVERLAY_BMP_REQUIRED";
+      state.error = "Transparent overlays must be BMP files";
+      LOG_ERR("WEB", "[SLEEP_UPLOAD] code=%s file=%s", state.errorCode.c_str(), state.fileName.c_str());
       return;
     }
 
@@ -1936,6 +1949,83 @@ void CrossPointWebServer::handleSleepDelete() {
   } else {
     server->send(404, "application/json", "{\"error\":\"File not found\"}");
   }
+}
+
+void CrossPointWebServer::handleSleepOverlayList() const {
+  JsonDocument doc;
+  JsonArray arr = doc.to<JsonArray>();
+
+  FsFile dir = Storage.open(WEB_SLEEP_OVERLAY_DIR);
+  if (dir && dir.isDirectory()) {
+    char name[256];
+    for (FsFile file = dir.openNextFile(); file; file = dir.openNextFile()) {
+      if (!file.isDirectory()) {
+        file.getName(name, sizeof(name));
+        if (name[0] != '.' && endsWithIgnoreCase(name, ".bmp")) {
+          JsonObject obj = arr.add<JsonObject>();
+          obj["name"] = name;
+          obj["size"] = file.size();
+        }
+      }
+      file.close();
+      yield();
+      resetTaskWatchdogIfSubscribed();
+    }
+    dir.close();
+  }
+
+  String json;
+  serializeJson(doc, json);
+  server->send(200, "application/json", json);
+}
+
+void CrossPointWebServer::handleSleepOverlayThumbnail() const {
+  String filename = server->arg("file");
+  if (filename.isEmpty() || filename.indexOf("..") >= 0 || filename.indexOf('/') >= 0 || filename.indexOf('\\') >= 0) {
+    server->send(400, "text/plain", "Invalid filename");
+    return;
+  }
+
+  const String path = String(WEB_SLEEP_OVERLAY_DIR) + "/" + filename;
+  FsFile file;
+  if (!Storage.openFileForRead("WEB", path, file)) {
+    server->send(404, "text/plain", "File not found");
+    return;
+  }
+
+  server->setContentLength(file.size());
+  server->send(200, "image/bmp", "");
+  uint8_t buf[512];
+  while (file.available()) {
+    const size_t bytesRead = file.read(buf, sizeof(buf));
+    if (bytesRead == 0) break;
+    server->client().write(buf, bytesRead);
+    resetTaskWatchdogIfSubscribed();
+  }
+  file.close();
+}
+
+void CrossPointWebServer::handleSleepOverlayDelete() {
+  JsonDocument doc;
+  if (deserializeJson(doc, server->arg("plain")) || !doc["file"].is<const char*>()) {
+    server->send(400, "application/json", "{\"error\":\"Invalid request\"}");
+    return;
+  }
+
+  const char* filename = doc["file"];
+  if (strstr(filename, "..") || strchr(filename, '/') || strchr(filename, '\\')) {
+    server->send(400, "application/json", "{\"error\":\"Invalid filename\"}");
+    return;
+  }
+
+  char path[280];
+  snprintf(path, sizeof(path), "%s/%s", WEB_SLEEP_OVERLAY_DIR, filename);
+  if (!Storage.exists(path) || !Storage.remove(path)) {
+    server->send(404, "application/json", "{\"error\":\"File not found\"}");
+    return;
+  }
+  server->send(200, "application/json", "{\"ok\":true}");
+  LOG_DBG("WEB", "Deleted sleep overlay: %s", path);
 }
 
 // --- WiFi credential management API handlers (CJK) ---

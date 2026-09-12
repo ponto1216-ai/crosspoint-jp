@@ -123,6 +123,9 @@ class CrossPointWebServer {
   void handleSleepImageList() const;
   void handleSleepThumbnail() const;
   void handleSleepDelete();
+  void handleSleepOverlayList() const;
+  void handleSleepOverlayThumbnail() const;
+  void handleSleepOverlayDelete();
 
   // WiFi credential management (CJK)
   void handleWifiScan() const;

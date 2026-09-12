@@ -136,6 +136,8 @@
       .saved-image-meta { color: var(--label-color); font-size: 11px; margin: 4px 0 8px; }
       .btn-delete { width: 100%; padding: 7px; color: #fff; background: var(--danger-color); border: 0; border-radius: 4px; cursor: pointer; }
       .btn-delete:hover { background: var(--danger-hover); }
+      .section-note { color: var(--label-color); font-size: 13px; line-height: 1.5; }
+      .overlay-status { min-height: 18px; margin-top: 8px; color: var(--label-color); font-size: 12px; text-align: center; }
 
       @media (max-width: 600px) {
         .nav-links a { padding: 8px 12px; font-size: 0.9em; }
@@ -167,6 +169,19 @@
       <div class="card">
         <h2>Saved Sleep Images</h2>
         <div id="savedImages"><p class="empty">Loading...</p></div>
+      </div>
+
+      <div class="card">
+        <h2>Transparent BMP Overlays</h2>
+        <p class="section-note">Upload a BMP without conversion. A 32-bit BGRA BMP preserves pixel transparency. A normal BMP uses white as transparent. Set Sleep Screen to Transparent Custom on Yomuka to use these files.</p>
+        <div class="upload-area" id="overlayUploadArea">
+          <div class="icon">◌</div>
+          <div>Tap to select a transparent BMP</div>
+          <div class="hint">BMP only</div>
+        </div>
+        <input type="file" id="overlayFileInput" accept="image/bmp,image/x-ms-bmp,.bmp" style="display:none" />
+        <div class="overlay-status" id="overlayUploadStatus"></div>
+        <div id="savedOverlays"><p class="empty">Loading...</p></div>
       </div>
     </div>
 
@@ -280,6 +295,37 @@
       };
       reader.readAsDataURL(file);
       this.value = '';
+    });
+
+    document.getElementById('overlayUploadArea').addEventListener('click', () => document.getElementById('overlayFileInput').click());
+    document.getElementById('overlayFileInput').addEventListener('change', async function() {
+      const file = this.files[0];
+      if (!file) return;
+      const name = file.name.toLowerCase();
+      const isBmp = file.type === 'image/bmp' || file.type === 'image/x-ms-bmp' || name.endsWith('.bmp');
+      if (!isBmp || file.size === 0) {
+        showUploadError('OVERLAY_BMP_REQUIRED', 'Select a non-empty BMP file for a transparent overlay.', {
+          operation: 'sleep_overlay_upload', sourceType: file.type || 'unknown', sourceSize: file.size
+        });
+        this.value = '';
+        return;
+      }
+
+      const status = document.getElementById('overlayUploadStatus');
+      status.textContent = 'Uploading transparent BMP...';
+      try {
+        await uploadOverlayBmp(file);
+        status.textContent = 'Upload complete!';
+        this.value = '';
+        loadSleepOverlays();
+      } catch (error) {
+        status.textContent = 'Upload failed';
+        showUploadError(error.code || 'OVERLAY_UPLOAD_FAILED', error.message || 'The overlay could not be uploaded.', {
+          operation: 'sleep_overlay_upload', sourceType: file.type || 'image/bmp', sourceSize: file.size,
+          httpStatus: error.httpStatus || 0
+        });
+        this.value = '';
+      }
     });
 
     // --- Editor ---
@@ -594,6 +640,29 @@
       });
     }
 
+    async function uploadOverlayBmp(file) {
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      const xhr = new XMLHttpRequest();
+      return new Promise((resolve, reject) => {
+        xhr.open('POST', '/upload?path=/.sleep-overlay&context=sleep-overlay');
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) return resolve();
+          let response = {};
+          try { response = JSON.parse(xhr.responseText); } catch (e) {}
+          reject({
+            code: response.code || 'OVERLAY_UPLOAD_FAILED',
+            message: response.message || ('Upload failed with HTTP ' + xhr.status),
+            httpStatus: xhr.status
+          });
+        };
+        xhr.onerror = function() { reject({code: 'NETWORK_ERROR', message: 'The connection to Yomuka was lost.'}); };
+        xhr.ontimeout = function() { reject({code: 'UPLOAD_TIMEOUT', message: 'The upload did not finish within 120 seconds.'}); };
+        xhr.timeout = 120000;
+        xhr.send(formData);
+      });
+    }
+
     // --- Upload Button ---
     document.getElementById('btnUpload').addEventListener('click', async function() {
       this.disabled = true;
@@ -636,7 +705,7 @@
       lastErrorDetails = [
         'Yomuka WebUI error report',
         'version=' + firmwareVersion,
-        'operation=sleep_image_upload',
+        'operation=' + (data.operation || 'sleep_image_upload'),
         'code=' + code,
         'message=' + message,
         'source_type=' + (data.sourceType || data.type || 'unknown'),
@@ -713,8 +782,52 @@
       }
     }
 
+    async function loadSleepOverlays() {
+      const container = document.getElementById('savedOverlays');
+      try {
+        const response = await fetch('/api/sleep/overlays');
+        if (!response.ok) throw new Error('Overlay list request failed');
+        const images = await response.json();
+        if (!images.length) {
+          container.innerHTML = '<p class="empty">No transparent BMP overlays yet</p>';
+          return;
+        }
+        container.innerHTML = '<div class="image-grid">' + images.map(image => {
+          const name = escapeHtml(image.name);
+          const file = encodeURIComponent(image.name);
+          return '<div class="saved-image">' +
+            '<img src="/api/sleep/overlay-thumbnail?file=' + file + '" alt="' + name + '">' +
+            '<div class="saved-image-name">' + name + '</div>' +
+            '<div class="saved-image-meta">' + formatSize(image.size) + '</div>' +
+            '<button class="btn-delete" data-file="' + name + '">Delete</button>' +
+            '</div>';
+        }).join('') + '</div>';
+        container.querySelectorAll('.btn-delete').forEach(button => {
+          button.addEventListener('click', () => deleteSleepOverlay(button.dataset.file));
+        });
+      } catch (error) {
+        container.innerHTML = '<p class="empty">Failed to load transparent overlays</p>';
+      }
+    }
+
+    async function deleteSleepOverlay(filename) {
+      if (!confirm('Delete transparent overlay "' + filename + '"?')) return;
+      try {
+        const response = await fetch('/api/sleep/overlay-delete', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({file: filename})
+        });
+        if (!response.ok) throw new Error('Delete request failed');
+        loadSleepOverlays();
+      } catch (error) {
+        showUploadError('OVERLAY_DELETE_FAILED', 'The overlay could not be deleted.', {operation: 'sleep_overlay_delete'});
+      }
+    }
+
     init();
     loadSleepImages();
+    loadSleepOverlays();
   </script>
   </body>
 </html>
