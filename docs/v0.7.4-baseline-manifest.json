@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "baseline_tag": "yomuka-v0.7.3",
+  "commit": "180fb67afde078f2362af6bcf01b2f652d1db705",
+  "sdk_commit": "d8ddf30d00b071d5797e3141733f86d3db12429c",
+  "device_tests": "not_run",
+  "fixtures": [
+    {
+      "source_path": "test/epubs/yomuka_v064_layout_regression.epub",
+      "git_blob": "8c3e384f15e7f2f21f74ecb292e753675ce0bf41",
+      "sha256": "924ee8c0c8298a2111ed596598a1f79234ee9acf2366a8281f161530911c463c",
+      "bytes": 1702,
+      "zip_crc": "pass",
+      "xml_parse": "pass",
+      "spine": [
+        "chapter.xhtml"
+      ]
+    },
+    {
+      "source_path": "test/epubs/yomuka_ruby_layout_check.epub",
+      "git_blob": "f607f002605fec04a10c4dcd2e6865a93235f65c",
+      "sha256": "f9f428d5677801cf2d1eb63ee446dee6f2e822058b23bd528d513f2031da9095",
+      "bytes": 1886,
+      "zip_crc": "pass",
+      "xml_parse": "pass",
+      "spine": [
+        "chapter.xhtml"
+      ]
+    },
+    {
+      "source_path": "test/epubs/yomuka_vertical_orientation_uax50.epub",
+      "git_blob": "5caac704658f854d6bba3ef590267f5d1c5465e2",
+      "sha256": "89d4e797be124521495dc0a7fdd0a9f553811c5d6c0a2d3d5d272dbaefbbd3be",
+      "bytes": 1897,
+      "zip_crc": "pass",
+      "xml_parse": "pass",
+      "spine": [
+        "chapter.xhtml"
+      ]
+    },
+    {
+      "source_path": "test/epubs/yomuka_vertical_small_kana_check.epub",
+      "git_blob": "7a3c83ab2bb5acf53c72e958eded7c912d639eea",
+      "sha256": "bc72cd635aecb790234292f712ef7768b0f59820c3875d47f159a2c05f27c21c",
+      "bytes": 1994,
+      "zip_crc": "pass",
+      "xml_parse": "pass",
+      "spine": [
+        "chapter.xhtml"
+      ]
+    },
+    {
+      "source_path": "test/epubs/yomuka_font_weight_check.epub",
+      "git_blob": "2715627225887ea84935e0017abdafa66b0ce31b",
+      "sha256": "b63c91b71ea9202e45cd3150274657fb2ae4df0d64b8899f4167dd062427c84e",
+      "bytes": 2485,
+      "zip_crc": "pass",
+      "xml_parse": "pass",
+      "spine": [
+        "chapter.xhtml"
+      ]
+    },
+    {
+      "source_path": "test/epubs/yomuka_svg_wrapped_images_horizontal.epub",
+      "git_blob": "d84d94f2e70aa07f6185e2430528ec8617a5dee6",
+      "sha256": "2483aca42ab5eccae09d4b778c4318fa212012f9f373dc592f4b9614b3f8a06d",
+      "bytes": 4185,
+      "zip_crc": "pass",
+      "xml_parse": "pass",
+      "spine": [
+        "chapter0.xhtml",
+        "chapter1.xhtml"
+      ]
+    },
+    {
+      "source_path": "test/epubs/yomuka_svg_wrapped_images_vertical.epub",
+      "git_blob": "d8994b873053d79cb5ed09fb0305285a2ec8422f",
+      "sha256": "b8fd4afa201f41c6e1a5af73294d7dacf6824987610f3c7a310f8b7d0af0cdc0",
+      "bytes": 4181,
+      "zip_crc": "pass",
+      "xml_parse": "pass",
+      "spine": [
+        "chapter0.xhtml",
+        "chapter1.xhtml"
+      ]
+    },
+    {
+      "source_path": "test/epubs/test_png_images.epub",
+      "git_blob": "5a405f8820c3b7323c7fbf7328eef2b40b81d621",
+      "sha256": "68cdbe9c894171d89193732161a2b4f0d95418a7ce82f85c20d0775dcbac80c9",
+      "bytes": 97996,
+      "zip_crc": "pass",
+      "xml_parse": "pass",
+      "spine": [
+        "chapter1.xhtml",
+        "chapter2.xhtml",
+        "chapter3.xhtml",
+        "chapter4.xhtml",
+        "chapter5.xhtml",
+        "chapter6.xhtml",
+        "chapter7.xhtml",
+        "chapter8.xhtml",
+        "chapter9.xhtml",
+        "chapter10.xhtml"
+      ]
+    },
+    {
+      "source_path": "test/epubs/test_jpeg_images.epub",
+      "git_blob": "a99251f06497a11a11e9b80dd92da6d661b89b43",
+      "sha256": "39c05073f6ab789058772fcc33e383bd038e3a84f7f5ad4c66351c7951c60c06",
+      "bytes": 322942,
+      "zip_crc": "pass",
+      "xml_parse": "pass",
+      "spine": [
+        "chapter1.xhtml",
+        "chapter2.xhtml",
+        "chapter3.xhtml",
+        "chapter4.xhtml",
+        "chapter5.xhtml",
+        "chapter6.xhtml",
+        "chapter7.xhtml",
+        "chapter8.xhtml",
+        "chapter9.xhtml",
+        "chapter10.xhtml"
+      ]
+    },
+    {
+      "source_path": "test/epubs/yomuka_sd_font_symbols_check.epub",
+      "git_blob": "8cab19085d904586c595f38213ebbfe4ff83f92a",
+      "sha256": "5258698b9b6e059b204d1c3cc98a7ea6c5a5d283d3ee5ed2b9c5ce71da16d810",
+      "bytes": 2581,
+      "zip_crc": "pass",
+      "xml_parse": "pass",
+      "spine": [
+        "chapter.xhtml"
+      ]
+    }
+  ],
+  "release_assets": [
+    {
+      "name": "firmware.bin",
+      "url": "https://github.com/ponto1216-ai/crosspoint-jp/releases/download/yomuka-v0.7.3/firmware.bin",
+      "bytes": 4201200,
+      "sha256": "6f73c830a6c8e3fe791c0f662b0722e362e11ee78e7b167cbbc5da6fb6d6a741",
+      "published_checksum_match": true
+    },
+    {
+      "name": "bootloader.bin",
+      "url": "https://github.com/ponto1216-ai/crosspoint-jp/releases/download/yomuka-v0.7.3/bootloader.bin",
+      "bytes": 18672,
+      "sha256": "6e6b0d386095f0783e9f0513ea29ea2ce413790e7f7153a06a2b04e2b5f59fb6",
+      "published_checksum_match": true
+    },
+    {
+      "name": "partitions.bin",
+      "url": "https://github.com/ponto1216-ai/crosspoint-jp/releases/download/yomuka-v0.7.3/partitions.bin",
+      "bytes": 3072,
+      "sha256": "5277eb135a83eb6a83c45effff509c3907f7c1a752aa9f75346132d9ef78f4cb",
+      "published_checksum_match": true
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "url": "https://github.com/ponto1216-ai/crosspoint-jp/releases/download/yomuka-v0.7.3/SHA256SUMS.txt",
+      "sha256": "665e586892d59948add1c113232c27d6698b8c40b03e801001570bdd213f8cb5",
+      "bytes": 241
+    }
+  ]
+}
