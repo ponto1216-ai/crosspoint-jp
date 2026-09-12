@@ -20,20 +20,39 @@ namespace {
 
 constexpr const char* kDiagnosticsDirectory = "/.crosspoint/diagnostics";
 
-const char* x3DisplayControllerName() {
+const char* displayControllerName() {
   switch (BoardConfig::ACTIVE.displayController) {
+    case BoardConfig::DisplayController::SSD1677:
+      return "SSD1677";
     case BoardConfig::DisplayController::UC8253:
       return "UC8253";
     case BoardConfig::DisplayController::UC8279:
       return "UC8279";
+    case BoardConfig::DisplayController::UC8179:
+      return "UC8179";
     default:
       return "unknown";
   }
 }
 
+const char* deviceName() {
+  switch (BoardConfig::ACTIVE.board) {
+    case BoardConfig::Board::XteinkX3:
+    case BoardConfig::Board::XteinkX3Uc8279:
+      return "X3";
+    case BoardConfig::Board::XteinkX4:
+      return "X4";
+    case BoardConfig::Board::XteinkX4Classic:
+      return "X4 Classic";
+    case BoardConfig::Board::XteinkX4Pro:
+      return "X4 Pro";
+    default:
+      return BoardConfig::ACTIVE.name;
+  }
+}
+
 std::string deviceDescription() {
-  if (!gpio.deviceIsX3()) return "X4";
-  return std::string("X3 (") + x3DisplayControllerName() + ")";
+  return std::string(deviceName()) + " (" + displayControllerName() + ")";
 }
 
 std::vector<std::string> splitLogLines(const std::string& logs) {
@@ -214,8 +233,8 @@ bool DiagnosticsActivity::saveReport() {
 
   file.printf("Yomuka diagnostics\n");
   file.printf("version=%s\n", CROSSPOINT_VERSION);
-  file.printf("device=%s\n", gpio.deviceIsX3() ? "X3" : "X4");
-  if (gpio.deviceIsX3()) file.printf("display_controller=%s\n", x3DisplayControllerName());
+  file.printf("device=%s\n", deviceName());
+  file.printf("display_controller=%s\n", displayControllerName());
   file.printf("sd_ready=%s\n", sdReady ? "true" : "false");
   file.printf("sd_total_bytes=%llu\n", static_cast<unsigned long long>(sdTotalBytes));
   file.printf("sd_used_bytes=%llu\n", static_cast<unsigned long long>(sdUsedBytes));

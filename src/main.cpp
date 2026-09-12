@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <BoardConfig.h>
 #include <Epub.h>
 #include <Epub/blocks/TextBlock.h>
 #include <FontCacheManager.h>
@@ -172,8 +173,10 @@ void enterDeepSleep() {
   display.deepSleep();
   LOG_DBG("MAIN", "Entering deep sleep");
 
-  // X4: 常に完全電源断。X3: RTC無効なら完全電源断、RTC有効ならディープスリープ（DS3231時刻保持）
-  const bool fullPowerOff = gpio.deviceIsX4() || !SETTINGS.rtcEnabled;
+  // Only a detected RTC can justify retaining the sleep domain.  This applies
+  // to X3 today and to the S3 X4 family when its BoardConfig profile supplies
+  // an RTC.
+  const bool fullPowerOff = !SETTINGS.rtcEnabled || !halRTC.isAvailable();
   powerManager.startDeepSleep(gpio, fullPowerOff);
 }
 
@@ -226,6 +229,7 @@ void setupDisplayAndFonts() {
 // SPIピンを明示的にリセットする。ディープスリープ中にSDカードを抜き差しした場合、
 // SPIバスが不定状態になり sd.begin() がハングする可能性がある（Issue #23）。
 static void resetSpiPins() {
+#if FREEINK_MCU_C3
   constexpr gpio_num_t spiPins[] = {
       GPIO_NUM_7,   // SPI_MISO (SD/Display共有)
       GPIO_NUM_8,   // EPD_SCLK
@@ -235,6 +239,7 @@ static void resetSpiPins() {
   for (auto pin : spiPins) {
     gpio_reset_pin(pin);
   }
+#endif
 }
 
 void setup() {
@@ -260,7 +265,7 @@ void setup() {
   logSerial.setTxTimeoutMs(1);
 #endif
 
-  LOG_INF("MAIN", "Hardware detect: %s", gpio.deviceIsX3() ? "X3" : "X4");
+  LOG_INF("MAIN", "Hardware profile: %s", BoardConfig::ACTIVE.name);
   logX3DisplayProbeDiag();
 
   // SD Card Initialization
@@ -305,12 +310,12 @@ void setup() {
       LOG_DBG("MAIN", "Verifying power button press duration");
       gpio.verifyPowerButtonWakeup(SETTINGS.getPowerButtonDuration(),
                                    SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::SLEEP,
-                                   gpio.deviceIsX4() || !SETTINGS.rtcEnabled);
+                                   !SETTINGS.rtcEnabled || !halRTC.isAvailable());
       break;
     case HalGPIO::WakeupReason::AfterUSBPower:
       // If USB power caused a cold boot, go back to sleep
       LOG_DBG("MAIN", "Wakeup reason: After USB Power");
-      powerManager.startDeepSleep(gpio, gpio.deviceIsX4() || !SETTINGS.rtcEnabled);
+      powerManager.startDeepSleep(gpio, !SETTINGS.rtcEnabled || !halRTC.isAvailable());
       break;
     case HalGPIO::WakeupReason::AfterFlash:
       // After flashing, just proceed to boot
@@ -334,14 +339,14 @@ void setup() {
   APP_STATE.loadFromFile();
 
   // 時刻復元の優先順位:
-  // 1. DS3231 外部RTC（X3のみ、USB給電中は動作するがバッテリースリープでは電源断）
+  // 1. BoardConfigで定義された外部RTC
   // 2. ESP-IDF内部復元（CONFIG_NEWLIB_TIME_SYSCALL_USE_RTC_HRT、USB給電時のみ有効）
   // 時刻が不明な場合はエポック付近のまま残し、isTimeValid()がfalseを返すようにする。
   {
     const time_t bootTime = time(nullptr);
     struct tm rtcTm;
     if (halRTC.readTime(rtcTm)) {
-      // DS3231 から UTC 時刻を復元
+      // 外部RTCからUTC時刻を復元
       // timegm() が利用できないため、TZを一時的にUTCに変更してmktime()を使用
       setenv("TZ", "UTC0", 1);
       tzset();
@@ -352,9 +357,9 @@ void setup() {
         struct timeval tv = {.tv_sec = rtcTime, .tv_usec = 0};
         settimeofday(&tv, nullptr);
         g_timeRestoreSource = 1;
-        LOG_DBG("MAIN", "Restored time from DS3231: %ld (boot=%ld)", (long)rtcTime, (long)bootTime);
+        LOG_DBG("MAIN", "Restored time from RTC: %ld (boot=%ld)", (long)rtcTime, (long)bootTime);
       } else {
-        LOG_DBG("MAIN", "DS3231 time too old: %ld", (long)rtcTime);
+        LOG_DBG("MAIN", "RTC time too old: %ld", (long)rtcTime);
       }
     } else if (bootTime >= 1704067200) {
       g_timeRestoreSource = 3;

@@ -94,9 +94,8 @@ void SleepActivity::onEnter() {
     // Invalid or missing overlays fall back to the normal sleep screen.
   }
 
-  // カレンダーをBW描画パスに挿入するためのフラグ設定
-  // X4 では DS3231 がないため、電源断後に正確な日付を保持できない → カレンダー無効
-  calendarPending = SETTINGS.rtcEnabled && SETTINGS.sleepCalendar && isTimeValid() && gpio.deviceIsX3();
+  // カレンダーは、実際にRTCを検出できた端末だけで有効にする。
+  calendarPending = SETTINGS.rtcEnabled && SETTINGS.sleepCalendar && isTimeValid() && halRTC.isAvailable();
 
   switch (SETTINGS.sleepScreen) {
     case (CrossPointSettings::SLEEP_SCREEN_MODE::BLANK):

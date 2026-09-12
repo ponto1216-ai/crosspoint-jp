@@ -20,6 +20,7 @@
 #include "FontSelectionActivity.h"
 #include "GenerateAllCacheActivity.h"
 #include "HalGPIO.h"
+#include "HalRTC.h"
 #include "LanguageSelectActivity.h"
 #include "LineSpacingSelectionActivity.h"
 #include "MappedInputManager.h"
@@ -110,9 +111,9 @@ void SettingsActivity::rebuildSettingsLists() {
     } else if (setting.category == StrId::STR_CAT_SYSTEM) {
       systemSettings.push_back(setting);
     } else if (setting.category == StrId::STR_CAT_RTC) {
-      // RTC is an X3 system feature. Keep the master toggle visible and hide
-      // its dependent calendar settings until RTC support is enabled.
-      if (!gpio.deviceIsX3()) {
+      // Keep the master toggle visible only on a board with a detected RTC;
+      // hide its dependent calendar settings until the feature is enabled.
+      if (!halRTC.isAvailable()) {
         continue;
       }
       if (!SETTINGS.rtcEnabled && setting.nameId != StrId::STR_RTC_ENABLED) {
