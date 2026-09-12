@@ -32,6 +32,7 @@ class HalPowerManager {
   static constexpr int LOW_POWER_FREQ = 10;                    // MHz
   static constexpr unsigned long IDLE_POWER_SAVING_MS = 3000;  // ms
   static constexpr unsigned long BATTERY_POLL_MS = 1500;       // ms
+  static constexpr unsigned long BATTERY_ADC_POLL_MS = 60000;  // ms
 
   void begin();
 

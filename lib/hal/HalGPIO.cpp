@@ -226,10 +226,14 @@ void HalGPIO::begin() {
   SPI.begin(epd.sclk, -1, epd.mosi, epd.cs);
 #endif
 
+  // The C3 X4 infers USB presence through UART0 RX.  S3 profiles describe a
+  // dedicated detection pin in BoardConfig when they have one.
+#if FREEINK_MCU_C3
   if (deviceIsX4()) {
     pinMode(BAT_GPIO0, INPUT);
     pinMode(UART0_RXD, INPUT);
   }
+#endif
 }
 
 void HalGPIO::update() {
@@ -294,6 +298,7 @@ void HalGPIO::verifyPowerButtonWakeup(uint16_t requiredDurationMs, bool shortPre
 }
 
 bool HalGPIO::isUsbConnected() const {
+#if FREEINK_MCU_C3
   if (deviceIsX3()) {
     // X3: infer USB/charging via BQ27220 Current() register (0x0C, signed mA).
     // Positive current means charging.
@@ -306,8 +311,15 @@ bool HalGPIO::isUsbConnected() const {
     }
     return false;
   }
-  // U0RXD/GPIO20 reads HIGH when USB is connected
+  // C3 X4: U0RXD/GPIO20 reads HIGH when USB is connected.
   return digitalRead(UART0_RXD) == HIGH;
+#else
+  // X4 Classic has no confirmed VBUS-detect GPIO.  Do not sample the C3's
+  // GPIO20 fallback on S3 hardware; a future profile can opt in by defining
+  // BoardConfig::usbDetect.
+  const int8_t usbDetect = BoardConfig::ACTIVE.usbDetect;
+  return usbDetect >= 0 && digitalRead(usbDetect) == HIGH;
+#endif
 }
 
 HalGPIO::WakeupReason HalGPIO::getWakeupReason() const {

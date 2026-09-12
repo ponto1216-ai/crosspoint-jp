@@ -116,11 +116,21 @@ uint16_t HalPowerManager::getBatteryPercentage() const {
   }
   static const BatteryMonitor battery = BatteryMonitor(BAT_GPIO0);
 
+  const unsigned long now = millis();
+  // X4 has no confirmed charge-status signal.  Its ADC sees the charger
+  // voltage, so sampling during every redraw makes the displayed percentage
+  // drift as the UI is operated.  A periodic sample is sufficient for a
+  // battery estimate and keeps interaction independent from that voltage.
+  if (_batteryCachedPercent != 0 && (now - _batteryLastPollMs) < BATTERY_ADC_POLL_MS) {
+    return _batteryCachedPercent / 10;
+  }
+
   if (_batteryCachedPercent == 0) {
     _batteryCachedPercent = 10 * battery.readPercentage();
   } else {
     _batteryCachedPercent = (_batteryCachedPercent * 9 + battery.readPercentage() * 10) / 10;
   }
+  _batteryLastPollMs = now;
   return _batteryCachedPercent / 10;
 #else
   static const BatteryMonitor battery;
