@@ -734,6 +734,8 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
     state.size = 0;
     state.success = false;
     state.error = "";
+    state.errorCode = "";
+    state.structuredResponse = server->hasArg("context") && server->arg("context") == "sleep";
     uploadStartTime = millis();
     lastLoggedSize = 0;
     state.bufferPos = 0;
@@ -760,6 +762,17 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
     LOG_DBG("WEB", "[UPLOAD] START: %s to path: %s", state.fileName.c_str(), state.path.c_str());
     LOG_DBG("WEB", "[UPLOAD] Free heap: %d bytes", ESP.getFreeHeap());
 
+    // The Sleep page is usable on a fresh SD card. Its dedicated destination
+    // may not exist yet, unlike a path reached through the file manager.
+    if (state.structuredResponse && state.path == "/sleep" && !Storage.exists(state.path.c_str()) &&
+        !Storage.mkdir(state.path.c_str())) {
+      state.errorCode = "SLEEP_FOLDER_CREATE_FAILED";
+      state.error = "Could not create the sleep image directory";
+      LOG_ERR("WEB", "[SLEEP_UPLOAD] code=%s path=%s free=%u maxAlloc=%u", state.errorCode.c_str(),
+              state.path.c_str(), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+      return;
+    }
+
     // Create file path
     String filePath = state.path;
     if (!filePath.endsWith("/")) filePath += "/";
@@ -776,8 +789,10 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
     // Open file for writing - this can be slow due to FAT cluster allocation
     resetTaskWatchdogIfSubscribed();
     if (!Storage.openFileForWrite("WEB", filePath, state.file)) {
+      state.errorCode = state.structuredResponse ? "SD_FILE_CREATE_FAILED" : "";
       state.error = "Failed to create file on SD card";
-      LOG_DBG("WEB", "[UPLOAD] FAILED to create file: %s", filePath.c_str());
+      LOG_ERR("WEB", "[UPLOAD] code=%s file=%s free=%u maxAlloc=%u", state.errorCode.c_str(), filePath.c_str(),
+              ESP.getFreeHeap(), ESP.getMaxAllocHeap());
       return;
     }
     resetTaskWatchdogIfSubscribed();
@@ -802,8 +817,15 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
         // Flush buffer when full
         if (state.bufferPos >= UploadState::UPLOAD_BUFFER_SIZE) {
           if (!flushUploadBuffer(state)) {
+            state.errorCode = state.structuredResponse ? "SD_WRITE_FAILED" : "";
             state.error = "Failed to write to SD card - disk may be full";
             state.file.close();
+            String filePath = state.path;
+            if (!filePath.endsWith("/")) filePath += "/";
+            filePath += state.fileName;
+            Storage.remove(filePath.c_str());
+            LOG_ERR("WEB", "[UPLOAD] code=%s file=%s free=%u maxAlloc=%u", state.errorCode.c_str(), filePath.c_str(),
+                    ESP.getFreeHeap(), ESP.getMaxAllocHeap());
             return;
           }
         }
@@ -824,9 +846,19 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
     if (state.file) {
       // Flush any remaining buffered data
       if (!flushUploadBuffer(state)) {
+        state.errorCode = state.structuredResponse ? "SD_WRITE_FAILED" : "";
         state.error = "Failed to write final data to SD card";
       }
       state.file.close();
+
+      if (!state.error.isEmpty()) {
+        String filePath = state.path;
+        if (!filePath.endsWith("/")) filePath += "/";
+        filePath += state.fileName;
+        Storage.remove(filePath.c_str());
+        LOG_ERR("WEB", "[UPLOAD] code=%s file=%s free=%u maxAlloc=%u", state.errorCode.c_str(), filePath.c_str(),
+                ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+      }
 
       if (state.error.isEmpty()) {
         state.success = true;
@@ -857,11 +889,27 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
       Storage.remove(filePath.c_str());
     }
     state.error = "Upload aborted";
+    state.errorCode = state.structuredResponse ? "UPLOAD_ABORTED" : "";
     LOG_DBG("WEB", "Upload aborted");
   }
 }
 
 void CrossPointWebServer::handleUploadPost(UploadState& state) const {
+  if (state.structuredResponse) {
+    JsonDocument doc;
+    doc["ok"] = state.success;
+    if (state.success) {
+      doc["file"] = state.fileName;
+      doc["bytes"] = state.size;
+    } else {
+      doc["code"] = state.errorCode.isEmpty() ? "UPLOAD_FAILED" : state.errorCode;
+      doc["message"] = state.error.isEmpty() ? "Unknown error during upload" : state.error;
+    }
+    String json;
+    serializeJson(doc, json);
+    server->send(state.success ? 200 : 400, "application/json", json);
+    return;
+  }
   if (state.success) {
     server->send(200, "text/plain", "File uploaded successfully: " + state.fileName);
   } else {

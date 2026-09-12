@@ -124,6 +124,9 @@
       .progress-bar { height: 6px; background: #333; border-radius: 3px; margin-top: 8px; overflow: hidden; }
       .progress-fill { height: 100%; background: var(--accent-color); border-radius: 3px; transition: width 0.1s; width: 0%; }
       #uploadStatus { font-size: 12px; color: #aaa; margin-top: 6px; text-align: center; }
+      #errorPanel { display: none; margin-top: 16px; }
+      #errorMessage { color: #f3a6a6; font-size: 13px; overflow-wrap: anywhere; }
+      #copyError { margin: 10px 0 0; padding: 8px 12px; }
 
       @media (max-width: 600px) {
         .nav-links a { padding: 8px 12px; font-size: 0.9em; }
@@ -147,10 +150,15 @@
         <div class="upload-area" id="uploadArea">
           <div class="icon">📷</div>
           <div>Tap to select an image</div>
-          <div class="hint">JPEG, PNG supported</div>
+          <div class="hint">JPEG, PNG, BMP supported</div>
         </div>
-        <input type="file" id="fileInput" accept="image/*" style="display:none" />
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/bmp,image/x-ms-bmp,.jpg,.jpeg,.png,.bmp" style="display:none" />
       </div>
+    </div>
+
+    <div class="card" id="errorPanel">
+      <div id="errorMessage"></div>
+      <button class="btn-cancel" id="copyError" type="button">Copy error details</button>
     </div>
 
     <!-- Editor View -->
@@ -196,6 +204,9 @@
     // --- State ---
     let screenW = 800, screenH = 480;
     let sourceImg = null;
+    let sourceInfo = null;
+    let firmwareVersion = 'unknown';
+    let lastErrorDetails = '';
     let cropState = { x: 0, y: 0, scale: 1 };
 
     // --- Init ---
@@ -203,6 +214,7 @@
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
+        if (data.version) firmwareVersion = data.version;
         if (data.screenWidth) screenW = data.screenWidth;
         if (data.screenHeight) screenH = data.screenHeight;
       } catch (e) {}
@@ -214,14 +226,42 @@
     document.getElementById('fileInput').addEventListener('change', function() {
       const file = this.files[0];
       if (!file) return;
+      const lowerName = file.name.toLowerCase();
+      const supported = file.type === 'image/jpeg' || file.type === 'image/png' ||
+        file.type === 'image/bmp' || file.type === 'image/x-ms-bmp' ||
+        lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png') ||
+        lowerName.endsWith('.bmp');
+      if (!supported) {
+        showUploadError('UNSUPPORTED_IMAGE_FORMAT', 'Only JPEG, PNG, and BMP images are supported.', {
+          sourceType: file.type || 'unknown', sourceSize: file.size
+        });
+        this.value = '';
+        return;
+      }
+      const fileInput = this;
+      sourceInfo = { type: file.type || lowerName.split('.').pop() || 'unknown', size: file.size, width: 0, height: 0 };
       const reader = new FileReader();
+      reader.onerror = function() {
+        showUploadError('IMAGE_LOAD_FAILED', 'The selected image could not be read.', sourceInfo);
+        fileInput.value = '';
+      };
       reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
+          if (!img.naturalWidth || !img.naturalHeight) {
+            showUploadError('IMAGE_DIMENSIONS_INVALID', 'The image dimensions are invalid.', sourceInfo);
+            fileInput.value = '';
+            return;
+          }
+          sourceInfo.width = img.naturalWidth;
+          sourceInfo.height = img.naturalHeight;
           sourceImg = img;
           openEditor();
         };
-        img.onerror = function() { alert('Failed to load image'); };
+        img.onerror = function() {
+          showUploadError('IMAGE_LOAD_FAILED', 'The browser could not decode the selected image.', sourceInfo);
+          fileInput.value = '';
+        };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
@@ -239,6 +279,7 @@
       document.getElementById('brightVal').textContent = '0';
       document.getElementById('contrastVal').textContent = '0';
       document.getElementById('uploadStatus').textContent = '';
+      document.getElementById('errorPanel').style.display = 'none';
       document.getElementById('progressBar').style.display = 'none';
       document.getElementById('btnUpload').disabled = false;
 
@@ -514,7 +555,7 @@
 
       const xhr = new XMLHttpRequest();
       return new Promise((resolve, reject) => {
-        xhr.open('POST', '/upload?path=/sleep');
+        xhr.open('POST', '/upload?path=/sleep&context=sleep');
         xhr.upload.onprogress = function(e) {
           if (e.lengthComputable) {
             const pct = Math.round(e.loaded / e.total * 100);
@@ -523,11 +564,17 @@
           }
         };
         xhr.onload = function() {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else reject(new Error('Upload failed: ' + xhr.status));
+          if (xhr.status >= 200 && xhr.status < 300) return resolve();
+          let response = {};
+          try { response = JSON.parse(xhr.responseText); } catch (e) {}
+          reject({
+            code: response.code || 'UPLOAD_FAILED',
+            message: response.message || ('Upload failed with HTTP ' + xhr.status),
+            httpStatus: xhr.status
+          });
         };
-        xhr.onerror = function() { reject(new Error('Network error')); };
-        xhr.ontimeout = function() { reject(new Error('Upload timeout')); };
+        xhr.onerror = function() { reject({code: 'NETWORK_ERROR', message: 'The connection to Yomuka was lost.'}); };
+        xhr.ontimeout = function() { reject({code: 'UPLOAD_TIMEOUT', message: 'The upload did not finish within 120 seconds.'}); };
         xhr.timeout = 120000;
         xhr.send(formData);
       });
@@ -550,8 +597,47 @@
         document.getElementById('uploadStatus').textContent = 'Upload complete!';
         setTimeout(() => { closeEditor(); }, 800);
       } catch (err) {
-        document.getElementById('uploadStatus').textContent = 'Error: ' + err.message;
+        const code = err.code || 'CANVAS_PROCESSING_FAILED';
+        showUploadError(code, err.message || 'The image could not be processed.', {
+          sourceType: sourceInfo ? sourceInfo.type : 'unknown',
+          sourceSize: sourceInfo ? sourceInfo.size : 0,
+          sourceWidth: sourceInfo ? sourceInfo.width : 0,
+          sourceHeight: sourceInfo ? sourceInfo.height : 0,
+          outputSize: screenW * screenH * 3 + 54,
+          httpStatus: err.httpStatus || 0
+        });
         this.disabled = false;
+      }
+    });
+
+    function showUploadError(code, message, info) {
+      const status = document.getElementById('uploadStatus');
+      status.textContent = 'Error [' + code + ']: ' + message;
+      document.getElementById('errorMessage').textContent = status.textContent;
+      document.getElementById('errorPanel').style.display = 'block';
+      const data = info || {};
+      lastErrorDetails = [
+        'Yomuka WebUI error report',
+        'version=' + firmwareVersion,
+        'operation=sleep_image_upload',
+        'code=' + code,
+        'message=' + message,
+        'source_type=' + (data.sourceType || data.type || 'unknown'),
+        'source_size=' + (data.sourceSize || data.size || 0),
+        'source_dimensions=' + (data.sourceWidth || data.width || 0) + 'x' + (data.sourceHeight || data.height || 0),
+        'output_dimensions=' + screenW + 'x' + screenH,
+        'output_size=' + (data.outputSize || 0),
+        'http_status=' + (data.httpStatus || 0),
+        'browser=' + navigator.userAgent
+      ].join('\n');
+    }
+
+    document.getElementById('copyError').addEventListener('click', async function() {
+      try {
+        await navigator.clipboard.writeText(lastErrorDetails);
+        this.textContent = 'Copied';
+      } catch (e) {
+        window.prompt('Copy these error details:', lastErrorDetails);
       }
     });
 
