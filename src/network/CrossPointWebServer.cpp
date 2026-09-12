@@ -39,6 +39,7 @@ const char* HIDDEN_ITEMS[] = {"System Volume Information", "XTCache"};
 constexpr size_t HIDDEN_ITEMS_COUNT = sizeof(HIDDEN_ITEMS) / sizeof(HIDDEN_ITEMS[0]);
 constexpr uint16_t UDP_PORTS[] = {54982, 48123, 39001, 44044, 59678};
 constexpr uint16_t LOCAL_UDP_PORT = 8134;
+constexpr char WEB_SLEEP_IMAGE_DIR[] = "/.sleep";
 
 // Static pointer for WebSocket callback (WebSocketsServer requires C-style callback)
 CrossPointWebServer* wsInstance = nullptr;
@@ -764,7 +765,7 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
 
     // The Sleep page is usable on a fresh SD card. Its dedicated destination
     // may not exist yet, unlike a path reached through the file manager.
-    if (state.structuredResponse && state.path == "/sleep" && !Storage.exists(state.path.c_str()) &&
+    if (state.structuredResponse && state.path == WEB_SLEEP_IMAGE_DIR && !Storage.exists(state.path.c_str()) &&
         !Storage.mkdir(state.path.c_str())) {
       state.errorCode = "SLEEP_FOLDER_CREATE_FAILED";
       state.error = "Could not create the sleep image directory";
@@ -1846,7 +1847,7 @@ void CrossPointWebServer::handleSleepImageList() const {
   JsonDocument doc;
   JsonArray arr = doc.to<JsonArray>();
 
-  FsFile dir = Storage.open("/sleep");
+  FsFile dir = Storage.open(WEB_SLEEP_IMAGE_DIR);
   if (dir && dir.isDirectory()) {
     char name[256];
     FsFile file = dir.openNextFile();
@@ -1885,7 +1886,7 @@ void CrossPointWebServer::handleSleepThumbnail() const {
     return;
   }
 
-  String path = "/sleep/" + filename;
+  String path = String(WEB_SLEEP_IMAGE_DIR) + "/" + filename;
   FsFile file;
   if (!Storage.openFileForRead("WEB", path, file)) {
     server->send(404, "text/plain", "File not found");
@@ -1926,7 +1927,7 @@ void CrossPointWebServer::handleSleepDelete() {
   }
 
   char path[280];
-  snprintf(path, sizeof(path), "/sleep/%s", filename);
+  snprintf(path, sizeof(path), "%s/%s", WEB_SLEEP_IMAGE_DIR, filename);
 
   if (Storage.exists(path)) {
     Storage.remove(path);
