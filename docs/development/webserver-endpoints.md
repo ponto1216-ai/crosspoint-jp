@@ -2,7 +2,7 @@
 
 [Contributor guide](../contributing/README.md) · [User transfer guide](../wifi-transfer-ja.md)
 
-Checked against v0.7.3 route registration in [CrossPointWebServer.cpp](../../src/network/CrossPointWebServer.cpp), 2026-09-10. Use the address displayed by the device during file transfer. This HTTP service has no authentication; use a trusted network.
+Checked against the v0.7.4 worktree route registration in [CrossPointWebServer.cpp](../../src/network/CrossPointWebServer.cpp), 2026-09-12. Use the address displayed by the device during file transfer. This HTTP service has no authentication; use a trusted network.
 
 ## Routes and handlers
 
@@ -33,12 +33,15 @@ This is an implementation index, not a stable external API contract. Multipart u
 | GET | `/api/sleep/images` | `handleSleepImageList` |
 | GET | `/api/sleep/thumbnail` | `handleSleepThumbnail` |
 | POST | `/api/sleep/delete` | `handleSleepDelete` |
+| GET | `/api/sleep/overlays` | `handleSleepOverlayList` |
+| GET | `/api/sleep/overlay-thumbnail` | `handleSleepOverlayThumbnail` |
+| POST | `/api/sleep/overlay-delete` | `handleSleepOverlayDelete` |
 | GET | `/api/wifi/scan` | `handleWifiScan` |
 | POST | `/api/wifi/save` | `handleWifiSave` |
 | GET | `/api/wifi/list` | `handleWifiList` |
 | POST | `/api/wifi/delete` | `handleWifiDelete` |
 
-`POST /upload` uses multipart form data with `handleUpload` and `handleUploadPost`. Optional `path` selects the directory. JavaScript routes serve browser assets.
+`POST /upload` uses multipart form data with `handleUpload` and `handleUploadPost`. Optional `path` selects the directory. The Sleep page uses `path=/.sleep&context=sleep` for converted normal images and `path=/.sleep-overlay&context=sleep-overlay` for raw BMP overlays. These contexts return JSON success or error responses and create their dedicated folder on first upload. JavaScript routes serve browser assets.
 
 ## File request parameters
 
