@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CrossPoint</title>
+<title>Yomuka</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,system-ui,sans-serif;max-width:640px;margin:0 auto;padding:12px;background:#f5f5f5;color:#333}
@@ -27,20 +27,20 @@ li:last-child{border:none}
 .empty{color:#999;font-size:13px;padding:12px 0;text-align:center}
 </style>
 </head><body>
-<h1>&#128218; CrossPoint</h1>
+<h1>&#128218; Yomuka</h1>
 <div class="c">
-<h2>Upload</h2>
+<h2>アップロード</h2>
 <form id="uf">
 <input type="file" name="file" id="fi">
 <div class="bw" id="bw"><div class="br" id="pb"></div></div>
 <div class="msg" id="um"></div>
-<button type="submit" class="btn">Upload</button>
+<button type="submit" class="btn">アップロード</button>
 </form>
 </div>
 <div class="c">
-<h2>Files</h2>
+<h2>ファイル</h2>
 <div class="path" id="pp"></div>
-<div id="fl">Loading...</div>
+<div id="fl">読み込み中...</div>
 </div>
 <script>
 var P='/';
@@ -49,11 +49,11 @@ function nav(p){P=p;load();}
 function load(){
 var pp=document.getElementById('pp');
 if(P=='/'){pp.innerHTML='/';}
-else{var pts=P.split('/').filter(Boolean),h='<a onclick="nav(\'/\')">Home</a>',cp='';
+else{var pts=P.split('/').filter(Boolean),h='<a onclick="nav(\'/\')">ホーム</a>',cp='';
 pts.forEach(function(p){cp+='/'+p;h+=' / <a onclick="nav(\''+cp+'\')">'+p+'</a>';});pp.innerHTML=h;}
 fetch('/api/files?path='+encodeURIComponent(P)).then(function(r){return r.json();}).then(function(fs){
 var fl=document.getElementById('fl');
-if(!fs.length){fl.innerHTML='<p class="empty">Empty</p>';return;}
+if(!fs.length){fl.innerHTML='<p class="empty">ファイルはありません</p>';return;}
 fs.sort(function(a,b){return a.isDirectory===b.isDirectory?a.name.localeCompare(b.name):a.isDirectory?-1:1;});
 var h='<ul>';
 fs.forEach(function(f){
@@ -63,7 +63,7 @@ h+='<li><span class="fn"><a onclick="nav(\''+np+'\')">'+ic+' '+f.name+'</a></spa
 else{h+='<li><span class="fn">'+ic+' '+f.name+'</span><span class="sz">'+sz+'</span></li>';}
 });
 h+='</ul>';fl.innerHTML=h;
-}).catch(function(){document.getElementById('fl').innerHTML='<p class="empty" style="color:red">Load failed</p>';});
+}).catch(function(){document.getElementById('fl').innerHTML='<p class="empty" style="color:red">読み込めませんでした</p>';});
 }
 document.getElementById('uf').onsubmit=function(e){
 e.preventDefault();
@@ -75,8 +75,8 @@ bw.style.display='block';um.className='msg';um.style.display='none';
 x.upload.onprogress=function(e){if(e.lengthComputable)pb.style.width=Math.round(e.loaded/e.total*100)+'%';};
 x.onload=function(){bw.style.display='none';pb.style.width='0';
 if(x.status==200){um.className='msg ok';um.textContent='\u2713 '+fi.files[0].name;um.style.display='block';load();fi.value='';}
-else{um.className='msg err';um.textContent='Error: '+x.responseText;um.style.display='block';}};
-x.onerror=function(){bw.style.display='none';um.className='msg err';um.textContent='Upload failed';um.style.display='block';};
+else{um.className='msg err';um.textContent='エラー: '+x.responseText;um.style.display='block';}};
+x.onerror=function(){bw.style.display='none';um.className='msg err';um.textContent='アップロードに失敗しました';um.style.display='block';};
 x.send(fd);};
 load();
 </script>
