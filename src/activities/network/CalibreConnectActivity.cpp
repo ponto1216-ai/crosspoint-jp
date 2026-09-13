@@ -5,9 +5,9 @@
 #include <GfxRenderer.h>
 #include <I18n.h>
 #include <WiFi.h>
-#include <esp_task_wdt.h>
 
 #include "MappedInputManager.h"
+#include "network/TaskWatchdog.h"
 #include "WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -115,12 +115,12 @@ void CalibreConnectActivity::loop() {
       LOG_DBG("CAL", "WARNING: %lu ms gap since last handleClient", timeSinceLastHandleClient);
     }
 
-    esp_task_wdt_reset();
+    resetTaskWatchdogIfSubscribed();
     constexpr int MAX_ITERATIONS = 80;
     for (int i = 0; i < MAX_ITERATIONS && webServer->isRunning(); i++) {
       webServer->handleClient();
       if ((i & 0x07) == 0x07) {
-        esp_task_wdt_reset();
+        resetTaskWatchdogIfSubscribed();
       }
       if ((i & 0x0F) == 0x0F) {
         yield();
