@@ -60,6 +60,23 @@ void CalibreConnectActivity::onExit() {
   delay(30);
   WiFi.mode(WIFI_OFF);
   delay(30);
+
+  // Calibre transfers leave the same Wi-Fi allocations as the ordinary Web UI.
+  // Release rebuildable font data and give the network task a bounded chance to
+  // restore the contiguous heap needed when the received EPUB is opened next.
+  if (auto* fcm = renderer.getFontCacheManager()) {
+    fcm->releaseSdFontCaches();
+    fcm->releaseSdFontVerticalGlyphs();
+  }
+  constexpr uint32_t READER_HEAP_RECOVERY_WAIT_MS = 500;
+  constexpr uint32_t READER_MIN_CONTIGUOUS_HEAP = 32 * 1024;
+  const uint32_t heapRecoveryDeadline = millis() + READER_HEAP_RECOVERY_WAIT_MS;
+  while (ESP.getMaxAllocHeap() < READER_MIN_CONTIGUOUS_HEAP && millis() < heapRecoveryDeadline) {
+    delay(20);
+  }
+
+  LOG_DBG("CAL", "Free heap after transfer: %d bytes, maxAlloc: %d bytes", ESP.getFreeHeap(),
+          ESP.getMaxAllocHeap());
 }
 void CalibreConnectActivity::onWifiSelectionComplete(const bool connected) {
   if (!connected) {

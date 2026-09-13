@@ -212,33 +212,41 @@ void EpubReaderActivity::pregenerateCache() {
                                      SETTINGS.getReaderFontIdForSize(isVertical, CrossPointSettings::MEDIUM),
                                      SETTINGS.getReaderFontIdForSize(isVertical, CrossPointSettings::LARGE),
                                      SETTINGS.getReaderFontIdForSize(isVertical, CrossPointSettings::EXTRA_LARGE)};
-      if (!sec.createSectionFile(
-              SETTINGS.getReaderFontId(isVertical), lineCompression, ds.extraParagraphSpacing, ds.paragraphAlignment,
-              viewportWidth, viewportHeight, ds.hyphenationEnabled, ds.firstLineIndent, SETTINGS.embeddedStyle,
-              SETTINGS.imageRendering, isVertical, ds.charSpacing, nullptr, headingFontIds,
-              SETTINGS.getTableFontId(isVertical), cssBodyFontIds, nullptr,
-              [this, &generatedPixelCaches, &pixelCacheMs, orientedMarginLeft, orientedMarginTop](const Page& page) {
-                const uint32_t pixelStartedAt = millis();
-                generatedPixelCaches += pregeneratePixelCaches(page, renderer, orientedMarginLeft, orientedMarginTop);
-                pixelCacheMs += millis() - pixelStartedAt;
-              },
-              [&cancelledDuringSection, &controls, this] {
-                cancelledDuringSection = controls.shouldCancel(renderer);
-                return cancelledDuringSection;
-              })) {
+      const bool sectionCreated = sec.createSectionFile(
+          SETTINGS.getReaderFontId(isVertical), lineCompression, ds.extraParagraphSpacing, ds.paragraphAlignment,
+          viewportWidth, viewportHeight, ds.hyphenationEnabled, ds.firstLineIndent, SETTINGS.embeddedStyle,
+          SETTINGS.imageRendering, isVertical, ds.charSpacing, nullptr, headingFontIds,
+          SETTINGS.getTableFontId(isVertical), cssBodyFontIds, nullptr,
+          [this, &generatedPixelCaches, &pixelCacheMs, orientedMarginLeft, orientedMarginTop](const Page& page) {
+            const uint32_t pixelStartedAt = millis();
+            generatedPixelCaches += pregeneratePixelCaches(page, renderer, orientedMarginLeft, orientedMarginTop);
+            pixelCacheMs += millis() - pixelStartedAt;
+          },
+          [&cancelledDuringSection, &controls, this] {
+            cancelledDuringSection = controls.shouldCancel(renderer);
+            return cancelledDuringSection;
+          });
+      if (!sectionCreated) {
         if (cancelledDuringSection) {
           LOG_DBG("ERS", "Pregenerate cancelled while building section %d/%d", i, spineCount);
           cancelled = true;
           break;
         }
         LOG_ERR("ERS", "Pregenerate: failed section %d (heap: %d)", i, ESP.getFreeHeap());
-        continue;
+      } else {
+        sectionBuildMs += millis() - sectionStartedAt;
+        generatedSections++;
       }
-      sectionBuildMs += millis() - sectionStartedAt;
-      generatedSections++;
     }
-  }
+    // A full-book run must not carry an earlier chapter's SD-font advance
+    // tables into the next one. They reload lazily for the next layout or
+    // render, while releasing them here restores a contiguous heap block.
+    if (fcm) {
+      fcm->releaseSdFontCaches();
+      fcm->releaseSdFontVerticalGlyphs();
+    }
 
+  }
   const bool imagesComplete = !cancelled;
 
   if (!cancelled && generatedSections + sectionCacheHits == spineCount && imagesComplete) {

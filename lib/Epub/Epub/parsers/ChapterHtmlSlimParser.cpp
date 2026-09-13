@@ -29,10 +29,10 @@ constexpr size_t PARSE_BUFFER_SIZE = 1024;
 constexpr size_t MIN_FREE_HEAP_FOR_PARSING = 20 * 1024;  // 20KB
 // Laying out a buffered block allocates line/column metadata and may preload
 // SD-font metrics. Do not enter that path once either total or contiguous heap
-// has fallen below the medium section-build reserve. The bounded SD-font
-// prewarm string and cache-recovery path keep each split substantially smaller
+// has fallen below the section-build reserve. A 36KB total reserve still leaves
+// room for the bounded layout allocations; the SD-font prewarm string and cache-recovery path keep each split substantially smaller
 // than a complete large-section build.
-constexpr size_t MIN_FREE_HEAP_FOR_BLOCK_FLUSH = 48 * 1024;  // 48KB
+constexpr size_t MIN_FREE_HEAP_FOR_BLOCK_FLUSH = 36 * 1024;  // 36KB
 // Block layout allocates several bounded objects rather than one 32KB buffer.
 // SD-font metadata can split an otherwise healthy C3 heap into ~19KB blocks,
 // so requiring the ZIP inflater's 32KB dictionary here rejects safe stored
@@ -42,7 +42,7 @@ constexpr size_t EARLY_BLOCK_FLUSH_FREE_HEAP = 80 * 1024;    // start splitting 
 // ParsedText reserves 800 word slots. Check before each normal word so one
 // 1KB Expat callback cannot grow a vector past that reservation before its
 // end-of-callback flush runs.
-constexpr size_t TEXT_BLOCK_SAFE_WORD_LIMIT = 700;
+constexpr size_t TEXT_BLOCK_SAFE_WORD_LIMIT = 650;
 constexpr uint8_t MAX_CONSECUTIVE_EXPLICIT_BLANK_LINES = 1;
 
 const char* BLOCK_TAGS[] = {"p", "li", "div", "br", "blockquote"};
@@ -1535,7 +1535,7 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
   // is low we flush earlier to prevent abort() from vector reallocation failure (operator new
   // cannot return nullptr without std::nothrow, and C++ exceptions are disabled on ESP32).
   const size_t wordCount = self->currentTextBlock->size();
-  const bool normalFlush = wordCount > 750;
+  const bool normalFlush = wordCount >= TEXT_BLOCK_SAFE_WORD_LIMIT;
   const bool earlyFlush = wordCount > 100 && ESP.getFreeHeap() < EARLY_BLOCK_FLUSH_FREE_HEAP;
   // A group ruby annotation is applied only when its closing </ruby> arrives.
   // Flushing its base words beforehand loses that span and can split or drop
