@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Yomuka - Fonts</title>
+    <title>Yomuka - フォント</title>
     <style>
       :root {
         --font-color: #333;
@@ -126,26 +126,26 @@
     <h1>📚 Yomuka</h1>
 
     <div class="nav-links">
-      <a href="/">Home</a>
-      <a href="/files">File Manager</a>
-      <a href="/settings">Settings</a>
-      <a href="/fonts" class="active">Fonts</a>
-      <a href="/sleep">Sleep</a>
+      <a href="/">ホーム</a>
+      <a href="/files">ファイル管理</a>
+      <a href="/settings">設定</a>
+      <a href="/fonts" class="active">フォント</a>
+      <a href="/sleep">スリープ</a>
     </div>
 
     <div class="card">
-      <h2>Installed Fonts</h2>
-      <div id="families"><p class="empty">Loading...</p></div>
+      <h2>インストール済みフォント</h2>
+      <div id="families"><p class="empty">読み込み中...</p></div>
     </div>
 
     <div class="card">
-      <h2>Upload Font</h2>
+      <h2>フォントをアップロード</h2>
       <form class="upload-form" id="uploadForm">
-        <label>Family:
-          <input type="text" id="familyName" placeholder="e.g. Bookerly-SD" required pattern="[A-Za-z0-9_-]+" />
+        <label>ファミリー名:
+          <input type="text" id="familyName" placeholder="例: Bookerly-SD" required pattern="[A-Za-z0-9_-]+" />
         </label>
         <input type="file" id="fontFile" accept=".cpfont" required />
-        <button type="submit" class="btn btn-primary">Upload</button>
+        <button type="submit" class="btn btn-primary">アップロード</button>
       </form>
       <div id="status"></div>
     </div>
@@ -163,7 +163,7 @@
         const data = await res.json();
         const el = document.getElementById('families');
         if (!data.families || data.families.length === 0) {
-          el.innerHTML = '<p class="empty">No fonts installed</p>';
+          el.innerHTML = '<p class="empty">インストール済みのフォントはありません。</p>';
           return;
         }
         el.innerHTML = data.families.map(f => `
@@ -175,24 +175,24 @@
                 ${f.files.map(fi => formatSize(fi.size)).join(' + ')}
               </span>
             </div>
-            <button class="btn btn-danger" onclick="deleteFamily('${f.name}')">Delete</button>
+            <button class="btn btn-danger" onclick="deleteFamily('${f.name}')">削除</button>
           </div>
         `).join('');
       } catch (e) {
         document.getElementById('families').innerHTML =
-          '<p class="empty">Failed to load font list</p>';
+          '<p class="empty">フォント一覧を読み込めませんでした。</p>';
       }
     }
 
     async function deleteFamily(name) {
-      if (!confirm('Delete font family "' + name + '"?')) return;
+      if (!confirm('フォントファミリー「' + name + '」を削除しますか？')) return;
       const res = await fetch('/api/fonts/delete', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({family: name})
       });
       if (res.ok) loadFonts();
-      else alert('Delete failed');
+      else alert('削除できませんでした。');
     }
 
     // Auto-detect family name from filename
@@ -226,7 +226,7 @@
         const connectTimeout = setTimeout(() => {
           if (!connected) {
             ws.close();
-            reject(new Error('Connection timeout'));
+            reject(new Error('接続がタイムアウトしました。'));
           }
         }, 10000);
 
@@ -247,7 +247,7 @@
                 while (ws.bufferedAmount > WS_CHUNK_SIZE * 2 && ws.readyState === WebSocket.OPEN) {
                   await new Promise(r => setTimeout(r, 5));
                 }
-                if (ws.readyState !== WebSocket.OPEN) throw new Error('Connection closed');
+                if (ws.readyState !== WebSocket.OPEN) throw new Error('接続が切れました。');
                 ws.send(buffer);
                 offset += buffer.byteLength;
                 if (onProgress) onProgress(offset, file.size);
@@ -268,11 +268,11 @@
 
         ws.onerror = () => {
           clearTimeout(connectTimeout);
-          reject(new Error('WebSocket connection failed'));
+          reject(new Error('WebSocketに接続できませんでした。'));
         };
         ws.onclose = () => {
           clearTimeout(connectTimeout);
-          if (!uploadComplete) reject(new Error('Connection closed during upload'));
+          if (!uploadComplete) reject(new Error('アップロード中に接続が切れました。'));
         };
       });
     }
@@ -286,28 +286,28 @@
 
       status.className = '';
       status.style.display = 'block';
-      status.textContent = 'Uploading... 0%';
+      status.textContent = 'アップロード中... 0%';
 
       try {
         const uploadPath = '/.fonts/' + family + '/';
         await uploadFontWebSocket(file, uploadPath, (sent, total) => {
-          status.textContent = 'Uploading... ' + Math.round(sent / total * 100) + '%';
+          status.textContent = 'アップロード中... ' + Math.round(sent / total * 100) + '%';
         });
 
-        status.textContent = 'Validating...';
+        status.textContent = '確認中...';
         const res = await fetch('/api/fonts/uploaded?family=' + encodeURIComponent(family) + '&file=' + encodeURIComponent(file.name));
         const data = await res.json();
         if (data.ok) {
           status.className = 'status-ok';
-          status.textContent = 'Upload successful!';
+          status.textContent = 'アップロードしました。';
           loadFonts();
         } else {
           status.className = 'status-err';
-          status.textContent = data.error || 'Validation failed';
+          status.textContent = data.error || '確認に失敗しました。';
         }
       } catch (err) {
         status.className = 'status-err';
-        status.textContent = 'Upload error: ' + err.message;
+        status.textContent = 'アップロードエラー: ' + err.message;
       }
     });
 
