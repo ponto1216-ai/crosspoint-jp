@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>Yomuka - Sleep Screen</title>
+    <title>Yomuka - スリープ画面</title>
     <style>
       :root {
         --font-color: #333;
@@ -147,47 +147,47 @@
   <body>
     <h1>📚 Yomuka</h1>
     <div class="nav-links">
-      <a href="/">Home</a>
-      <a href="/files">File Manager</a>
-      <a href="/settings">Settings</a>
-      <a href="/fonts">Fonts</a>
-      <a href="/sleep" class="active">Sleep</a>
+      <a href="/">ホーム</a>
+      <a href="/files">ファイル管理</a>
+      <a href="/settings">設定</a>
+      <a href="/fonts">フォント</a>
+      <a href="/sleep" class="active">スリープ</a>
     </div>
 
     <!-- List View -->
     <div id="listView">
       <div class="card">
-        <h2>Upload Sleep Image</h2>
+        <h2>スリープ画像をアップロード</h2>
         <div class="upload-area" id="uploadArea">
           <div class="icon">📷</div>
-          <div>Tap to select an image</div>
-          <div class="hint">JPEG, PNG, BMP supported</div>
+          <div>選択する画像をタップ</div>
+          <div class="hint">JPEG、PNG、BMPに対応</div>
         </div>
         <input type="file" id="fileInput" accept="image/jpeg,image/png,image/bmp,image/x-ms-bmp,.jpg,.jpeg,.png,.bmp" style="display:none" />
       </div>
 
       <div class="card">
-        <h2>Saved Sleep Images</h2>
-        <div id="savedImages"><p class="empty">Loading...</p></div>
+        <h2>保存済みのスリープ画像</h2>
+        <div id="savedImages"><p class="empty">読み込み中...</p></div>
       </div>
 
       <div class="card">
-        <h2>Transparent BMP Overlays</h2>
-        <p class="section-note">Upload a BMP without conversion. A 32-bit BGRA BMP preserves pixel transparency. A normal BMP uses white as transparent. Set Sleep Screen to Transparent Custom on Yomuka to use these files.</p>
+        <h2>透過BMPオーバーレイ</h2>
+        <p class="section-note">変換せずにBMPをアップロードします。32ビットBGRA BMPではピクセルごとの透過を維持します。通常のBMPでは白色が透過されます。Yomukaのスリープ画面で「透過カスタム」を選ぶと使用できます。</p>
         <div class="upload-area" id="overlayUploadArea">
           <div class="icon">◌</div>
-          <div>Tap to select a transparent BMP</div>
-          <div class="hint">BMP only</div>
+          <div>透過BMPを選択</div>
+          <div class="hint">BMPのみ</div>
         </div>
         <input type="file" id="overlayFileInput" accept="image/bmp,image/x-ms-bmp,.bmp" style="display:none" />
         <div class="overlay-status" id="overlayUploadStatus"></div>
-        <div id="savedOverlays"><p class="empty">Loading...</p></div>
+        <div id="savedOverlays"><p class="empty">読み込み中...</p></div>
       </div>
     </div>
 
     <div class="card" id="errorPanel">
       <div id="errorMessage"></div>
-      <button class="btn-cancel" id="copyError" type="button">Copy error details</button>
+      <button class="btn-cancel" id="copyError" type="button">エラー詳細をコピー</button>
     </div>
 
     <!-- Editor View -->
@@ -204,17 +204,17 @@
         <div class="resolution-hint" id="resHint"></div>
 
         <div class="slider-group">
-          <div class="slider-label"><span>Zoom</span><span id="zoomVal">1.0x</span></div>
+          <div class="slider-label"><span>拡大率</span><span id="zoomVal">1.0x</span></div>
           <input type="range" id="zoomSlider" min="100" max="500" value="100" />
         </div>
 
         <div class="slider-row">
           <div class="slider-group">
-            <div class="slider-label"><span>Brightness</span><span id="brightVal">0</span></div>
+            <div class="slider-label"><span>明るさ</span><span id="brightVal">0</span></div>
             <input type="range" id="brightSlider" min="-100" max="100" value="0" />
           </div>
           <div class="slider-group">
-            <div class="slider-label"><span>Contrast</span><span id="contrastVal">0</span></div>
+            <div class="slider-label"><span>コントラスト</span><span id="contrastVal">0</span></div>
             <input type="range" id="contrastSlider" min="-100" max="100" value="0" />
           </div>
         </div>
@@ -223,8 +223,8 @@
         <div id="uploadStatus"></div>
 
         <div class="editor-actions">
-          <button class="btn-cancel" id="btnCancel">Cancel</button>
-          <button class="btn-upload" id="btnUpload">Upload</button>
+          <button class="btn-cancel" id="btnCancel">キャンセル</button>
+          <button class="btn-upload" id="btnUpload">アップロード</button>
         </div>
       </div>
     </div>
@@ -261,7 +261,7 @@
         lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png') ||
         lowerName.endsWith('.bmp');
       if (!supported) {
-        showUploadError('UNSUPPORTED_IMAGE_FORMAT', 'Only JPEG, PNG, and BMP images are supported.', {
+        showUploadError('UNSUPPORTED_IMAGE_FORMAT', 'JPEG、PNG、BMP形式の画像を選択してください。', {
           sourceType: file.type || 'unknown', sourceSize: file.size
         });
         this.value = '';
@@ -271,14 +271,14 @@
       sourceInfo = { type: file.type || lowerName.split('.').pop() || 'unknown', size: file.size, width: 0, height: 0 };
       const reader = new FileReader();
       reader.onerror = function() {
-        showUploadError('IMAGE_LOAD_FAILED', 'The selected image could not be read.', sourceInfo);
+        showUploadError('IMAGE_LOAD_FAILED', '選択した画像を読み込めませんでした。', sourceInfo);
         fileInput.value = '';
       };
       reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
           if (!img.naturalWidth || !img.naturalHeight) {
-            showUploadError('IMAGE_DIMENSIONS_INVALID', 'The image dimensions are invalid.', sourceInfo);
+            showUploadError('IMAGE_DIMENSIONS_INVALID', '画像のサイズ情報が正しくありません。', sourceInfo);
             fileInput.value = '';
             return;
           }
@@ -288,7 +288,7 @@
           openEditor();
         };
         img.onerror = function() {
-          showUploadError('IMAGE_LOAD_FAILED', 'The browser could not decode the selected image.', sourceInfo);
+          showUploadError('IMAGE_LOAD_FAILED', 'ブラウザが選択した画像を読み込めませんでした。', sourceInfo);
           fileInput.value = '';
         };
         img.src = e.target.result;
@@ -304,7 +304,7 @@
       const name = file.name.toLowerCase();
       const isBmp = file.type === 'image/bmp' || file.type === 'image/x-ms-bmp' || name.endsWith('.bmp');
       if (!isBmp || file.size === 0) {
-        showUploadError('OVERLAY_BMP_REQUIRED', 'Select a non-empty BMP file for a transparent overlay.', {
+        showUploadError('OVERLAY_BMP_REQUIRED', '空でないBMPファイルを選択してください。', {
           operation: 'sleep_overlay_upload', sourceType: file.type || 'unknown', sourceSize: file.size
         });
         this.value = '';
@@ -312,15 +312,15 @@
       }
 
       const status = document.getElementById('overlayUploadStatus');
-      status.textContent = 'Uploading transparent BMP...';
+      status.textContent = '透過BMPをアップロード中...';
       try {
         await uploadOverlayBmp(file);
-        status.textContent = 'Upload complete!';
+        status.textContent = 'アップロードしました。';
         this.value = '';
         loadSleepOverlays();
       } catch (error) {
-        status.textContent = 'Upload failed';
-        showUploadError(error.code || 'OVERLAY_UPLOAD_FAILED', error.message || 'The overlay could not be uploaded.', {
+        status.textContent = 'アップロードできませんでした。';
+        showUploadError(error.code || 'OVERLAY_UPLOAD_FAILED', error.message || 'オーバーレイをアップロードできませんでした。', {
           operation: 'sleep_overlay_upload', sourceType: file.type || 'image/bmp', sourceSize: file.size,
           httpStatus: error.httpStatus || 0
         });
@@ -620,7 +620,7 @@
           if (e.lengthComputable) {
             const pct = Math.round(e.loaded / e.total * 100);
             document.getElementById('progressFill').style.width = pct + '%';
-            document.getElementById('uploadStatus').textContent = 'Uploading... ' + pct + '%';
+            document.getElementById('uploadStatus').textContent = 'アップロード中... ' + pct + '%';
           }
         };
         xhr.onload = function() {
@@ -629,12 +629,12 @@
           try { response = JSON.parse(xhr.responseText); } catch (e) {}
           reject({
             code: response.code || 'UPLOAD_FAILED',
-            message: response.message || ('Upload failed with HTTP ' + xhr.status),
+            message: response.message || ('HTTP ' + xhr.status + ' によりアップロードできませんでした。'),
             httpStatus: xhr.status
           });
         };
-        xhr.onerror = function() { reject({code: 'NETWORK_ERROR', message: 'The connection to Yomuka was lost.'}); };
-        xhr.ontimeout = function() { reject({code: 'UPLOAD_TIMEOUT', message: 'The upload did not finish within 120 seconds.'}); };
+        xhr.onerror = function() { reject({code: 'NETWORK_ERROR', message: 'Yomukaとの接続が切れました。'}); };
+        xhr.ontimeout = function() { reject({code: 'UPLOAD_TIMEOUT', message: '120秒以内にアップロードが完了しませんでした。'}); };
         xhr.timeout = 120000;
         xhr.send(formData);
       });
@@ -652,12 +652,12 @@
           try { response = JSON.parse(xhr.responseText); } catch (e) {}
           reject({
             code: response.code || 'OVERLAY_UPLOAD_FAILED',
-            message: response.message || ('Upload failed with HTTP ' + xhr.status),
+            message: response.message || ('HTTP ' + xhr.status + ' によりアップロードできませんでした。'),
             httpStatus: xhr.status
           });
         };
-        xhr.onerror = function() { reject({code: 'NETWORK_ERROR', message: 'The connection to Yomuka was lost.'}); };
-        xhr.ontimeout = function() { reject({code: 'UPLOAD_TIMEOUT', message: 'The upload did not finish within 120 seconds.'}); };
+        xhr.onerror = function() { reject({code: 'NETWORK_ERROR', message: 'Yomukaとの接続が切れました。'}); };
+        xhr.ontimeout = function() { reject({code: 'UPLOAD_TIMEOUT', message: '120秒以内にアップロードが完了しませんでした。'}); };
         xhr.timeout = 120000;
         xhr.send(formData);
       });
@@ -667,24 +667,24 @@
     document.getElementById('btnUpload').addEventListener('click', async function() {
       this.disabled = true;
       document.getElementById('progressBar').style.display = 'block';
-      document.getElementById('uploadStatus').textContent = 'Generating BMP...';
+      document.getElementById('uploadStatus').textContent = 'BMPを生成中...';
 
       await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 
       try {
         const bmpData = generateGrayscaleBmp(screenW, screenH);
         const filename = getNextFilename();
-        document.getElementById('uploadStatus').textContent = 'Uploading...';
+        document.getElementById('uploadStatus').textContent = 'アップロード中...';
         await uploadBmp(bmpData, filename);
 
-        document.getElementById('uploadStatus').textContent = 'Upload complete!';
+        document.getElementById('uploadStatus').textContent = 'アップロードしました。';
         setTimeout(() => {
           closeEditor();
           loadSleepImages();
         }, 800);
       } catch (err) {
         const code = err.code || 'CANVAS_PROCESSING_FAILED';
-        showUploadError(code, err.message || 'The image could not be processed.', {
+        showUploadError(code, err.message || '画像を処理できませんでした。', {
           sourceType: sourceInfo ? sourceInfo.type : 'unknown',
           sourceSize: sourceInfo ? sourceInfo.size : 0,
           sourceWidth: sourceInfo ? sourceInfo.width : 0,
@@ -698,7 +698,7 @@
 
     function showUploadError(code, message, info) {
       const status = document.getElementById('uploadStatus');
-      status.textContent = 'Error [' + code + ']: ' + message;
+      status.textContent = 'エラー [' + code + ']: ' + message;
       document.getElementById('errorMessage').textContent = status.textContent;
       document.getElementById('errorPanel').style.display = 'block';
       const data = info || {};
@@ -721,9 +721,9 @@
     document.getElementById('copyError').addEventListener('click', async function() {
       try {
         await navigator.clipboard.writeText(lastErrorDetails);
-        this.textContent = 'Copied';
+        this.textContent = 'コピーしました';
       } catch (e) {
-        window.prompt('Copy these error details:', lastErrorDetails);
+        window.prompt('次のエラー詳細をコピーしてください。', lastErrorDetails);
       }
     });
 
@@ -746,7 +746,7 @@
         if (!response.ok) throw new Error('Image list request failed');
         const images = await response.json();
         if (!images.length) {
-          container.innerHTML = '<p class="empty">No images in .sleep yet</p>';
+          container.innerHTML = '<p class="empty">.sleepフォルダに画像はありません。</p>';
           return;
         }
         container.innerHTML = '<div class="image-grid">' + images.map(image => {
@@ -756,19 +756,19 @@
             '<img src="/api/sleep/thumbnail?file=' + file + '" alt="' + name + '">' +
             '<div class="saved-image-name">' + name + '</div>' +
             '<div class="saved-image-meta">' + formatSize(image.size) + '</div>' +
-            '<button class="btn-delete" data-file="' + name + '">Delete</button>' +
+            '<button class="btn-delete" data-file="' + name + '">削除</button>' +
             '</div>';
         }).join('') + '</div>';
         container.querySelectorAll('.btn-delete').forEach(button => {
           button.addEventListener('click', () => deleteSleepImage(button.dataset.file));
         });
       } catch (error) {
-        container.innerHTML = '<p class="empty">Failed to load saved images</p>';
+        container.innerHTML = '<p class="empty">保存済みのスリープ画像を読み込めませんでした。</p>';
       }
     }
 
     async function deleteSleepImage(filename) {
-      if (!confirm('Delete sleep image "' + filename + '"?')) return;
+      if (!confirm('スリープ画像「' + filename + '」を削除しますか？')) return;
       try {
         const response = await fetch('/api/sleep/delete', {
           method: 'POST',
@@ -778,7 +778,7 @@
         if (!response.ok) throw new Error('Delete request failed');
         loadSleepImages();
       } catch (error) {
-        showUploadError('SLEEP_DELETE_FAILED', 'The image could not be deleted.', {});
+        showUploadError('SLEEP_DELETE_FAILED', '画像を削除できませんでした。', {});
       }
     }
 
@@ -789,7 +789,7 @@
         if (!response.ok) throw new Error('Overlay list request failed');
         const images = await response.json();
         if (!images.length) {
-          container.innerHTML = '<p class="empty">No transparent BMP overlays yet</p>';
+          container.innerHTML = '<p class="empty">透過BMPオーバーレイはありません。</p>';
           return;
         }
         container.innerHTML = '<div class="image-grid">' + images.map(image => {
@@ -799,19 +799,19 @@
             '<img src="/api/sleep/overlay-thumbnail?file=' + file + '" alt="' + name + '">' +
             '<div class="saved-image-name">' + name + '</div>' +
             '<div class="saved-image-meta">' + formatSize(image.size) + '</div>' +
-            '<button class="btn-delete" data-file="' + name + '">Delete</button>' +
+            '<button class="btn-delete" data-file="' + name + '">削除</button>' +
             '</div>';
         }).join('') + '</div>';
         container.querySelectorAll('.btn-delete').forEach(button => {
           button.addEventListener('click', () => deleteSleepOverlay(button.dataset.file));
         });
       } catch (error) {
-        container.innerHTML = '<p class="empty">Failed to load transparent overlays</p>';
+        container.innerHTML = '<p class="empty">透過BMPオーバーレイを読み込めませんでした。</p>';
       }
     }
 
     async function deleteSleepOverlay(filename) {
-      if (!confirm('Delete transparent overlay "' + filename + '"?')) return;
+      if (!confirm('透過BMPオーバーレイ「' + filename + '」を削除しますか？')) return;
       try {
         const response = await fetch('/api/sleep/overlay-delete', {
           method: 'POST',
@@ -821,7 +821,7 @@
         if (!response.ok) throw new Error('Delete request failed');
         loadSleepOverlays();
       } catch (error) {
-        showUploadError('OVERLAY_DELETE_FAILED', 'The overlay could not be deleted.', {operation: 'sleep_overlay_delete'});
+        showUploadError('OVERLAY_DELETE_FAILED', 'オーバーレイを削除できませんでした。', {operation: 'sleep_overlay_delete'});
       }
     }
 
