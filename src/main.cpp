@@ -169,6 +169,10 @@ void enterDeepSleep() {
 
   activityManager.goToSleep();
 
+  // Native SDMMC boards must unmount and release their host before the sleep
+  // power rails are isolated.  The SDK keeps this a no-op on X3/X4 SPI cards.
+  Storage.shutdown();
+
   halTiltSensor.deepSleep();
   display.deepSleep();
   LOG_DBG("MAIN", "Entering deep sleep");

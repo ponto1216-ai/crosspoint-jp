@@ -16,6 +16,9 @@ class HalStorage {
   HalStorage();
   bool begin();
   bool ready() const;
+  // Stop the storage transport before deep sleep.  This is a no-op for the
+  // existing SPI boards and releases the native SDMMC host on S3 boards.
+  void shutdown();
   // SD filesystem capacity.  `usedBytes()` may refresh the card's cached
   // free-cluster count, so callers should use it for diagnostics rather than
   // on every frame.
