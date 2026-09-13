@@ -27,6 +27,7 @@ class EpubReaderMenuActivity final : public Activity {
     OPEN_BOOK_READER_SETTINGS,
     STYLE_FIRST_LINE_INDENT,
     STYLE_FONT_FAMILY,
+    STYLE_FONT_SIZE,
     STYLE_LINE_SPACING,
     STYLE_INVERT_IMAGES,
     STYLE_STATUS_BAR,
@@ -48,7 +49,8 @@ class EpubReaderMenuActivity final : public Activity {
                                   const uint8_t currentOrientation, const bool verticalMode, const bool hasBookmarks,
                                   Epub::CacheGenerationStatus cacheStatus,
                                   std::function<void()> onFirstLineIndentChanged = nullptr,
-                                  std::function<void()> onInvertImagesChanged = nullptr);
+                                  std::function<void()> onInvertImagesChanged = nullptr,
+                                  std::function<void()> onFontSizeChanged = nullptr);
 
   void onEnter() override;
   void onExit() override;
@@ -91,6 +93,7 @@ class EpubReaderMenuActivity final : public Activity {
   bool editingValue = false;
   std::function<void()> onFirstLineIndentChanged;
   std::function<void()> onInvertImagesChanged;
+  std::function<void()> onFontSizeChanged;
 
   bool currentValueIsEditable() const;
   bool changeCurrentValue(int delta, bool toggleValue = false);

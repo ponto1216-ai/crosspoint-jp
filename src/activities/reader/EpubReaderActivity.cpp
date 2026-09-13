@@ -549,7 +549,8 @@ void EpubReaderActivity::loop() {
             renderer, mappedInput, epub->getTitle(), menuCurrentPage, menuTotalPages, bookProgressPercent,
             SETTINGS.orientation, verticalMode, !cachedBookmarks.empty(), epub->getCacheGenerationStatus(),
             [this] { saveBookDirectionFields(BookReaderSettings::DirectionIndent); },
-            [this] { saveBookGlobalField(BookReaderSettings::InvertImages); }),
+            [this] { saveBookGlobalField(BookReaderSettings::InvertImages); },
+            [this] { saveBookDirectionFields(BookReaderSettings::DirectionFontSize); }),
         [this](const ActivityResult& result) {
           // Always apply orientation change even if the menu was cancelled
           const auto& menu = std::get<MenuResult>(result.data);
