@@ -4,6 +4,7 @@
 #include <BoardConfig.h>
 #include <GfxRenderer.h>
 #include <HalGPIO.h>
+#include <HalRTC.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
@@ -53,6 +54,25 @@ const char* deviceName() {
 
 std::string deviceDescription() {
   return std::string(deviceName()) + " (" + displayControllerName() + ")";
+}
+
+const char* inputStyleName() {
+  switch (BoardConfig::ACTIVE.inputStyle) {
+    case BoardConfig::InputStyle::XteinkAdcLadder:
+      return "xteink_adc_ladder";
+    case BoardConfig::InputStyle::DigitalButtons:
+      return "digital_buttons";
+    default:
+      return "other";
+  }
+}
+
+const char* sdTransportName() {
+#if FREEINK_SD_SDMMC
+  return "sdmmc";
+#else
+  return "spi";
+#endif
 }
 
 std::vector<std::string> splitLogLines(const std::string& logs) {
@@ -235,6 +255,13 @@ bool DiagnosticsActivity::saveReport() {
   file.printf("version=%s\n", CROSSPOINT_VERSION);
   file.printf("device=%s\n", deviceName());
   file.printf("display_controller=%s\n", displayControllerName());
+  file.printf("input_style=%s\n", inputStyleName());
+  file.printf("sd_transport=%s\n", sdTransportName());
+  file.printf("rtc_available=%s\n", halRTC.isAvailable() ? "true" : "false");
+  file.printf("psram_available=%s\n", psramFound() ? "true" : "false");
+  file.printf("psram_total_bytes=%lu\n", static_cast<unsigned long>(ESP.getPsramSize()));
+  file.printf("psram_free_bytes=%lu\n", static_cast<unsigned long>(ESP.getFreePsram()));
+  file.printf("psram_max_alloc_bytes=%lu\n", static_cast<unsigned long>(ESP.getMaxAllocPsram()));
   file.printf("sd_ready=%s\n", sdReady ? "true" : "false");
   file.printf("sd_total_bytes=%llu\n", static_cast<unsigned long long>(sdTotalBytes));
   file.printf("sd_used_bytes=%llu\n", static_cast<unsigned long long>(sdUsedBytes));
