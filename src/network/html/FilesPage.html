@@ -1528,12 +1528,12 @@
           <div class="convert-row">
             <label class="convert-checkbox">
               <input type="checkbox" id="convertBeforeUpload" checked onchange="toggleConvertOptions()">
-              <span>Optimize EPUB</span>
+              <span>EPUBを最適化</span>
             </label>
             <span class="convert-separator">—</span>
             <span class="advanced-options-toggle" id="advancedOptionsToggle" onclick="toggleAdvancedOptions()">
               <span class="advanced-options-arrow" id="advancedOptionsArrow">▶</span>
-              <span class="advanced-options-text">Advanced Mode</span>
+              <span class="advanced-options-text">詳細設定</span>
             </span>
           </div>
 
@@ -1541,23 +1541,23 @@
           </div>
 
           <div class="convert-settings" id="convertSettings" style="display:block;">
-            <span>⚫ True-Grayscale</span>
-          <span id="optimizerResolutionInfo">📏 Max 480×800px</span>
+            <span>⚫ グレースケール</span>
+          <span id="optimizerResolutionInfo">📏 最大 480×800px</span>
           <span>📦 85% JPEG</span>
-          <span>🔧 Fix SVG</span>
+          <span>🔧 SVGを修正</span>
         </div>
         <!-- Advanced Settings Content -->
         <div class="advanced-settings-content" id="advancedSettingsContent">
           <!-- JPEG Quality -->
           <div class="advanced-setting-row quality-row">
-            <div class="setting-title">📦 JPEG Quality</div>
+            <div class="setting-title">📦 JPEG品質</div>
             <div class="quality-presets">
-              <button class="quality-preset" data-value="30" onclick="setQualityPreset(30)" title="Minimum quality">30%</button>
-              <button class="quality-preset" data-value="45" onclick="setQualityPreset(45)" title="Low quality">45%</button>
-              <button class="quality-preset" data-value="60" onclick="setQualityPreset(60)" title="Medium-low quality">60%</button>
-              <button class="quality-preset" data-value="75" onclick="setQualityPreset(75)" title="Medium quality">75%</button>
-              <button class="quality-preset active" data-value="85" onclick="setQualityPreset(85)" title="High quality">85%</button>
-              <button class="quality-preset" data-value="95" onclick="setQualityPreset(95)" title="Maximum quality">95%</button>
+              <button class="quality-preset" data-value="30" onclick="setQualityPreset(30)" title="最低品質">30%</button>
+              <button class="quality-preset" data-value="45" onclick="setQualityPreset(45)" title="低品質">45%</button>
+              <button class="quality-preset" data-value="60" onclick="setQualityPreset(60)" title="やや低品質">60%</button>
+              <button class="quality-preset" data-value="75" onclick="setQualityPreset(75)" title="標準品質">75%</button>
+              <button class="quality-preset active" data-value="85" onclick="setQualityPreset(85)" title="高品質">85%</button>
+              <button class="quality-preset" data-value="95" onclick="setQualityPreset(95)" title="最高品質">95%</button>
             </div>
             <!-- Hidden inputs to maintain compatibility -->
             <input type="hidden" id="qualitySlider" value="85">
@@ -1579,21 +1579,21 @@
           -->
           <!-- Rotation Direction -->
           <div class="advanced-setting-row" id="rotationSettingRow">
-            <div class="setting-title">↻ Rotation Direction</div>
+            <div class="setting-title">↻ 回転方向</div>
             <div class="setting-controls">
               <div class="rotation-buttons">
                 <button class="rotation-btn" id="rotationCCW" onclick="setHandedness('left')">
-                  <span class="rot-icon">↺</span> CCW
+                  <span class="rot-icon">↺</span> 反時計回り
                 </button>
                 <button class="rotation-btn active" id="rotationCW" onclick="setHandedness('right')">
-                  <span class="rot-icon">↻</span> CW
+                  <span class="rot-icon">↻</span> 時計回り
                 </button>
               </div>
             </div>
           </div>
           <!-- Overlap Settings -->
           <div class="advanced-setting-row" id="overlapSettingRow">
-            <div class="setting-title">📐 Min Overlap</div>
+            <div class="setting-title">📐 最小重なり</div>
             <div class="setting-controls">
               <div class="overlap-selector">
                 <button class="overlap-btn active" data-value="5" onclick="setOverlap(5)">5%</button>
@@ -1605,8 +1605,8 @@
           <!-- Conversion Log Export -->
           <div class="advanced-setting-row">
             <div class="setting-label">
-              <div class="setting-title">📥 Auto-download Log</div>
-              <div class="setting-desc">Export detailed log with statistics</div>
+              <div class="setting-title">📥 ログを自動ダウンロード</div>
+              <div class="setting-desc">詳細な処理ログと統計を保存します。</div>
             </div>
             <div class="setting-controls">
               <label class="toggle-switch">
@@ -1620,33 +1620,33 @@
       <!-- Image Picker Section - in picker-columns for two-column layout -->
       <div class="image-picker-section" id="imagePickerSection" style="display:none;">
         <div class="image-picker-header">
-          <span class="image-picker-title">🖼️ Image Processing Options</span>
-          <span class="image-picker-count" id="imagePickerCount">0 images</span>
+          <span class="image-picker-title">🖼️ 画像の処理方法</span>
+          <span class="image-picker-count" id="imagePickerCount">画像 0枚</span>
         </div>
         <div class="state-legend">
           <div class="legend-item locked">
             <span>🔒</span>
-            <span>Cover</span>
+            <span>表紙</span>
           </div>
           <div class="legend-item locked">
             <span style="color:#1abc9c">✦</span>
-            <span>Separator</span>
+            <span>区切り</span>
           </div>
           <button class="legend-btn" style="--btn-color:var(--label-color)" onclick="applyStateToAll(0)">
             <div class="legend-color"></div>
-            <span>Normal</span>
+            <span>通常</span>
           </button>
           <button class="legend-btn" style="--btn-color:#3498db" onclick="applyStateToAll(1)">
             <div class="legend-color"></div>
-            <span>H-Split</span>
+            <span>横分割</span>
           </button>
           <button class="legend-btn" style="--btn-color:#e74c3c" onclick="applyStateToAll(2)">
             <div class="legend-color"></div>
-            <span>V-Split</span>
+            <span>縦分割</span>
           </button>
           <button class="legend-btn" style="--btn-color:#9b59b6" onclick="applyStateToAll(3)">
             <div class="legend-color"></div>
-            <span>Rotate</span>
+            <span>回転</span>
           </button>
         </div>
         <div class="image-grid" id="imageGrid"></div>
@@ -1657,16 +1657,16 @@
         <div class="convert-row">
           <label class="convert-checkbox">
             <input type="checkbox" id="xtcConvertBeforeUpload" checked onchange="toggleXtcConvertOptions()">
-            <span>Convert ZIP to XTC</span>
+            <span>ZIPをXTCへ変換</span>
           </label>
         </div>
         <div class="convert-settings" id="xtcConvertSettings">
           <span id="xtcResolutionInfo"></span>
-          <span>⚫ 1-bit Dithered</span>
+          <span>⚫ 1ビットディザリング</span>
           <span>📦 JPEG / PNG / GIF / BMP / WebP</span>
           <label style="cursor:pointer; user-select:none;">
             <input type="checkbox" id="xtcRtlCheckbox" checked style="margin:0 3px 0 0; vertical-align:middle;">
-            RTL (Manga)
+            右から左（漫画）
           </label>
         </div>
       </div>
@@ -1686,8 +1686,8 @@
       </div>
       <!-- Sync compatibility warning - outside picker-columns -->
       <div class="convert-warning" id="convertWarning" style="display:none;" role="alert" aria-live="polite">
-        ⚠️ Converting will modify files and can break hash‑based sync. ⚠️<br>
-        Please back up or disable sync before proceeding.
+        ⚠️ 変換するとファイルが変更され、ハッシュを使う同期が動作しなくなる場合があります。⚠️<br>
+        続ける前にバックアップを取り、同期を無効にしてください。
       </div>
       <!-- Optimize & Upload button - shown when picker is visible, replaces Upload -->
       <button id="startConversionBtn" class="upload-btn optimize" style="display:none;" onclick="startConversionWithImageStates()">最適化してアップロード</button>
@@ -1699,7 +1699,7 @@
       </div>
       <div class="log-section" id="log-section">
         <div class="log-header">
-          <div class="log-title">📋 Conversion Log</div>
+          <div class="log-title">📋 変換ログ</div>
         </div>
         <div class="log-container" id="log-container"></div>
       </div>
@@ -2548,7 +2548,7 @@
     // Check if JSZip is available
     if (typeof JSZip === 'undefined') {
       console.error('JSZip not loaded');
-      alert('JSZip library not available. Conversion will proceed without image picker.');
+      alert('JSZipを読み込めませんでした。画像の処理方法を選ばずに変換を続けます。');
       startConversionWithImageStates();
       return;
     }
@@ -2583,11 +2583,11 @@
       
       if (lockedCount > 0) {
         const lockedParts = [];
-        if (coverCount > 0) lockedParts.push(`${coverCount} cover`);
-        if (separatorCount > 0) lockedParts.push(`${separatorCount} separator${separatorCount !== 1 ? 's' : ''}`);
-        countDisplay.textContent = `${images.length} images (${selectableCount} selectable, ${lockedParts.join(', ')})`;
+        if (coverCount > 0) lockedParts.push(`表紙 ${coverCount}枚`);
+        if (separatorCount > 0) lockedParts.push(`区切り ${separatorCount}枚`);
+        countDisplay.textContent = `画像 ${images.length}枚（選択可能 ${selectableCount}枚、${lockedParts.join('、')}）`;
       } else {
-        countDisplay.textContent = `${images.length} image${images.length !== 1 ? 's' : ''} (all selectable)`;
+        countDisplay.textContent = `画像 ${images.length}枚（すべて選択可能）`;
       }
 
       // Show picker, hide upload button, show start conversion button
@@ -2600,7 +2600,7 @@
 
     } catch (error) {
       console.error('Failed to extract images:', error);
-      alert('Failed to preview images: ' + error.message + '\n\nConversion will proceed normally.');
+      alert('画像のプレビューを作成できませんでした: ' + error.message + '\n\n画像の処理方法を選ばずに変換を続けます。');
       // Fallback: start conversion directly
       startConversionWithImageStates();
     }
@@ -2613,7 +2613,7 @@
     const imageGrid = document.getElementById('imageGrid');
     imageGrid.innerHTML = '';
 
-    const stateLabels = ['', 'H-Split', 'V-Split', 'Rotate'];
+    const stateLabels = ['', '横分割', '縦分割', '回転'];
     const stateClasses = ['state-0', 'state-1', 'state-2', 'state-3'];
 
     epubImagesCache.forEach(img => {
@@ -2627,7 +2627,7 @@
       if (isCover) {
         // Cover image - locked, cannot be split
         item.className = 'image-item cover-locked';
-        item.title = `${img.width}×${img.height} - Cover image (locked)`;
+        item.title = `${img.width}×${img.height} - 表紙（変更できません）`;
         item.innerHTML = `
           <span class="image-state-badge cover-badge">🔒</span>
           <img src="${img.dataUrl}" alt="${img.name}" loading="lazy">
@@ -2636,7 +2636,7 @@
       } else if (isSeparator) {
         // Separator/ornament - locked, cannot be split
         item.className = 'image-item separator-locked';
-        item.title = `${img.width}×${img.height} - Separator (locked)`;
+        item.title = `${img.width}×${img.height} - 区切り（変更できません）`;
         item.innerHTML = `
           <span class="image-state-badge separator-badge">✦</span>
           <img src="${img.dataUrl}" alt="${img.name}" loading="lazy">
@@ -2683,8 +2683,8 @@
         }
         
         // Build tooltip
-        const stateText = stateLabels[state] || 'Normal';
-        const partsText = numParts > 1 ? ` (${numParts} parts)` : '';
+        const stateText = stateLabels[state] || '通常';
+        const partsText = numParts > 1 ? `（${numParts}分割）` : '';
         
         item.className = `image-item ${stateClasses[state]} ${rotateClass}`.trim();
         item.onclick = () => cycleImageState(img.path);
@@ -2784,8 +2784,8 @@
    * Get state label for logging
    */
   function getStateLabel(state) {
-    const labels = ['Normal', 'H-Split', 'V-Split', 'Rotate'];
-    return labels[state] || 'Normal';
+    const labels = ['通常', '横分割', '縦分割', '回転'];
+    return labels[state] || '通常';
   }
 
   // Initialize quality settings handlers
@@ -3109,7 +3109,7 @@ function updateXtcResolutionInfo() {
 }
 
 function ensureXtcConversionActive() {
-  if (operationCancelled) throw new Error('XTC conversion cancelled');
+  if (operationCancelled) throw new Error('XTC変換を中止しました。');
 }
 
 function yieldXtcConversion() {
@@ -3462,7 +3462,7 @@ function updateOptimizerDimensions() {
 
 function updateOptimizerLabel() {
   const el = document.getElementById('optimizerResolutionInfo');
-  if (el) el.textContent = `📏 Max ${MAX_WIDTH}×${MAX_HEIGHT}px`;
+  if (el) el.textContent = `📏 最大 ${MAX_WIDTH}×${MAX_HEIGHT}px`;
 }
 
 // Batch logging system for multiple files
@@ -3526,7 +3526,7 @@ function logImage(name, origW, origH, origFormat, origSize, newW, newH, newSize,
   const newDims = `${newW}×${newH}`;
 
   // Get state label and color
-  const stateLabels = ['', 'H-Split', 'V-Split', 'Rotate'];
+  const stateLabels = ['', '横分割', '縦分割', '回転'];
   const stateColors = ['', '#3498db', '#e74c3c', '#9b59b6'];
   const stateLabel = stateLabels[imageState] || '';
   const stateColor = stateColors[imageState] || '';
@@ -3544,7 +3544,7 @@ function logImage(name, origW, origH, origFormat, origSize, newW, newH, newSize,
     }
     const savedInfo = saved > 0 ? `, <span style="color:#27ae60">-${savedPct}%</span>` : '';
     const stateIndicator = imageState > 0 ? ` <span style="color:${stateColor};font-weight:600;">[${stateLabel}]</span>` : '';
-    log(`<strong>${escapeHtml(name)}</strong>${stateIndicator} <span class="log-detail">(${dims} ${origFormat.toUpperCase()}, ${formatBytes(origSize)}) → ${splitCount} parts${savedInfo}</span>`, '', 'SPLIT');
+    log(`<strong>${escapeHtml(name)}</strong>${stateIndicator} <span class="log-detail">(${dims} ${origFormat.toUpperCase()}, ${formatBytes(origSize)}) → ${splitCount}分割${savedInfo}</span>`, '', 'SPLIT');
     if (partsDetail) {
       log(`<span class="log-detail" style="margin-left: 20px;">↳ ${partsDetail}</span>`, '', '');
     }
@@ -3585,16 +3585,16 @@ function logSummary(originalSize, newSize, timeElapsed) {
 
   const summaryHtml = `
     <div class="log-summary">
-      <div class="log-summary-title">📊 Conversion Summary</div>
+      <div class="log-summary-title">📊 変換結果</div>
       <table class="log-summary-table">
-        <tr><td>Images found</td><td class="highlight">${totalImages}</td></tr>
-        <tr><td>Images processed</td><td>${totalOutput}${conversionStats.splitParts > conversionStats.splits ? ` (+${conversionStats.splitParts - conversionStats.splits} from splits)` : ''}</td></tr>
-        <tr><td>EPUB repairs</td><td>${conversionStats.fixes > 0 ? conversionStats.fixes + ' fixes applied' : 'None needed'}</td></tr>
-        ${conversionStats.errors > 0 ? `<tr><td>Errors</td><td style="color:#e74c3c">${conversionStats.errors}</td></tr>` : ''}
-        <tr><td>Original size</td><td>${formatBytes(originalSize)}</td></tr>
-        <tr><td>Optimized size</td><td>${formatBytes(newSize)}</td></tr>
-        <tr><td>Saved</td><td class="${saved > 0 ? 'saved' : 'increased'}">${saved > 0 ? formatBytes(saved) + ' (' + savedPct + '%)' : '+' + formatBytes(-saved)}</td></tr>
-        <tr><td>Time</td><td>${timeElapsed.toFixed(1)}s</td></tr>
+        <tr><td>見つかった画像</td><td class="highlight">${totalImages}</td></tr>
+        <tr><td>処理した画像</td><td>${totalOutput}${conversionStats.splitParts > conversionStats.splits ? `（分割により +${conversionStats.splitParts - conversionStats.splits}）` : ''}</td></tr>
+        <tr><td>EPUBの修正</td><td>${conversionStats.fixes > 0 ? conversionStats.fixes + '件を修正' : '不要'}</td></tr>
+        ${conversionStats.errors > 0 ? `<tr><td>エラー</td><td style="color:#e74c3c">${conversionStats.errors}</td></tr>` : ''}
+        <tr><td>元のサイズ</td><td>${formatBytes(originalSize)}</td></tr>
+        <tr><td>最適化後のサイズ</td><td>${formatBytes(newSize)}</td></tr>
+        <tr><td>削減量</td><td class="${saved > 0 ? 'saved' : 'increased'}">${saved > 0 ? formatBytes(saved) + ' (' + savedPct + '%)' : '+' + formatBytes(-saved)}</td></tr>
+        <tr><td>処理時間</td><td>${timeElapsed.toFixed(1)}秒</td></tr>
       </table>
     </div>
   `;
@@ -3617,7 +3617,7 @@ function startBatchLog(fileCount) {
   batchStats = { filesProcessed: 0, filesSucceeded: 0, filesFailed: 0, totalImages: 0, totalSplits: 0, totalFixes: 0, totalErrors: 0, totalOriginalSize: 0, totalNewSize: 0 };
   clearLog();
   logContainer.innerHTML = ''; // Clear display
-  log(`Starting batch conversion: ${fileCount} file(s)`, '', 'INFO');
+  log(`一括変換を開始: ${fileCount}ファイル`, '', 'INFO');
 }
 
 // Save current file's log to batch entries
@@ -3657,7 +3657,7 @@ function finalizeBatchLog() {
 
   // Build consolidated log display
   logContainer.innerHTML = '';
-  log(`Starting batch conversion: ${batchStats.filesProcessed} file(s)`, '', 'INFO');
+  log(`一括変換を開始: ${batchStats.filesProcessed}ファイル`, '', 'INFO');
 
   // Add all file entries
   batchLogEntries.forEach((fileLog, index) => {
@@ -3666,7 +3666,7 @@ function finalizeBatchLog() {
     fileHeader.style.marginTop = index > 0 ? '15px' : '5px';
     fileHeader.style.borderTop = index > 0 ? '1px solid var(--border-color)' : 'none';
     fileHeader.style.paddingTop = index > 0 ? '10px' : '0';
-    fileHeader.innerHTML = `<span class="log-timestamp"></span><span class="log-message"><strong>${escapeHtml(fileLog.fileName)}</strong> — ${fileLog.succeeded ? '<span style="color:#27ae60">[OK] Success</span>' : '<span style="color:#e74c3c">[NG] Failed</span>'}</span>`;
+    fileHeader.innerHTML = `<span class="log-timestamp"></span><span class="log-message"><strong>${escapeHtml(fileLog.fileName)}</strong> — ${fileLog.succeeded ? '<span style="color:#27ae60">[OK] 成功</span>' : '<span style="color:#e74c3c">[NG] 失敗</span>'}</span>`;
     logContainer.appendChild(fileHeader);
 
     fileLog.entries.forEach(entry => {
@@ -3678,16 +3678,16 @@ function finalizeBatchLog() {
   // Add batch summary
   const batchSummaryHtml = `
     <div class="log-summary">
-      <div class="log-summary-title">📊 Batch Conversion Summary</div>
+      <div class="log-summary-title">📊 一括変換の結果</div>
       <table class="log-summary-table">
-        <tr><td>Files processed</td><td class="highlight">${batchStats.filesProcessed}</td></tr>
-        <tr><td>Successful</td><td style="color:#27ae60">${batchStats.filesSucceeded}</td></tr>
-        <tr><td>Failed</td><td style="${batchStats.filesFailed > 0 ? '#e74c3c' : '#7f8c8d'}">${batchStats.filesFailed}</td></tr>
-        <tr><td>Total images processed</td><td>${batchStats.totalImages}</td></tr>
-        <tr><td>Total splits</td><td>${batchStats.totalSplits}</td></tr>
-        <tr><td>Total fixes applied</td><td>${batchStats.totalFixes}</td></tr>
-        ${batchStats.totalErrors > 0 ? `<tr><td>Total errors</td><td style="color:#e74c3c">${batchStats.totalErrors}</td></tr>` : ''}
-        <tr><td>Total time</td><td>${batchTime.toFixed(1)}s</td></tr>
+        <tr><td>処理したファイル</td><td class="highlight">${batchStats.filesProcessed}</td></tr>
+        <tr><td>成功</td><td style="color:#27ae60">${batchStats.filesSucceeded}</td></tr>
+        <tr><td>失敗</td><td style="${batchStats.filesFailed > 0 ? '#e74c3c' : '#7f8c8d'}">${batchStats.filesFailed}</td></tr>
+        <tr><td>処理した画像の合計</td><td>${batchStats.totalImages}</td></tr>
+        <tr><td>分割の合計</td><td>${batchStats.totalSplits}</td></tr>
+        <tr><td>修正した項目の合計</td><td>${batchStats.totalFixes}</td></tr>
+        ${batchStats.totalErrors > 0 ? `<tr><td>エラーの合計</td><td style="color:#e74c3c">${batchStats.totalErrors}</td></tr>` : ''}
+        <tr><td>合計時間</td><td>${batchTime.toFixed(1)}秒</td></tr>
       </table>
     </div>
   `;
@@ -4785,7 +4785,7 @@ async function convertEpubFile(file, progressCallback) {
   clearLog();
   showLog();
   log(`<strong>${file.name}</strong> <span class="log-detail">(${formatBytes(originalSize)})</span>`, '', 'INFO');
-  log(`Quality: ${JPEG_QUALITY}% | Overlap: ${OVERLAP_PERCENT}% | Rotation: ${HANDEDNESS === 'right' ? 'CW' : 'CCW'} | Grayscale: ${ENABLE_GRAYSCALE ? 'ON' : 'OFF'}`, '', 'INFO');
+  log(`品質: ${JPEG_QUALITY}% | 重なり: ${OVERLAP_PERCENT}% | 回転: ${HANDEDNESS === 'right' ? '時計回り' : '反時計回り'} | グレースケール: ${ENABLE_GRAYSCALE ? 'オン' : 'オフ'}`, '', 'INFO');
 
   const zip = await JSZip.loadAsync(file);
   const renamed = {};
@@ -4825,7 +4825,7 @@ async function convertEpubFile(file, progressCallback) {
         processingSucceeded = false;
         // Log error but continue with original image
         console.error(`Failed to process image ${path}:`, imageError);
-        log(`Warning: Failed to process ${path.split('/').pop()}, using original`, 'warning', 'IMG-ERR');
+        log(`警告: ${path.split('/').pop()} を処理できなかったため、元の画像を使用します。`, 'warning', 'IMG-ERR');
 
         // Use original image data as fallback
         result = {
@@ -4915,19 +4915,19 @@ async function convertEpubFile(file, progressCallback) {
   for (const [xhtmlPath, content] of Object.entries(xhtmlFiles)) {
     if (operationCancelled) throw new Error('Cancelled by user');
     let t = content.split(LEGACY_DEFENSIVE_STYLE).join('');
-    if (t !== content) logFix('Legacy injected CSS removed', xhtmlPath.split('/').pop());
+    if (t !== content) logFix('旧形式の追加CSSを削除', xhtmlPath.split('/').pop());
 
     const stripped = stripComments(t);
     if (stripped.count) {
       t = stripped.text;
-      logFix(`Comments (${stripped.count}, ${formatBytes(stripped.bytes)})`, xhtmlPath.split('/').pop());
+      logFix(`コメントを削除（${stripped.count}件、${formatBytes(stripped.bytes)}）`, xhtmlPath.split('/').pop());
     }
 
     const r = fixSvgCover(t);
-    if (r.fixed) { t = r.c; logFix('SVG cover', xhtmlPath.split('/').pop()); }
+    if (r.fixed) { t = r.c; logFix('SVG表紙', xhtmlPath.split('/').pop()); }
 
     const r2 = fixSvgWrappedImages(t);
-    if (r2.fixed) { t = r2.c; logFix(`SVG images (${r2.count})`, xhtmlPath.split('/').pop()); }
+    if (r2.fixed) { t = r2.c; logFix(`SVG画像（${r2.count}件）`, xhtmlPath.split('/').pop()); }
 
     // Use DOMParser for all img modifications: remove width/height and handle split images
     try {
@@ -5075,7 +5075,7 @@ async function convertEpubFile(file, progressCallback) {
     const referenceUpdate = updateRenamedImageReferences(xhtmlPath, t, renamed, splitImages);
     t = referenceUpdate.content;
     if (referenceUpdate.count > 0) {
-      logFix(`Image references (${referenceUpdate.count})`, xhtmlPath.split('/').pop());
+      logFix(`画像参照（${referenceUpdate.count}件）`, xhtmlPath.split('/').pop());
     }
 
     t = t.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi, (match, open, css, close) => {
@@ -5083,7 +5083,7 @@ async function convertEpubFile(file, progressCallback) {
       if (!stripped.count) return match;
       removedFontFaceRules += stripped.count;
       removedFontBytes += new TextEncoder().encode(css).length - new TextEncoder().encode(stripped.css).length;
-      logFix('@font-face', `${stripped.count} rule(s) removed from ${xhtmlPath.split('/').pop()}`);
+      logFix('@font-face', `${xhtmlPath.split('/').pop()} から ${stripped.count}件の規則を削除`);
       return open + stripped.css + close;
     });
 
@@ -5103,7 +5103,7 @@ async function convertEpubFile(file, progressCallback) {
     }
     const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/')) : '';
     t = fixOPF(t, opfContent, opfDir, splitImages, fontPaths);
-    if (t !== opfContent) logFix('OPF', 'manifest updated');
+    if (t !== opfContent) logFix('OPF', 'manifestを更新');
     out.file(opfPath, t, { compression: 'DEFLATE', compressionOptions: { level: 8 }, createFolders: false });
   }
 
@@ -5133,7 +5133,7 @@ async function convertEpubFile(file, progressCallback) {
         removedFontFaceRules += stripped.count;
         removedFontBytes += new TextEncoder().encode(t).length - new TextEncoder().encode(stripped.css).length;
         t = stripped.css;
-        logFix('@font-face', `${stripped.count} rule(s) removed from ${path.split('/').pop()}`);
+        logFix('@font-face', `${path.split('/').pop()} から ${stripped.count}件の規則を削除`);
       }
       data = new TextEncoder().encode(t);
     } else if (low.endsWith('.ncx')) {
@@ -5143,28 +5143,28 @@ async function convertEpubFile(file, progressCallback) {
       }
       const oldT = t;
       t = syncNCXIdentifier(t, mainIdentifier);
-      if (t !== oldT) logFix('NCX identifier', 'Synced with OPF');
+      if (t !== oldT) logFix('NCX識別子', 'OPFと同期');
       data = new TextEncoder().encode(t);
     } else if (path === 'META-INF/encryption.xml' && fontPaths.size) {
       const encryptedText = await safeReadText(fileObj);
       const encryption = stripFontEncryptionEntries(encryptedText, fontPaths);
       if (encryption.dropFile) {
         removedFontBytes += data.byteLength;
-        logFix('encryption.xml', 'removed (contained only font obfuscation entries)');
+        logFix('encryption.xml', 'フォント暗号化情報だけだったため削除');
         continue;
       }
       if (encryption.modified) {
         const encoded = new TextEncoder().encode(encryption.xml);
         removedFontBytes += Math.max(0, data.byteLength - encoded.length);
         data = encoded;
-        logFix('encryption.xml', 'font obfuscation entries removed');
+        logFix('encryption.xml', 'フォント暗号化情報を削除');
       }
     }
     out.file(path, data, { compression: 'DEFLATE', compressionOptions: { level: 8 }, createFolders: false });
   }
 
   if (removedFontCount > 0 || removedFontFaceRules > 0) {
-    log(`Removed ${removedFontCount} embedded font(s) and ${removedFontFaceRules} @font-face rule(s), ${formatBytes(removedFontBytes)} of font data`, '', 'INFO');
+    log(`埋め込みフォント ${removedFontCount}件と @font-face 規則 ${removedFontFaceRules}件を削除（${formatBytes(removedFontBytes)}）`, '', 'INFO');
   }
 
   if (progressCallback) progressCallback(100);
@@ -5175,7 +5175,7 @@ async function convertEpubFile(file, progressCallback) {
   const timeElapsed = (Date.now() - startTime) / 1000;
 
   // Log completion
-  log('Conversion complete!', 'success', 'DONE');
+  log('変換が完了しました。', 'success', 'DONE');
   logSummary(totalImageSize > 0 ? totalImageSize : originalSize, totalNewSize > 0 ? totalNewSize : newSize, timeElapsed);
 
   // Auto-export only if NOT in batch mode (batch mode exports at the end)
@@ -5467,7 +5467,7 @@ function uploadFile() {
     let conversionFailed = false;  // Track if conversion actually failed
 
     const methodText = useWebSocket ? ' [WS]' : ' [HTTP]';
-    const stageText = (needsConversion || needsXtcConversion || needsTxtConversion) ? 'Converting & uploading' : 'Uploading';
+    const stageText = (needsConversion || needsXtcConversion || needsTxtConversion) ? '変換してアップロード中' : 'アップロード中';
     progressText.style.color = '';
     progressText.textContent = `${stageText} ${file.name} (${currentIndex + 1}/${files.length})${methodText}`;
 
@@ -5476,7 +5476,7 @@ function uploadFile() {
       // If conversion succeeded, display goes from 50-100%, otherwise 0-100%
       const displayPercent = conversionSucceeded ? 50 + Math.round(uploadPercent / 2) : uploadPercent;
       progressFill.style.width = displayPercent + '%';
-      const prefix = conversionSucceeded ? 'Converting & uploading' : 'Uploading';
+      const prefix = conversionSucceeded ? '変換してアップロード中' : 'アップロード中';
       progressText.textContent = `${prefix} ${file.name} (${currentIndex + 1}/${files.length})${methodText} — ${uploadPercent}%`;
     };
 
@@ -5532,7 +5532,7 @@ function uploadFile() {
       // Convert EPUB if needed
       if (needsConversion) {
         progressFill.style.backgroundColor = '#9b59b6'; // Purple for conversion
-        progressText.textContent = `Converting ${file.name} (${currentIndex + 1}/${files.length})...`;
+        progressText.textContent = `${file.name} を変換中（${currentIndex + 1}/${files.length}）...`;
 
         // Clear log for single file mode, or just add separator for batch mode
         if (!useBatchLog) {
@@ -5566,7 +5566,7 @@ function uploadFile() {
           }
 
           // If conversion fails, try uploading original file
-          progressText.textContent = `Conversion failed, uploading original ${file.name}...`;
+          progressText.textContent = `変換に失敗したため、元の ${file.name} をアップロード中...`;
           progressFill.style.backgroundColor = '#e67e22'; // Orange for fallback
           // Reset progress bar to 0% for original file upload
           progressFill.style.width = '0%';
@@ -5576,7 +5576,7 @@ function uploadFile() {
       // Convert ZIP/CBZ to XTC if needed
       if (needsXtcConversion) {
         progressFill.style.backgroundColor = '#9b59b6'; // Purple for conversion
-        progressText.textContent = `Converting to XTC: ${file.name} (${currentIndex + 1}/${files.length})...`;
+        progressText.textContent = `${file.name} をXTCへ変換中（${currentIndex + 1}/${files.length}）...`;
 
         try {
           const result = await convertZipToXtc(file, (percent) => {
@@ -5590,10 +5590,10 @@ function uploadFile() {
           if (operationCancelled) { if (uploadGeneration === myGeneration) restoreAfterCancel(); return; }
           console.error('XTC conversion error:', convError);
           conversionFailed = true;
-          progressText.textContent = `XTC conversion failed: ${convError.message}`;
+          progressText.textContent = `XTCへの変換に失敗しました: ${convError.message}`;
           progressFill.style.backgroundColor = '#e74c3c';
           progressFill.style.width = '0%';
-          throw new Error(`XTC conversion failed: ${convError.message}`);
+          throw new Error(`XTCへの変換に失敗しました: ${convError.message}`);
         }
       }
 
@@ -5603,7 +5603,7 @@ function uploadFile() {
       // (default OFF なので、この分岐に入るのは変換をユーザーが明示的にオンにした時のみ)
       if (needsTxtConversion) {
         progressFill.style.backgroundColor = '#9b59b6';
-        progressText.textContent = `Converting TXT→EPUB: ${file.name} (${currentIndex + 1}/${files.length})...`;
+        progressText.textContent = `${file.name} をTXTからEPUBへ変換中（${currentIndex + 1}/${files.length}）...`;
         if (!useBatchLog) {
           clearLog();
           showLog();
@@ -5638,7 +5638,7 @@ function uploadFile() {
       }
       // Ensure progress bar shows 100% before moving to next file
       progressFill.style.width = '100%';
-      progressText.textContent = `Upload complete: ${file.name}`;
+      progressText.textContent = `アップロードしました: ${file.name}`;
       onComplete();
     } catch (error) {
       if (operationCancelled) { if (uploadGeneration === myGeneration) restoreAfterCancel(); return; }
