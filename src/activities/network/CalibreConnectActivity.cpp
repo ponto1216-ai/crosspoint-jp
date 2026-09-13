@@ -124,6 +124,10 @@ void CalibreConnectActivity::loop() {
       }
       if ((i & 0x0F) == 0x0F) {
         yield();
+        // This activity runs without the normal loop delay while Calibre is
+        // connected. Refresh GPIO state here so Back remains responsive while
+        // the server is handling a continuous request stream.
+        mappedInput.update();
         if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
           exitRequested = true;
           break;
