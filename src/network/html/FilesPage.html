@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Files - Yomuka</title>
+  <title>Yomuka - ファイル管理</title>
   <script src="/js/jszip.min.js"></script>
   <script src="/js/aozora-epub.js"></script>
   <style>
@@ -1466,39 +1466,39 @@
 <h1>📚 Yomuka</h1>
 
 <div class="nav-links">
-  <a href="/">Home</a>
-  <a href="/files" class="active">File Manager</a>
-  <a href="/settings">Settings</a>
-  <a href="/fonts">Fonts</a>
-  <a href="/sleep">Sleep</a>
+  <a href="/">ホーム</a>
+  <a href="/files" class="active">ファイル管理</a>
+  <a href="/settings">設定</a>
+  <a href="/fonts">フォント</a>
+  <a href="/sleep">スリープ</a>
 </div>
 
 <div class="page-header">
   <div class="page-header-left">
-    <h2>📁 File Manager</h2>
+    <h2>📁 ファイル管理</h2>
     <div class="breadcrumb-inline" id="directory-breadcrumbs"></div>
   </div>
 
   <div class="action-buttons">
-    <button class="action-btn upload-action-btn" onclick="openUploadModal()">📤 Upload</button>
-    <button class="action-btn folder-action-btn" onclick="openFolderModal()">📁 New Folder</button>
-    <button class="action-btn delete-action-btn" onclick="openDeleteSelectedModal()">🗑️ Delete Selected</button>
+    <button class="action-btn upload-action-btn" onclick="openUploadModal()">📤 アップロード</button>
+    <button class="action-btn folder-action-btn" onclick="openFolderModal()">📁 新しいフォルダ</button>
+    <button class="action-btn delete-action-btn" onclick="openDeleteSelectedModal()">🗑️ 選択項目を削除</button>
   </div>
 </div>
 
 <!-- Failed Uploads Banner -->
 <div class="failed-uploads-banner" id="failedUploadsBanner">
   <div class="failed-uploads-header">
-    <h3 class="failed-uploads-title">⚠️ Some files failed to upload</h3>
-    <button class="dismiss-btn" onclick="dismissFailedUploads()" title="Dismiss">&times;</button>
+    <h3 class="failed-uploads-title">⚠️ アップロードできなかったファイルがあります</h3>
+    <button class="dismiss-btn" onclick="dismissFailedUploads()" title="閉じる">&times;</button>
   </div>
   <div id="failedFilesList"></div>
-  <button class="retry-all-btn" onclick="retryAllFailedUploads()">Retry All Failed Uploads</button>
+  <button class="retry-all-btn" onclick="retryAllFailedUploads()">失敗したファイルをすべて再試行</button>
 </div>
 
 <div class="card">
   <div class="contents-header">
-    <h2 class="contents-title">Contents</h2>
+    <h2 class="contents-title">内容</h2>
     <span class="summary-inline" id="folder-summary"></span>
   </div>
 
@@ -1511,7 +1511,7 @@
 
 <div class="card">
   <p style="text-align: center; color: #95a5a6; margin: 0;">
-    CrossPoint E-Reader • Open Source
+    Yomuka • オープンソース
   </p>
 </div>
 
@@ -1519,9 +1519,9 @@
 <div class="modal-overlay" id="uploadModal">
   <div class="modal">
     <button class="modal-close" id="uploadModalClose" onclick="closeUploadModal()">&times;</button>
-    <h3>📤 Upload file</h3>
+    <h3>📤 ファイルをアップロード</h3>
     <div class="upload-form">
-      <p class="file-info">Select a file to upload to <strong id="uploadPathDisplay"></strong></p>
+      <p class="file-info"><strong id="uploadPathDisplay"></strong> にアップロードするファイルを選択してください。</p>
       <input type="file" id="fileInput" onchange="validateFile()" multiple>
       <div class="picker-columns" id="pickerColumns">
         <div class="convert-options" id="convertOptions" style="display:none;">
@@ -1690,9 +1690,9 @@
         Please back up or disable sync before proceeding.
       </div>
       <!-- Optimize & Upload button - shown when picker is visible, replaces Upload -->
-      <button id="startConversionBtn" class="upload-btn optimize" style="display:none;" onclick="startConversionWithImageStates()">Optimize & Upload</button>
-      <button id="uploadBtn" class="upload-btn" onclick="uploadFile()" disabled>Upload</button>
-      <button class="delete-btn-cancel" onclick="handleCancelUploadModal()">Cancel</button>
+      <button id="startConversionBtn" class="upload-btn optimize" style="display:none;" onclick="startConversionWithImageStates()">最適化してアップロード</button>
+      <button id="uploadBtn" class="upload-btn" onclick="uploadFile()" disabled>アップロード</button>
+      <button class="delete-btn-cancel" onclick="handleCancelUploadModal()">キャンセル</button>
       <div id="progress-container">
         <div id="progress-bar"><div id="progress-fill"></div></div>
         <div id="progress-text"></div>
@@ -1711,12 +1711,12 @@
 <div class="modal-overlay" id="folderModal">
   <div class="modal">
     <button class="modal-close" onclick="closeFolderModal()">&times;</button>
-    <h3>📁 New Folder</h3>
+    <h3>📁 新しいフォルダ</h3>
     <div class="folder-form">
-      <p class="file-info">Create a new folder in <strong id="folderPathDisplay"></strong></p>
-      <input type="text" id="folderName" class="folder-input" placeholder="Folder name..." oninput="document.getElementById('createFolderBtn').disabled = !this.value.trim();">
-      <button class="folder-btn" id="createFolderBtn" onclick="createFolder()" disabled>Create Folder</button>
-      <button class="delete-btn-cancel" onclick="closeFolderModal()">Cancel</button>
+      <p class="file-info"><strong id="folderPathDisplay"></strong> に作成するフォルダ名を入力してください。</p>
+      <input type="text" id="folderName" class="folder-input" placeholder="フォルダ名..." oninput="document.getElementById('createFolderBtn').disabled = !this.value.trim();">
+      <button class="folder-btn" id="createFolderBtn" onclick="createFolder()" disabled>フォルダを作成</button>
+      <button class="delete-btn-cancel" onclick="closeFolderModal()">キャンセル</button>
     </div>
   </div>
 </div>
@@ -1725,13 +1725,13 @@
 <div class="modal-overlay" id="deleteModal">
   <div class="modal">
     <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
-    <h3>🗑️ Delete Item(s)</h3>
+    <h3>🗑️ 項目を削除</h3>
     <div class="folder-form">
-      <p class="delete-warning">⚠️ This action cannot be undone!</p>
-      <p class="file-info">Are you sure you want to delete the following item(s)?</p>
+      <p class="delete-warning">⚠️ この操作は元に戻せません。</p>
+      <p class="file-info">次の項目を削除しますか？</p>
       <div id="deleteItemList" style="max-height:240px; overflow:auto; margin-bottom:10px;"></div>
-      <button class="delete-btn-confirm" onclick="confirmDelete()">Delete</button>
-      <button class="delete-btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <button class="delete-btn-confirm" onclick="confirmDelete()">削除</button>
+      <button class="delete-btn-cancel" onclick="closeDeleteModal()">キャンセル</button>
     </div>
   </div>
 </div>
@@ -1740,13 +1740,13 @@
 <div class="modal-overlay" id="renameModal">
   <div class="modal">
     <button class="modal-close" onclick="closeRenameModal()">&times;</button>
-    <h3>✏️ Rename File</h3>
+    <h3>✏️ ファイル名を変更</h3>
     <div class="folder-form">
-      <p class="file-info">Renaming <strong id="renameItemName"></strong></p>
-      <input type="text" id="renameNewName" class="folder-input" placeholder="New file name...">
+      <p class="file-info"><strong id="renameItemName"></strong> の名前を変更します。</p>
+      <input type="text" id="renameNewName" class="folder-input" placeholder="新しいファイル名...">
       <input type="hidden" id="renameItemPath">
-      <button class="rename-btn-confirm" onclick="confirmRename()">Rename</button>
-      <button class="delete-btn-cancel" onclick="closeRenameModal()">Cancel</button>
+      <button class="rename-btn-confirm" onclick="confirmRename()">変更</button>
+      <button class="delete-btn-cancel" onclick="closeRenameModal()">キャンセル</button>
     </div>
   </div>
 </div>
@@ -1755,14 +1755,14 @@
 <div class="modal-overlay" id="moveModal">
   <div class="modal">
     <button class="modal-close" onclick="closeMoveModal()">&times;</button>
-    <h3>📂 Move File</h3>
+    <h3>📂 ファイルを移動</h3>
     <div class="folder-form">
-      <p class="file-info">Moving <strong id="moveItemName"></strong></p>
-      <input type="text" id="moveDestPath" class="folder-input" list="moveFolderOptions" placeholder="/Destination/Folder">
+      <p class="file-info"><strong id="moveItemName"></strong> を移動します。</p>
+      <input type="text" id="moveDestPath" class="folder-input" list="moveFolderOptions" placeholder="/移動先/フォルダ">
       <datalist id="moveFolderOptions"></datalist>
       <input type="hidden" id="moveItemPath">
-      <button class="move-btn-confirm" onclick="confirmMove()">Move</button>
-      <button class="delete-btn-cancel" onclick="closeMoveModal()">Cancel</button>
+      <button class="move-btn-confirm" onclick="confirmMove()">移動</button>
+      <button class="delete-btn-cancel" onclick="closeMoveModal()">キャンセル</button>
     </div>
   </div>
 </div>
@@ -1773,7 +1773,7 @@
 
   if (currentPath !== '/') {
     const leaf = currentPath.split('/').filter(Boolean).pop();
-    if (leaf) document.title = leaf + ' - Files - Yomuka';
+    if (leaf) document.title = leaf + ' - ファイル管理 - Yomuka';
   }
 
   // Network status monitoring
@@ -1900,12 +1900,12 @@
     try {
       const response = await fetch('/api/files?path=' + encodeURIComponent(currentPath) + '&_=' + Date.now());
       if (!response.ok) {
-        throw new Error('Failed to load files: ' + response.status + ' ' + response.statusText);
+        throw new Error('ファイルを読み込めませんでした: ' + response.status + ' ' + response.statusText);
       }
       files = await response.json();
     } catch (e) {
       console.error(e);
-      fileTable.innerHTML = '<div class="no-files">An error occurred while loading the files</div>';
+      fileTable.innerHTML = '<div class="no-files">ファイルの読み込み中にエラーが発生しました。</div>';
       return;
     }
 
@@ -1917,17 +1917,15 @@
     });
 
     const fileCount = files.length - folderCount;
-    const folderLabel = folderCount === 1 ? 'folder' : 'folders';
-    const fileLabel = fileCount === 1 ? 'file' : 'files';
-    document.getElementById('folder-summary').innerHTML = `${folderCount} ${folderLabel}, ${fileCount} ${fileLabel}, ${formatFileSize(totalSize)}`;
+    document.getElementById('folder-summary').innerHTML = `フォルダ ${folderCount}件、ファイル ${fileCount}件、${formatFileSize(totalSize)}`;
 
     if (files.length === 0) {
-      fileTable.innerHTML = '<div class="no-files">This folder is empty</div>';
+      fileTable.innerHTML = '<div class="no-files">このフォルダは空です。</div>';
     } else {
       let fileTableContent = '<table class="file-table">';
 
 				// Add select-all checkbox column
-      fileTableContent += '<tr><th style="width:40px"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)"></th><th>Name</th><th>Type</th><th>Size</th><th class="actions-col">Actions</th></tr>';
+      fileTableContent += '<tr><th style="width:40px"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)"></th><th>名前</th><th>種類</th><th>サイズ</th><th class="actions-col">操作</th></tr>';
 
 
       const sortedFiles = files.sort((a, b) => {
@@ -1948,10 +1946,10 @@
          // Checkbox cell + folder row
           fileTableContent += `<tr class="folder-row">`;
           fileTableContent += `<td><input type="checkbox" class="select-item" data-path="${encodeURIComponent(folderPath)}" data-name="${escapeHtml(file.name)}" data-type="folder"></td>`;
-          fileTableContent += `<td><span class="file-icon">📁</span><a href="/files?path=${encodeURIComponent(folderPath)}" class="folder-link">${escapeHtml(file.name)}</a><span class="folder-badge">FOLDER</span></td>`;
-          fileTableContent += '<td>Folder</td>';
+          fileTableContent += `<td><span class="file-icon">📁</span><a href="/files?path=${encodeURIComponent(folderPath)}" class="folder-link">${escapeHtml(file.name)}</a><span class="folder-badge">フォルダ</span></td>`;
+          fileTableContent += '<td>フォルダ</td>';
           fileTableContent += '<td>-</td>';
-          fileTableContent += `<td class="actions-col"><div class="action-icon-group"><button class="delete-btn" onclick="openDeleteModal('${file.name.replaceAll("'", "\\'")}', '${folderPath.replaceAll("'", "\\'")}', true)" title="Delete folder">🗑️</button></div></td>`;
+          fileTableContent += `<td class="actions-col"><div class="action-icon-group"><button class="delete-btn" onclick="openDeleteModal('${file.name.replaceAll("'", "\\'")}', '${folderPath.replaceAll("'", "\\'")}', true)" title="フォルダを削除">🗑️</button></div></td>`;
           fileTableContent += '</tr>';
         } else {
           let filePath = currentPath;
@@ -1968,9 +1966,9 @@
           fileTableContent += `<td>${file.name.split('.').pop().toUpperCase()}</td>`;
           fileTableContent += `<td>${formatFileSize(file.size)}</td>`;
           fileTableContent += `<td class="actions-col"><div class="action-icon-group">`;
-          fileTableContent += `<button class="move-btn" onclick="openMoveModal('${file.name.replaceAll("'", "\\'")}', '${filePath.replaceAll("'", "\\'")}' )" title="Move file">📂</button>`;
-          fileTableContent += `<button class="rename-btn" onclick="openRenameModal('${file.name.replaceAll("'", "\\'")}', '${filePath.replaceAll("'", "\\'")}' )" title="Rename file">✏️</button>`;
-          fileTableContent += `<button class="delete-btn" onclick="openDeleteModal('${file.name.replaceAll("'", "\\'")}', '${filePath.replaceAll("'", "\\'")}', false)" title="Delete file">🗑️</button>`;
+          fileTableContent += `<button class="move-btn" onclick="openMoveModal('${file.name.replaceAll("'", "\\'")}', '${filePath.replaceAll("'", "\\'")}' )" title="ファイルを移動">📂</button>`;
+          fileTableContent += `<button class="rename-btn" onclick="openRenameModal('${file.name.replaceAll("'", "\\'")}', '${filePath.replaceAll("'", "\\'")}' )" title="ファイル名を変更">✏️</button>`;
+          fileTableContent += `<button class="delete-btn" onclick="openDeleteModal('${file.name.replaceAll("'", "\\'")}', '${filePath.replaceAll("'", "\\'")}', false)" title="ファイルを削除">🗑️</button>`;
           fileTableContent += `</div></td>`;
           fileTableContent += '</tr>';
         }
@@ -2032,7 +2030,7 @@
     progressFill.style.width = '0%';
     progressFill.style.backgroundColor = '#e74c3c';
     progressText.style.color = '#e74c3c';
-    progressText.textContent = 'Upload cancelled by User!';
+    progressText.textContent = 'アップロードを中止しました。';
     // Re-enable the action button (uploadBtn is always visible at this point;
     // its text is already "Upload" or "Optimize & Upload" depending on checkbox state)
     document.getElementById('uploadBtn').disabled = false;
@@ -2050,7 +2048,7 @@
     const uploadBtn = document.getElementById('uploadBtn');
     uploadBtn.disabled = true;
     uploadBtn.style.display = 'block';
-    uploadBtn.textContent = 'Upload';
+    uploadBtn.textContent = 'アップロード';
     uploadBtn.classList.remove('optimize');
     document.getElementById('startConversionBtn').style.display = 'none';
     document.getElementById('progress-container').style.display = 'none';
@@ -2104,10 +2102,10 @@
     document.getElementById('convertInfo').style.display = checked ? 'block' : 'none';
     // Update button text and style
     if (checked) {
-      uploadBtn.textContent = 'Optimize & Upload';
+      uploadBtn.textContent = '最適化してアップロード';
       uploadBtn.classList.add('optimize');
     } else {
-      uploadBtn.textContent = 'Upload';
+      uploadBtn.textContent = 'アップロード';
       uploadBtn.classList.remove('optimize');
       // Clear image picker when unchecking
       clearImagePicker();
@@ -2869,7 +2867,7 @@
   function openDeleteSelectedModal() {
     const items = getSelectedItems();
     if (items.length === 0) {
-      alert('Please select at least one item to delete.');
+      alert('削除する項目を一つ以上選択してください。');
       return;
     }
     openDeleteModalForItems(items);
@@ -2922,11 +2920,11 @@
         window.location.reload();
       } else {
         const text = await res.text();
-        alert('Failed to delete: ' + text);
+        alert('削除できませんでした: ' + text);
         closeDeleteModal();
       }
     }).catch(() => {
-      alert('Failed to delete - network error');
+      alert('ネットワークエラーのため削除できませんでした。');
       closeDeleteModal();
     });
   }
@@ -2996,7 +2994,7 @@
       // Update upload button if XTC conversion is checked
       const xtcChecked = document.getElementById('xtcConvertBeforeUpload').checked;
       if (xtcChecked && !hasEpub) {
-        uploadBtn.textContent = 'Convert & Upload';
+        uploadBtn.textContent = '変換してアップロード';
         uploadBtn.classList.add('optimize');
       }
     } else {
@@ -3008,7 +3006,7 @@
       txtConvertOptions.style.display = 'block';
       const txtChecked = document.getElementById('txtConvertBeforeUpload').checked;
       if (txtChecked && !hasEpub && !hasZip) {
-        uploadBtn.textContent = 'Convert & Upload';
+        uploadBtn.textContent = '変換してアップロード';
         uploadBtn.classList.add('optimize');
       }
     } else {
@@ -3036,7 +3034,7 @@
     } else {
       updateBatchModeUI(false);
       uploadBtn.disabled = true;
-      uploadBtn.textContent = 'Upload';
+      uploadBtn.textContent = 'アップロード';
       uploadBtn.classList.remove('optimize');
     }
   }
@@ -3075,10 +3073,10 @@ function toggleXtcConvertOptions() {
   const checked = document.getElementById('xtcConvertBeforeUpload').checked;
   const uploadBtn = document.getElementById('uploadBtn');
   if (checked) {
-    uploadBtn.textContent = 'Convert & Upload';
+    uploadBtn.textContent = '変換してアップロード';
     uploadBtn.classList.add('optimize');
   } else {
-    uploadBtn.textContent = 'Upload';
+    uploadBtn.textContent = 'アップロード';
     uploadBtn.classList.remove('optimize');
   }
 }
@@ -3087,7 +3085,7 @@ function toggleTxtConvertOptions() {
   const checked = document.getElementById('txtConvertBeforeUpload').checked;
   const uploadBtn = document.getElementById('uploadBtn');
   if (checked) {
-    uploadBtn.textContent = 'Convert & Upload';
+    uploadBtn.textContent = '変換してアップロード';
     uploadBtn.classList.add('optimize');
     return;
   }
@@ -3100,7 +3098,7 @@ function toggleTxtConvertOptions() {
     (epubOpts && epubOpts.style.display !== 'none' && epubEl && epubEl.checked) ||
     (xtcOpts && xtcOpts.style.display !== 'none' && xtcEl && xtcEl.checked);
   if (!otherActive) {
-    uploadBtn.textContent = 'Upload';
+    uploadBtn.textContent = 'アップロード';
     uploadBtn.classList.remove('optimize');
   }
 }
@@ -5358,7 +5356,7 @@ function uploadFile() {
   const convertEnabled = document.getElementById('convertBeforeUpload').checked;
 
   if (files.length === 0) {
-    alert('Please select at least one file!');
+    alert('アップロードするファイルを一つ以上選択してください。');
     return;
   }
 
@@ -5405,7 +5403,7 @@ function uploadFile() {
       // All files processed - show summary
       if (failedFiles.length === 0) {
         progressFill.style.backgroundColor = '#4caf50';
-        progressText.textContent = 'All uploads complete!';
+        progressText.textContent = 'すべてのアップロードが完了しました。';
 
         // Finalize batch log if in batch mode
         if (useBatchLog) {
@@ -5421,7 +5419,7 @@ function uploadFile() {
       } else {
         progressFill.style.backgroundColor = '#e74c3c';
         const failedList = failedFiles.map(f => f.name).join(', ');
-        progressText.textContent = `${files.length - failedFiles.length}/${files.length} uploaded. Failed: ${failedList}`;
+        progressText.textContent = `${files.length - failedFiles.length}/${files.length}件をアップロードしました。失敗: ${failedList}`;
 
         // Add upload errors to batch log
         if (useBatchLog) {
@@ -5682,9 +5680,9 @@ function showFailedUploadsBanner() {
     item.innerHTML = `
       <div class="failed-file-info">
         <div class="failed-file-name">📄 ${escapeHtml(failedFile.name)}</div>
-        <div class="failed-file-error">Error: ${escapeHtml(failedFile.error)}</div>
+        <div class="failed-file-error">エラー: ${escapeHtml(failedFile.error)}</div>
       </div>
-      <button class="retry-btn" onclick="retrySingleUpload(${index})">Retry</button>
+      <button class="retry-btn" onclick="retrySingleUpload(${index})">再試行</button>
     `;
     filesList.appendChild(item);
   });
@@ -5751,14 +5749,14 @@ function retryAllFailedUploads() {
     const folderName = document.getElementById('folderName').value.trim();
 
     if (!folderName) {
-      alert('Please enter a folder name!');
+      alert('フォルダ名を入力してください。');
       return;
     }
 
     // Validate folder name
     const validName = /^(?!\.{1,2}$)[^"*:<>?\/\\|]+$/.test(folderName);
     if (!validName) {
-      alert('Folder name cannot contain \" * : < > ? / \\ | and must not be . or ..');
+      alert('フォルダ名には \" * : < > ? / \\ | を含められません。また . と .. は使用できません。');
       return;
     }
 
@@ -5773,12 +5771,12 @@ function retryAllFailedUploads() {
       if (xhr.status === 200) {
         window.location.reload();
       } else {
-        alert('Failed to create folder: ' + xhr.responseText);
+        alert('フォルダを作成できませんでした: ' + xhr.responseText);
       }
     };
 
     xhr.onerror = function() {
-      alert('Failed to create folder - network error');
+      alert('ネットワークエラーのためフォルダを作成できませんでした。');
     };
 
     xhr.send(formData);
@@ -5806,11 +5804,11 @@ function retryAllFailedUploads() {
     const newName = document.getElementById('renameNewName').value.trim();
 
     if (!newName) {
-      alert('Please enter a new name.');
+      alert('新しい名前を入力してください。');
       return;
     }
     if (newName.includes('/') || newName.includes('\\')) {
-      alert('File name cannot include slashes.');
+      alert('ファイル名にはスラッシュを含められません。');
       return;
     }
 
@@ -5825,13 +5823,13 @@ function retryAllFailedUploads() {
       if (xhr.status === 200) {
         window.location.reload();
       } else {
-        alert('Failed to rename: ' + xhr.responseText);
+        alert('名前を変更できませんでした: ' + xhr.responseText);
       }
       closeRenameModal();
     };
 
     xhr.onerror = function() {
-      alert('Failed to rename - network error');
+      alert('ネットワークエラーのため名前を変更できませんでした。');
       closeRenameModal();
     };
 
@@ -5920,7 +5918,7 @@ function retryAllFailedUploads() {
     const destPath = normalizePath(document.getElementById('moveDestPath').value);
 
     if (!destPath) {
-      alert('Please enter a destination folder.');
+      alert('移動先のフォルダを入力してください。');
       return;
     }
 
@@ -5935,13 +5933,13 @@ function retryAllFailedUploads() {
       if (xhr.status === 200) {
         window.location.reload();
       } else {
-        alert('Failed to move: ' + xhr.responseText);
+        alert('移動できませんでした: ' + xhr.responseText);
       }
       closeMoveModal();
     };
 
     xhr.onerror = function() {
-      alert('Failed to move - network error');
+      alert('ネットワークエラーのため移動できませんでした。');
       closeMoveModal();
     };
 
