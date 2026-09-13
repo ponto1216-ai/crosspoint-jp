@@ -136,6 +136,15 @@
       .saved-image-meta { color: var(--label-color); font-size: 11px; margin: 4px 0 8px; }
       .btn-delete { width: 100%; padding: 7px; color: #fff; background: var(--danger-color); border: 0; border-radius: 4px; cursor: pointer; }
       .btn-delete:hover { background: var(--danger-hover); }
+      .list-toolbar { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin: 0 0 12px; }
+      .list-toolbar-label { color: var(--label-color); font-size: 12px; margin-right: 2px; }
+      .view-toggle { padding: 6px 9px; border: 1px solid var(--border-color); border-radius: 4px; color: var(--font-color); background: #fff; cursor: pointer; font-size: 12px; }
+      .view-toggle.active { color: #fff; background: var(--accent-color); border-color: var(--accent-color); }
+      .image-list { border-top: 1px solid var(--border-color); }
+      .image-list-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border-color); }
+      .image-list-name { min-width: 0; flex: 1; overflow-wrap: anywhere; font-size: 13px; }
+      .image-list-meta { color: var(--label-color); font-size: 11px; white-space: nowrap; }
+      .image-list .btn-delete { width: auto; flex: 0 0 auto; padding: 6px 10px; }
       .section-note { color: var(--label-color); font-size: 13px; line-height: 1.5; }
       .overlay-status { min-height: 18px; margin-top: 8px; color: var(--label-color); font-size: 12px; text-align: center; }
 
@@ -168,6 +177,11 @@
 
       <div class="card">
         <h2>保存済みのスリープ画像</h2>
+        <div class="list-toolbar" aria-label="画像一覧の表示方法">
+          <span class="list-toolbar-label">表示</span>
+          <button class="view-toggle active" id="thumbnailViewButton" type="button" onclick="setSavedImageView('thumbnails')">サムネイル</button>
+          <button class="view-toggle" id="listViewButton" type="button" onclick="setSavedImageView('list')">一覧</button>
+        </div>
         <div id="savedImages"><p class="empty">読み込み中...</p></div>
       </div>
 
@@ -237,9 +251,14 @@
     let firmwareVersion = 'unknown';
     let lastErrorDetails = '';
     let cropState = { x: 0, y: 0, scale: 1 };
+    let savedImageView = 'thumbnails';
 
     // --- Init ---
     async function init() {
+      try {
+        savedImageView = localStorage.getItem('yomukaSleepImageView') === 'list' ? 'list' : 'thumbnails';
+      } catch (e) {}
+      updateSavedImageViewControls();
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
@@ -739,6 +758,49 @@
       return bytes + ' B';
     }
 
+    function updateSavedImageViewControls() {
+      const thumbnails = savedImageView === 'thumbnails';
+      const thumbnailButton = document.getElementById('thumbnailViewButton');
+      const listButton = document.getElementById('listViewButton');
+      thumbnailButton.classList.toggle('active', thumbnails);
+      thumbnailButton.setAttribute('aria-pressed', thumbnails ? 'true' : 'false');
+      listButton.classList.toggle('active', !thumbnails);
+      listButton.setAttribute('aria-pressed', thumbnails ? 'false' : 'true');
+    }
+
+    function setSavedImageView(view) {
+      savedImageView = view === 'list' ? 'list' : 'thumbnails';
+      try {
+        localStorage.setItem('yomukaSleepImageView', savedImageView);
+      } catch (e) {}
+      updateSavedImageViewControls();
+      loadSleepImages();
+      loadSleepOverlays();
+    }
+
+    function renderSavedImageList(images, thumbnailPath) {
+      if (savedImageView === 'list') {
+        return '<div class="image-list">' + images.map(image => {
+          const name = escapeHtml(image.name);
+          return '<div class="image-list-row">' +
+            '<div class="image-list-name">' + name + '</div>' +
+            '<div class="image-list-meta">' + formatSize(image.size) + '</div>' +
+            '<button class="btn-delete" data-file="' + name + '">削除</button>' +
+            '</div>';
+        }).join('') + '</div>';
+      }
+      return '<div class="image-grid">' + images.map(image => {
+        const name = escapeHtml(image.name);
+        const file = encodeURIComponent(image.name);
+        return '<div class="saved-image">' +
+          '<img src="' + thumbnailPath + file + '" alt="' + name + '">' +
+          '<div class="saved-image-name">' + name + '</div>' +
+          '<div class="saved-image-meta">' + formatSize(image.size) + '</div>' +
+          '<button class="btn-delete" data-file="' + name + '">削除</button>' +
+          '</div>';
+      }).join('') + '</div>';
+    }
+
     async function loadSleepImages() {
       const container = document.getElementById('savedImages');
       try {
@@ -749,16 +811,7 @@
           container.innerHTML = '<p class="empty">.sleepフォルダに画像はありません。</p>';
           return;
         }
-        container.innerHTML = '<div class="image-grid">' + images.map(image => {
-          const name = escapeHtml(image.name);
-          const file = encodeURIComponent(image.name);
-          return '<div class="saved-image">' +
-            '<img src="/api/sleep/thumbnail?file=' + file + '" alt="' + name + '">' +
-            '<div class="saved-image-name">' + name + '</div>' +
-            '<div class="saved-image-meta">' + formatSize(image.size) + '</div>' +
-            '<button class="btn-delete" data-file="' + name + '">削除</button>' +
-            '</div>';
-        }).join('') + '</div>';
+        container.innerHTML = renderSavedImageList(images, '/api/sleep/thumbnail?file=');
         container.querySelectorAll('.btn-delete').forEach(button => {
           button.addEventListener('click', () => deleteSleepImage(button.dataset.file));
         });
@@ -792,16 +845,7 @@
           container.innerHTML = '<p class="empty">透過BMPオーバーレイはありません。</p>';
           return;
         }
-        container.innerHTML = '<div class="image-grid">' + images.map(image => {
-          const name = escapeHtml(image.name);
-          const file = encodeURIComponent(image.name);
-          return '<div class="saved-image">' +
-            '<img src="/api/sleep/overlay-thumbnail?file=' + file + '" alt="' + name + '">' +
-            '<div class="saved-image-name">' + name + '</div>' +
-            '<div class="saved-image-meta">' + formatSize(image.size) + '</div>' +
-            '<button class="btn-delete" data-file="' + name + '">削除</button>' +
-            '</div>';
-        }).join('') + '</div>';
+        container.innerHTML = renderSavedImageList(images, '/api/sleep/overlay-thumbnail?file=');
         container.querySelectorAll('.btn-delete').forEach(button => {
           button.addEventListener('click', () => deleteSleepOverlay(button.dataset.file));
         });
