@@ -479,7 +479,12 @@
     var zip = new JSZip();
     // mimetype は EPUB 仕様により最初のエントリ・非圧縮 (STORE) 必須
     zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
-    var opts = { compression: 'DEFLATE', compressionOptions: { level: 6 } };
+    // The ESP32-C3 must reserve a 32KB contiguous dictionary to stream a
+    // deflated ZIP entry. WebUI conversions should remain openable even after
+    // Wi-Fi activity has fragmented the heap, so store their small text files
+    // without compression. This trades a modest amount of SD space for
+    // reliable immediate opening.
+    var opts = { compression: 'STORE' };
     zip.file('META-INF/container.xml', buildContainerXml(), opts);
     zip.file('OEBPS/content.opf', buildContentOpf(title, author, chapters, uid), opts);
     zip.file('OEBPS/nav.xhtml', buildNavXhtml(title, chapters), opts);

@@ -133,7 +133,23 @@ void CrossPointWebServerActivity::onExit() {
   WiFi.mode(WIFI_OFF);
   delay(30);  // Allow WiFi hardware to power down
 
-  LOG_DBG("WEBACT", "Free heap at onExit end: %d bytes", ESP.getFreeHeap());
+  // The Web UI can leave the Wi-Fi heap briefly fragmented after a browser
+  // conversion/download. Release rebuildable font data as well, then give the
+  // network task a bounded chance to return the 32KB contiguous buffer needed
+  // when the user immediately opens the generated EPUB.
+  if (auto* fcm = renderer.getFontCacheManager()) {
+    fcm->releaseSdFontCaches();
+    fcm->releaseSdFontVerticalGlyphs();
+  }
+  constexpr uint32_t READER_HEAP_RECOVERY_WAIT_MS = 500;
+  constexpr uint32_t READER_MIN_CONTIGUOUS_HEAP = 32 * 1024;
+  const uint32_t heapRecoveryDeadline = millis() + READER_HEAP_RECOVERY_WAIT_MS;
+  while (ESP.getMaxAllocHeap() < READER_MIN_CONTIGUOUS_HEAP && millis() < heapRecoveryDeadline) {
+    delay(20);
+  }
+
+  LOG_DBG("WEBACT", "Free heap at onExit end: %d bytes, maxAlloc: %d bytes", ESP.getFreeHeap(),
+          ESP.getMaxAllocHeap());
 }
 
 void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) {

@@ -131,6 +131,13 @@ void SdCardFont::releaseResidentCaches() {
   }
 }
 
+void SdCardFont::releaseVerticalGlyphs() {
+  for (uint8_t i = 0; i < MAX_STYLES; i++) {
+    if (!styles_[i].present) continue;
+    freeStyleVertData(styles_[i]);
+  }
+}
+
 void SdCardFont::clearOverflow() {
   for (uint32_t i = 0; i < overflowCount_; i++) {
     delete[] overflow_[i].bitmap;

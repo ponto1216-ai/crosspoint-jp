@@ -33,7 +33,11 @@ constexpr size_t MIN_FREE_HEAP_FOR_PARSING = 20 * 1024;  // 20KB
 // prewarm string and cache-recovery path keep each split substantially smaller
 // than a complete large-section build.
 constexpr size_t MIN_FREE_HEAP_FOR_BLOCK_FLUSH = 48 * 1024;  // 48KB
-constexpr size_t MIN_MAX_ALLOC_FOR_BLOCK_FLUSH = 32 * 1024;  // 32KB
+// Block layout allocates several bounded objects rather than one 32KB buffer.
+// SD-font metadata can split an otherwise healthy C3 heap into ~19KB blocks,
+// so requiring the ZIP inflater's 32KB dictionary here rejects safe stored
+// EPUB sections before layout is attempted.
+constexpr size_t MIN_MAX_ALLOC_FOR_BLOCK_FLUSH = 16 * 1024;  // 16KB
 constexpr size_t EARLY_BLOCK_FLUSH_FREE_HEAP = 80 * 1024;    // start splitting well before the reserve is reached
 // ParsedText reserves 800 word slots. Check before each normal word so one
 // 1KB Expat callback cannot grow a vector past that reservation before its

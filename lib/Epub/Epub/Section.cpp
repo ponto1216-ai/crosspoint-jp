@@ -200,6 +200,10 @@ constexpr size_t CSS_SECTION_BUILD_RESERVE = 32 * 1024;  // 32KB
 constexpr size_t MIN_FREE_HEAP_WITH_EXTERNAL_CSS = 64 * 1024;  // 64KB
 // ZIP inflate streaming needs a 32KB sliding window plus a little room for file and temp allocations.
 constexpr size_t MIN_MAX_ALLOC_FOR_SECTION_STREAM = 32 * 1024;  // 32KB
+// A stored ZIP entry does not use the inflate dictionary. Its file stream and
+// the section parser operate in bounded chunks, so they remain safe with a
+// smaller contiguous allocation on fragmented ESP32-C3 heaps.
+constexpr size_t MIN_MAX_ALLOC_FOR_SECTION_BUILD = 16 * 1024;  // 16KB
 constexpr size_t MIN_FREE_HEAP_FOR_SECTION_STREAM = 30 * 1024;  // 30KB
 constexpr size_t LUT_VALIDATION_BATCH_SIZE = 64;
 constexpr uint32_t HEADER_SIZE = sizeof(uint8_t) + sizeof(int) + sizeof(float) + sizeof(uint8_t) + sizeof(uint8_t) +
@@ -233,10 +237,13 @@ double msToSeconds(const uint32_t elapsedMs) { return static_cast<double>(elapse
 bool hasEnoughHeapForSectionStream() {
   const uint32_t freeHeap = ESP.getFreeHeap();
   const uint32_t maxAllocHeap = ESP.getMaxAllocHeap();
-  const bool ok = freeHeap >= MIN_FREE_HEAP_FOR_SECTION_STREAM && maxAllocHeap >= MIN_MAX_ALLOC_FOR_SECTION_STREAM;
+  // The actual ZIP reader checks whether an entry is stored or deflated. Do
+  // not reject a stored WebUI-generated EPUB here just because a deflated
+  // entry would need the larger 32KB dictionary.
+  const bool ok = freeHeap >= MIN_FREE_HEAP_FOR_SECTION_STREAM && maxAllocHeap >= MIN_MAX_ALLOC_FOR_SECTION_BUILD;
   if (!ok) {
-    LOG_ERR("SCT", "Insufficient heap for section stream (free=%u, maxAlloc=%u, need free>=%zu maxAlloc>=%zu)",
-            freeHeap, maxAllocHeap, MIN_FREE_HEAP_FOR_SECTION_STREAM, MIN_MAX_ALLOC_FOR_SECTION_STREAM);
+    LOG_ERR("SCT", "Insufficient heap before section stream (free=%u, maxAlloc=%u, need free>=%zu maxAlloc>=%zu)",
+            freeHeap, maxAllocHeap, MIN_FREE_HEAP_FOR_SECTION_STREAM, MIN_MAX_ALLOC_FOR_SECTION_BUILD);
   }
   return ok;
 }
@@ -794,13 +801,19 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
   if (ESP.getMaxAllocHeap() < MIN_MAX_ALLOC_FOR_SECTION_STREAM) {
     if (auto* fontCache = renderer.getFontCacheManager()) {
       fontCache->releaseSdFontCaches();
-      LOG_INF("SCT", "Released SD-font caches before section stream (free=%u, maxAlloc=%u)", ESP.getFreeHeap(),
-              ESP.getMaxAllocHeap());
+      // Vertical substitutions are optional until the page is drawn. Reclaim
+      // them here as well: ZenMaruGothic's data can fragment the C3 heap below
+      // the 32KB contiguous ZIP-inflate buffer even after ordinary caches are
+      // released. renderContents() reloads it before the page is displayed.
+      fontCache->releaseSdFontVerticalGlyphs();
+      LOG_INF("SCT", "Released SD-font caches and vertical glyphs before section stream (free=%u, maxAlloc=%u)",
+              ESP.getFreeHeap(), ESP.getMaxAllocHeap());
     }
   }
 
-  // ZIP inflation needs a 32KB contiguous buffer. Check this before we spend
-  // memory on CSS/cache setup or temp-file retries.
+  // The ZIP reader validates the entry compression method and obtains its
+  // required buffer. Stored WebUI-generated entries do not need the 32KB
+  // inflate dictionary.
   if (!hasEnoughHeapForSectionStream()) {
     return false;
   }
@@ -846,11 +859,11 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
   // CSS parsing and font setup can fragment the heap after the earlier ZIP-stream
   // check.  The parser's initial ParsedText reserves need one sizeable contiguous
   // allocation, so total free heap alone is not a safe admission test here.
-  if (freeHeapBeforeBuild < requiredHeapBeforeBuild || maxAllocHeapBeforeBuild < MIN_MAX_ALLOC_FOR_SECTION_STREAM) {
+  if (freeHeapBeforeBuild < requiredHeapBeforeBuild || maxAllocHeapBeforeBuild < MIN_MAX_ALLOC_FOR_SECTION_BUILD) {
     LOG_ERR("SCT",
             "Insufficient heap for section build (free=%u, maxAlloc=%u, need free>=%zu maxAlloc>=%zu, html=%lu), "
             "aborting gracefully",
-            freeHeapBeforeBuild, maxAllocHeapBeforeBuild, requiredHeapBeforeBuild, MIN_MAX_ALLOC_FOR_SECTION_STREAM,
+            freeHeapBeforeBuild, maxAllocHeapBeforeBuild, requiredHeapBeforeBuild, MIN_MAX_ALLOC_FOR_SECTION_BUILD,
             static_cast<unsigned long>(fileSize));
     file.close();
     Storage.remove(tmpSectionPath.c_str());
@@ -861,7 +874,7 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
     return false;
   }
   LOG_DBG("SCT", "Section build heap check passed (free=%u, maxAlloc=%u, need free>=%zu maxAlloc>=%zu, html=%lu)",
-          freeHeapBeforeBuild, maxAllocHeapBeforeBuild, requiredHeapBeforeBuild, MIN_MAX_ALLOC_FOR_SECTION_STREAM,
+          freeHeapBeforeBuild, maxAllocHeapBeforeBuild, requiredHeapBeforeBuild, MIN_MAX_ALLOC_FOR_SECTION_BUILD,
           static_cast<unsigned long>(fileSize));
 
   const uint32_t parseBuildStart = millis();

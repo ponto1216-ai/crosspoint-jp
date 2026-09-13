@@ -48,6 +48,10 @@ void FontCacheManager::releaseSdFontCaches() {
   forEachUniqueSdCardFont(sdCardFonts_, [](SdCardFont* f) { f->releaseResidentCaches(); });
 }
 
+void FontCacheManager::releaseSdFontVerticalGlyphs() {
+  forEachUniqueSdCardFont(sdCardFonts_, [](SdCardFont* f) { f->releaseVerticalGlyphs(); });
+}
+
 void FontCacheManager::prewarmCache(int fontId, const char* utf8Text, uint8_t styleMask) {
   // SD card font prewarm path: prewarm all requested styles in one call
   auto it = sdCardFonts_.find(fontId);

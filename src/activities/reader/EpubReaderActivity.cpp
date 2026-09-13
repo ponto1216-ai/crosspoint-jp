@@ -1274,11 +1274,31 @@ void EpubReaderActivity::render(RenderLock&& lock) {
                                      SETTINGS.getReaderFontIdForSize(verticalMode, CrossPointSettings::LARGE),
                                      SETTINGS.getReaderFontIdForSize(verticalMode, CrossPointSettings::EXTRA_LARGE)};
 
-      if (!section->createSectionFile(SETTINGS.getReaderFontId(verticalMode), lineCompression, ds.extraParagraphSpacing,
-                                      ds.paragraphAlignment, viewportWidth, viewportHeight, ds.hyphenationEnabled,
-                                      ds.firstLineIndent, SETTINGS.embeddedStyle, SETTINGS.imageRendering, verticalMode,
-                                      ds.charSpacing, popupFn, headingFontIds, SETTINGS.getTableFontId(verticalMode),
-                                      cssBodyFontIds)) {
+      bool sectionCreated = section->createSectionFile(
+          SETTINGS.getReaderFontId(verticalMode), lineCompression, ds.extraParagraphSpacing, ds.paragraphAlignment,
+          viewportWidth, viewportHeight, ds.hyphenationEnabled, ds.firstLineIndent, SETTINGS.embeddedStyle,
+          SETTINGS.imageRendering, verticalMode, ds.charSpacing, popupFn, headingFontIds, SETTINGS.getTableFontId(verticalMode),
+          cssBodyFontIds);
+      // Wi-Fi teardown after a Web UI transfer completes asynchronously. If it
+      // left the largest heap block below the ZIP-stream requirement, yield
+      // once and retry instead of forcing the user to restart the device.
+      constexpr uint32_t SECTION_STREAM_MIN_CONTIGUOUS_HEAP = 32 * 1024;
+      if (!sectionCreated && ESP.getMaxAllocHeap() < SECTION_STREAM_MIN_CONTIGUOUS_HEAP) {
+        if (fcm) {
+          fcm->releaseSdFontCaches();
+          fcm->releaseSdFontVerticalGlyphs();
+        }
+        vTaskDelay(pdMS_TO_TICKS(250));
+        LOG_INF("ERS", "Retrying section build after heap recovery (free=%u, maxAlloc=%u)", ESP.getFreeHeap(),
+                ESP.getMaxAllocHeap());
+        sectionCreated = section->createSectionFile(
+            SETTINGS.getReaderFontId(verticalMode), lineCompression, ds.extraParagraphSpacing, ds.paragraphAlignment,
+            viewportWidth, viewportHeight, ds.hyphenationEnabled, ds.firstLineIndent, SETTINGS.embeddedStyle,
+            SETTINGS.imageRendering, verticalMode, ds.charSpacing, popupFn, headingFontIds,
+            SETTINGS.getTableFontId(verticalMode), cssBodyFontIds);
+      }
+
+      if (!sectionCreated) {
         LOG_ERR("ERS", "Failed to persist page data to SD (free heap: %d)", ESP.getFreeHeap());
         section.reset();
         // Show error and return to home to avoid infinite retry loop
@@ -1486,6 +1506,13 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
                           (verticalMode ? 0 : horizontalRubyBaseShift);
   const int rubyOffsetY = static_cast<int>(std::min<uint8_t>(directionSettings.rubyOffsetY, 80)) - 16;
   const auto t0 = millis();
+
+  // Section generation may release optional vertical substitution data to
+  // recover the contiguous ZIP-stream buffer on ESP32-C3. Load it only once
+  // the cache is complete and this page is about to be drawn.
+  if (verticalMode) {
+    renderer.ensureSdCardVerticalGlyphsReady(readerFontId);
+  }
 
   // Preload external font glyphs: collect codepoints from page, sort them,
   // and batch-read from SD sequentially. Much faster than random reads during render.

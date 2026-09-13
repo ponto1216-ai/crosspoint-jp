@@ -66,6 +66,11 @@ class SdCardFont {
   // back in from SD as needed.
   void releaseResidentCaches();
 
+  // Release optional vertical substitution glyphs. They can be reloaded before
+  // rendering, but keeping them resident can prevent the ZIP stream buffer
+  // from obtaining a contiguous allocation during section generation.
+  void releaseVerticalGlyphs();
+
   // Returns pointer to the managed EpdFont for a given style.
   // Returns nullptr if the style is not present.
   EpdFont* getEpdFont(uint8_t style = 0);
