@@ -100,6 +100,7 @@ class XtcParser {
 
   // Internal helper functions
   XtcError readHeader();
+  uint64_t metadataBase();
   XtcError readFirstPageInfo();
   XtcError readTitle();
   XtcError readAuthor();
