@@ -247,8 +247,8 @@ void HomeActivity::render(RenderLock&&) {
   Rect recentRect;
   Rect menuRect;
   if (layout.landscape) {
-    GUI.drawHeader(renderer,
-                   Rect{layout.content.x, metrics.topPadding, layout.content.width, metrics.homeTopPadding}, nullptr);
+    GUI.drawHeader(renderer, Rect{layout.content.x, metrics.topPadding, layout.content.width, metrics.homeTopPadding},
+                   nullptr);
     const int contentTop = layout.content.y + metrics.homeTopPadding;
     const int contentHeight = layout.content.y + layout.content.height - contentTop - metrics.verticalSpacing;
     const int recentWidth = layout.content.width * GUI.getHomeLandscapeCoverPercent() / 100;
@@ -256,8 +256,7 @@ void HomeActivity::render(RenderLock&&) {
         contentHeight, GUI.getHomeCoverHeight(renderer) + metrics.homeCoverTileHeight - metrics.homeCoverHeight);
     const int menuHeight = 5 * (metrics.menuRowHeight + metrics.menuSpacing) + metrics.verticalSpacing;
     const int recentTop = contentTop + std::max(0, (contentHeight - recentHeight) / 4);
-    const int menuTop = contentTop + std::max(0, (contentHeight - menuHeight) / 4) +
-                        GUI.getHomeLandscapeMenuOffset();
+    const int menuTop = contentTop + std::max(0, (contentHeight - menuHeight) / 4) + GUI.getHomeLandscapeMenuOffset();
     recentRect = Rect{layout.content.x, recentTop, recentWidth, recentHeight};
     const int menuInset = GUI.getHomeLandscapeMenuInset();
     menuRect = Rect{layout.content.x + recentWidth - menuInset, menuTop, layout.content.width - recentWidth,

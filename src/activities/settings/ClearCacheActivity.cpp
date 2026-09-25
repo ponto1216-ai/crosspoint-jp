@@ -1,14 +1,14 @@
 #include "ClearCacheActivity.h"
 
+#include <Epub.h>
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <Epub.h>
 
 #include "MappedInputManager.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 void ClearCacheActivity::onEnter() {

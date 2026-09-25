@@ -743,8 +743,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
   // so makes the following render fetch every page glyph through the overflow
   // path, and grayscale bands repeat those SD reads several times.
   if (metadataOnly && !s.miniMetadataOnly && s.miniGlyphCount > 0 && s.miniBitmapUsed > 0) {
-    LOG_DBG("SDCF", "Prewarm: keeping bitmap arena for metadata-only request (style=%u cps=%u)", styleIdx,
-            cpCount);
+    LOG_DBG("SDCF", "Prewarm: keeping bitmap arena for metadata-only request (style=%u cps=%u)", styleIdx, cpCount);
     return 0;
   }
 
@@ -1419,9 +1418,8 @@ uint16_t SdCardFont::readAdvanceOnly(const uint32_t codepoint, uint8_t style) co
     const auto* begin = s.miniData.intervals;
     const auto* end = begin + s.miniData.intervalCount;
     const auto it = std::upper_bound(
-        begin, end, codepoint, [](const uint32_t value, const EpdUnicodeInterval& interval) {
-          return value < interval.first;
-        });
+        begin, end, codepoint,
+        [](const uint32_t value, const EpdUnicodeInterval& interval) { return value < interval.first; });
     if (it != begin) {
       const auto& interval = *(it - 1);
       if (codepoint <= interval.last) {

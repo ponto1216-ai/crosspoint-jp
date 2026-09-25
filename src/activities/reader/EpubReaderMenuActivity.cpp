@@ -269,16 +269,15 @@ void EpubReaderMenuActivity::render(RenderLock&&) {
       const auto pageTurnValue = pageTurnLabels[selectedPageTurnOption];
       const auto pageTurnWidth = renderer.getTextWidth(UI_10_FONT_ID, pageTurnValue);
       renderer.drawText(UI_10_FONT_ID, contentX + contentWidth - valueRightMargin - pageTurnWidth, displayY,
-                        pageTurnValue,
-                        !isSelected);
+                        pageTurnValue, !isSelected);
     }
   }
 
   // Footer / Hints
   const auto selectedAction = menuItems[selectedIndex].action;
-  const auto labels = mappedInput.mapLabels(tr(STR_BACK), editingValue ? tr(STR_SELECT)
-                                                                        : (currentValueIsEditable() ? tr(STR_EDIT) : tr(STR_SELECT)),
-                                            tr(STR_PREVIOUS), tr(STR_NEXT));
+  const auto labels = mappedInput.mapLabels(
+      tr(STR_BACK), editingValue ? tr(STR_SELECT) : (currentValueIsEditable() ? tr(STR_EDIT) : tr(STR_SELECT)),
+      tr(STR_PREVIOUS), tr(STR_NEXT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   if (!editingValue) {
     GUI.drawSideButtonHints(renderer, tr(STR_PREVIOUS), tr(STR_NEXT));
@@ -295,10 +294,9 @@ std::string EpubReaderMenuActivity::getMenuItemValue(const MenuAction action) co
       return std::string(I18N.get(StrId::STR_NOTO_SANS));
     }
     case MenuAction::STYLE_FONT_SIZE: {
-      static constexpr StrId sizeLabels[] = {StrId::STR_SMALL, StrId::STR_MEDIUM, StrId::STR_LARGE,
-                                             StrId::STR_X_LARGE};
-      const uint8_t size = std::min<uint8_t>(SETTINGS.getDirectionSettings(verticalMode).fontSize,
-                                             CrossPointSettings::EXTRA_LARGE);
+      static constexpr StrId sizeLabels[] = {StrId::STR_SMALL, StrId::STR_MEDIUM, StrId::STR_LARGE, StrId::STR_X_LARGE};
+      const uint8_t size =
+          std::min<uint8_t>(SETTINGS.getDirectionSettings(verticalMode).fontSize, CrossPointSettings::EXTRA_LARGE);
       return std::string(I18N.get(sizeLabels[size]));
     }
     case MenuAction::ROTATE_SCREEN:
@@ -324,8 +322,8 @@ std::string EpubReaderMenuActivity::getMenuItemValue(const MenuAction action) co
 bool EpubReaderMenuActivity::currentValueIsEditable() const {
   const auto action = menuItems[selectedIndex].action;
   return action == MenuAction::STYLE_FIRST_LINE_INDENT || action == MenuAction::STYLE_INVERT_IMAGES ||
-         action == MenuAction::STYLE_FONT_SIZE || action == MenuAction::ROTATE_SCREEN || action == MenuAction::AUTO_PAGE_TURN ||
-         action == MenuAction::TILT_PAGE_TURN;
+         action == MenuAction::STYLE_FONT_SIZE || action == MenuAction::ROTATE_SCREEN ||
+         action == MenuAction::AUTO_PAGE_TURN || action == MenuAction::TILT_PAGE_TURN;
 }
 
 bool EpubReaderMenuActivity::changeCurrentValue(const int delta, const bool toggleValue) {
@@ -352,9 +350,9 @@ bool EpubReaderMenuActivity::changeCurrentValue(const int delta, const bool togg
       return true;
     case MenuAction::STYLE_FONT_SIZE: {
       auto& value = SETTINGS.getDirectionSettings(verticalMode).fontSize;
-      const uint8_t next = static_cast<uint8_t>(std::clamp(static_cast<int>(value) + delta,
-                                                           static_cast<int>(CrossPointSettings::SMALL),
-                                                           static_cast<int>(CrossPointSettings::EXTRA_LARGE)));
+      const uint8_t next =
+          static_cast<uint8_t>(std::clamp(static_cast<int>(value) + delta, static_cast<int>(CrossPointSettings::SMALL),
+                                          static_cast<int>(CrossPointSettings::EXTRA_LARGE)));
       if (next == value) return false;
       value = next;
       if (onFontSizeChanged) {
@@ -366,21 +364,20 @@ bool EpubReaderMenuActivity::changeCurrentValue(const int delta, const bool togg
       return true;
     }
     case MenuAction::TILT_PAGE_TURN:
-      SETTINGS.tiltPageTurn = toggleValue ? (SETTINGS.tiltPageTurn ? CrossPointSettings::TILT_OFF
-                                                                    : CrossPointSettings::TILT_NORMAL)
-                                           : static_cast<uint8_t>(std::clamp(
-                                                 static_cast<int>(SETTINGS.tiltPageTurn) + delta,
-                                                 static_cast<int>(CrossPointSettings::TILT_OFF),
-                                                 static_cast<int>(CrossPointSettings::TILT_NVERTED)));
+      SETTINGS.tiltPageTurn =
+          toggleValue ? (SETTINGS.tiltPageTurn ? CrossPointSettings::TILT_OFF : CrossPointSettings::TILT_NORMAL)
+                      : static_cast<uint8_t>(std::clamp(static_cast<int>(SETTINGS.tiltPageTurn) + delta,
+                                                        static_cast<int>(CrossPointSettings::TILT_OFF),
+                                                        static_cast<int>(CrossPointSettings::TILT_NVERTED)));
       SETTINGS.saveToFile();
       return true;
     case MenuAction::ROTATE_SCREEN:
-      pendingOrientation = static_cast<uint8_t>(std::clamp(static_cast<int>(pendingOrientation) + delta, 0,
-                                                            static_cast<int>(orientationLabels.size()) - 1));
+      pendingOrientation = static_cast<uint8_t>(
+          std::clamp(static_cast<int>(pendingOrientation) + delta, 0, static_cast<int>(orientationLabels.size()) - 1));
       return true;
     case MenuAction::AUTO_PAGE_TURN:
-      selectedPageTurnOption = static_cast<uint8_t>(std::clamp(static_cast<int>(selectedPageTurnOption) + delta, 0,
-                                                                static_cast<int>(pageTurnLabels.size()) - 1));
+      selectedPageTurnOption = static_cast<uint8_t>(
+          std::clamp(static_cast<int>(selectedPageTurnOption) + delta, 0, static_cast<int>(pageTurnLabels.size()) - 1));
       return true;
     default:
       return false;

@@ -7,11 +7,11 @@
 #include <WiFi.h>
 
 #include "MappedInputManager.h"
-#include "network/TaskWatchdog.h"
 #include "WifiSelectionActivity.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
+#include "network/TaskWatchdog.h"
 
 namespace {
 constexpr const char* HOSTNAME = "crosspoint";
@@ -76,8 +76,7 @@ void CalibreConnectActivity::onExit() {
     delay(20);
   }
 
-  LOG_DBG("CAL", "Free heap after transfer: %d bytes, maxAlloc: %d bytes", ESP.getFreeHeap(),
-          ESP.getMaxAllocHeap());
+  LOG_DBG("CAL", "Free heap after transfer: %d bytes, maxAlloc: %d bytes", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
 }
 void CalibreConnectActivity::onWifiSelectionComplete(const bool connected) {
   if (!connected) {
@@ -215,10 +214,10 @@ void CalibreConnectActivity::render(RenderLock&&) {
                                     EpdFontFamily::BOLD);
   } else if (state == CalibreConnectState::SERVER_RUNNING) {
     const std::string ipLabel = layout.landscape ? connectedIP : std::string(tr(STR_IP_ADDRESS_PREFIX)) + connectedIP;
-    GUI.drawSubHeader(renderer,
-                      Rect{layout.content.x, metrics.topPadding + metrics.headerHeight, layout.content.width,
-                           metrics.tabBarHeight},
-                      connectedSSID.c_str(), ipLabel.c_str());
+    GUI.drawSubHeader(
+        renderer,
+        Rect{layout.content.x, metrics.topPadding + metrics.headerHeight, layout.content.width, metrics.tabBarHeight},
+        connectedSSID.c_str(), ipLabel.c_str());
 
     int y = metrics.topPadding + metrics.headerHeight + metrics.tabBarHeight + metrics.verticalSpacing * 4;
     const auto heightText12 = renderer.getTextHeight(UI_12_FONT_ID);
@@ -240,21 +239,18 @@ void CalibreConnectActivity::render(RenderLock&&) {
       std::string label = tr(STR_CALIBRE_RECEIVING);
       if (!currentUploadName.empty()) {
         label += ": " + currentUploadName;
-        label = renderer.truncatedText(SMALL_FONT_ID, label.c_str(), contentWidth,
-                                       EpdFontFamily::REGULAR);
+        label = renderer.truncatedText(SMALL_FONT_ID, label.c_str(), contentWidth, EpdFontFamily::REGULAR);
       }
       renderer.drawText(SMALL_FONT_ID, contentLeft, y, label.c_str());
-      GUI.drawProgressBar(renderer,
-                          Rect{contentLeft, y + height + metrics.verticalSpacing, contentWidth,
-                               metrics.progressBarHeight},
-                          lastProgressReceived, lastProgressTotal);
+      GUI.drawProgressBar(
+          renderer, Rect{contentLeft, y + height + metrics.verticalSpacing, contentWidth, metrics.progressBarHeight},
+          lastProgressReceived, lastProgressTotal);
       y += height + metrics.verticalSpacing * 2 + metrics.progressBarHeight;
     }
 
     if (lastCompleteAt > 0 && (millis() - lastCompleteAt) < 6000) {
       std::string msg = std::string(tr(STR_CALIBRE_RECEIVED)) + lastCompleteName;
-      msg = renderer.truncatedText(SMALL_FONT_ID, msg.c_str(), contentWidth,
-                                   EpdFontFamily::REGULAR);
+      msg = renderer.truncatedText(SMALL_FONT_ID, msg.c_str(), contentWidth, EpdFontFamily::REGULAR);
       renderer.drawText(SMALL_FONT_ID, contentLeft, y, msg.c_str());
     }
 

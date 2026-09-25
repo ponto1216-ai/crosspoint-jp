@@ -10,9 +10,9 @@ struct ReadingHistoryBook {
   std::string title;
   std::string author;
   uint32_t seconds = 0;
-  uint64_t bookId = 0;  // EPUB archive fingerprint; zero for legacy/non-EPUB entries.
-  uint32_t lastReadAt = 0;   // Unix time, or zero when the device clock is unavailable.
-  uint32_t finishedAt = 0;   // Unix time, or zero when not recorded with a valid clock.
+  uint64_t bookId = 0;      // EPUB archive fingerprint; zero for legacy/non-EPUB entries.
+  uint32_t lastReadAt = 0;  // Unix time, or zero when the device clock is unavailable.
+  uint32_t finishedAt = 0;  // Unix time, or zero when not recorded with a valid clock.
   uint32_t sessionCount = 0;
   bool finished = false;
 };

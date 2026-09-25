@@ -14,8 +14,8 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "SdCardFontGlobals.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 #include "util/CacheGenerationControls.h"
 

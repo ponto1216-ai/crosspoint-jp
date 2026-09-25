@@ -1,5 +1,5 @@
-#include <HalDisplay.h>
 #include <BoardConfig.h>
+#include <HalDisplay.h>
 #include <HalGPIO.h>
 
 // Global HalDisplay instance

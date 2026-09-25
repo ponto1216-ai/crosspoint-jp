@@ -12,8 +12,8 @@
 #include "MappedInputManager.h"
 #include "WifiCredentialStore.h"
 #include "activities/util/KeyboardEntryActivity.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 void WifiSelectionActivity::onEnter() {
@@ -508,10 +508,10 @@ void WifiSelectionActivity::render(RenderLock&&) {
   snprintf(countStr, sizeof(countStr), tr(STR_NETWORKS_FOUND), networks.size());
   GUI.drawHeader(renderer, Rect{layout.content.x, metrics.topPadding, layout.content.width, metrics.headerHeight},
                  tr(STR_WIFI_NETWORKS), countStr);
-  GUI.drawSubHeader(renderer,
-                    Rect{layout.content.x, metrics.topPadding + metrics.headerHeight, layout.content.width,
-                         metrics.tabBarHeight},
-                    cachedMacAddress.c_str());
+  GUI.drawSubHeader(
+      renderer,
+      Rect{layout.content.x, metrics.topPadding + metrics.headerHeight, layout.content.width, metrics.tabBarHeight},
+      cachedMacAddress.c_str());
 
   switch (state) {
     case WifiSelectionState::AUTO_CONNECTING:
@@ -561,8 +561,8 @@ void WifiSelectionActivity::renderNetworkList() const {
     int contentHeight = pageHeight - contentTop - bottomHints - metrics.verticalSpacing;
     GUI.drawList(
         renderer, Rect{layout.content.x, contentTop, layout.content.width, contentHeight},
-        static_cast<int>(networks.size()),
-        selectedNetworkIndex, [this](int index) { return networks[index].ssid; }, nullptr, nullptr,
+        static_cast<int>(networks.size()), selectedNetworkIndex, [this](int index) { return networks[index].ssid; },
+        nullptr, nullptr,
         [this](int index) {
           auto network = networks[index];
           return std::string(network.hasSavedPassword ? "+ " : "") + (network.isEncrypted ? "* " : "") +
@@ -570,11 +570,12 @@ void WifiSelectionActivity::renderNetworkList() const {
         });
   }
 
-  GUI.drawHelpText(renderer,
-                   Rect{layout.content.x,
-                        pageHeight - (layout.landscape ? 0 : metrics.buttonHintsHeight) - metrics.contentSidePadding - 15,
-                        layout.content.width, 20},
-                   tr(STR_NETWORK_LEGEND));
+  GUI.drawHelpText(
+      renderer,
+      Rect{layout.content.x,
+           pageHeight - (layout.landscape ? 0 : metrics.buttonHintsHeight) - metrics.contentSidePadding - 15,
+           layout.content.width, 20},
+      tr(STR_NETWORK_LEGEND));
 
   const bool hasSavedPassword = !networks.empty() && networks[selectedNetworkIndex].hasSavedPassword;
   const char* forgetLabel = hasSavedPassword ? tr(STR_FORGET_BUTTON) : "";
@@ -611,8 +612,7 @@ void WifiSelectionActivity::renderConnected() const {
   const auto height = renderer.getLineHeight(UI_10_FONT_ID);
   const auto top = (pageHeight - height * 4) / 2;
 
-  renderer.drawCenteredTextOffset(UI_12_FONT_ID, top - 30, tr(STR_CONNECTED), true, centerOffset,
-                                  EpdFontFamily::BOLD);
+  renderer.drawCenteredTextOffset(UI_12_FONT_ID, top - 30, tr(STR_CONNECTED), true, centerOffset, EpdFontFamily::BOLD);
 
   std::string ssidInfo = std::string(tr(STR_NETWORK_PREFIX)) + selectedSSID;
   if (ssidInfo.length() > 28) {
@@ -635,8 +635,7 @@ void WifiSelectionActivity::renderSavePrompt() const {
   const auto height = renderer.getLineHeight(UI_10_FONT_ID);
   const auto top = (pageHeight - height * 3) / 2;
 
-  renderer.drawCenteredTextOffset(UI_12_FONT_ID, top - 40, tr(STR_CONNECTED), true, centerOffset,
-                                  EpdFontFamily::BOLD);
+  renderer.drawCenteredTextOffset(UI_12_FONT_ID, top - 40, tr(STR_CONNECTED), true, centerOffset, EpdFontFamily::BOLD);
 
   std::string ssidInfo = std::string(tr(STR_NETWORK_PREFIX)) + selectedSSID;
   if (ssidInfo.length() > 28) {

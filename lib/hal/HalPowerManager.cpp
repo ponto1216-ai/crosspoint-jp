@@ -43,12 +43,12 @@ void logBatterySample(unsigned long pollMs, int oldSoc, uint16_t soc, bool jump)
   const unsigned valid = voltageOk | (currentOk << 1) | (remainingOk << 2) | (fullOk << 3);
   // Use a value outside signed 16-bit range for an unavailable current.
   const int signedCurrent = currentOk ? (current >= 0x8000 ? static_cast<int>(current) - 0x10000 : current) : -32769;
-  LOG_INF("BAT", "X3 %s poll_ms=%lu old_soc=%d soc=%u voltage_mV=%d current_mA=%d remaining_mAh=%d full_mAh=%d "
-                 "valid=0x%X read_ms=%lu",
+  LOG_INF("BAT",
+          "X3 %s poll_ms=%lu old_soc=%d soc=%u voltage_mV=%d current_mA=%d remaining_mAh=%d full_mAh=%d "
+          "valid=0x%X read_ms=%lu",
           jump ? "SOC_JUMP" : "SAMPLE", pollMs, oldSoc, static_cast<unsigned>(soc),
-          voltageOk ? static_cast<int>(voltage) : -1, signedCurrent,
-          remainingOk ? static_cast<int>(remaining) : -1, fullOk ? static_cast<int>(full) : -1,
-          valid, millis() - pollMs);
+          voltageOk ? static_cast<int>(voltage) : -1, signedCurrent, remainingOk ? static_cast<int>(remaining) : -1,
+          fullOk ? static_cast<int>(full) : -1, valid, millis() - pollMs);
 }
 }  // namespace
 #endif
@@ -167,8 +167,7 @@ uint16_t HalPowerManager::getBatteryPercentage() const {
       return _batteryCachedPercent;
     }
     const int delta = static_cast<int>(soc) - static_cast<int>(_batteryLastRawSoc);
-    const bool jump = _batterySocValid &&
-                      (delta >= BATTERY_SOC_JUMP_THRESHOLD || delta <= -BATTERY_SOC_JUMP_THRESHOLD);
+    const bool jump = _batterySocValid && (delta >= BATTERY_SOC_JUMP_THRESHOLD || delta <= -BATTERY_SOC_JUMP_THRESHOLD);
     if (jump || X3_BATTERY_DIAGNOSTICS) {
       logBatterySample(now, _batterySocValid ? static_cast<int>(_batteryLastRawSoc) : -1, soc, jump);
     }

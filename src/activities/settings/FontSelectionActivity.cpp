@@ -5,8 +5,8 @@
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 FontSelectionActivity::FontSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
@@ -126,9 +126,9 @@ void FontSelectionActivity::render(RenderLock&&) {
   }
 
   GUI.drawList(
-      renderer, Rect{layout.content.x, contentTop, layout.content.width, contentHeight}, static_cast<int>(fonts_.size()),
-      selectedIndex_,
-      [this](int index) { return fonts_[index].name; }, nullptr, nullptr,
+      renderer, Rect{layout.content.x, contentTop, layout.content.width, contentHeight},
+      static_cast<int>(fonts_.size()), selectedIndex_, [this](int index) { return fonts_[index].name; }, nullptr,
+      nullptr,
       [this, currentFontIndex](int index) -> std::string { return index == currentFontIndex ? tr(STR_SELECTED) : ""; },
       true);
 

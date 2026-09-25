@@ -36,7 +36,7 @@ void ReadingHistoryStore::ensureLoaded() {
 uint32_t ReadingHistoryStore::currentDate() const {
   const time_t now = time(nullptr);
   if (now < MIN_VALID_UNIX_TIME) return 0;
-  struct tm localTime {};
+  struct tm localTime{};
   localtime_r(&now, &localTime);
   return static_cast<uint32_t>((localTime.tm_year + 1900) * 10000 + (localTime.tm_mon + 1) * 100 + localTime.tm_mday);
 }
@@ -117,10 +117,9 @@ void ReadingHistoryStore::noteInteraction() {
 void ReadingHistoryStore::addSeconds(const uint32_t seconds) {
   if (seconds == 0 || activePath.empty()) return;
   totalSeconds += seconds;
-  const auto it = std::find_if(books.begin(), books.end(),
-                               [this](const ReadingHistoryBook& entry) {
-                                 return entry.path == activePath || (activeBookId != 0 && entry.bookId == activeBookId);
-                               });
+  const auto it = std::find_if(books.begin(), books.end(), [this](const ReadingHistoryBook& entry) {
+    return entry.path == activePath || (activeBookId != 0 && entry.bookId == activeBookId);
+  });
   if (it != books.end()) it->seconds += seconds;
 
   const uint32_t date = currentDate();
@@ -303,14 +302,14 @@ ReadingHistorySummary ReadingHistoryStore::getSummary() {
   if (!result.hasCalendarTime) return result;
 
   const auto secondsForDate = [this](const uint32_t date) {
-    const auto it = std::find_if(days.begin(), days.end(),
-                                 [date](const DayEntry& entry) { return entry.date == date; });
+    const auto it =
+        std::find_if(days.begin(), days.end(), [date](const DayEntry& entry) { return entry.date == date; });
     return it == days.end() ? 0U : it->seconds;
   };
-  struct tm localTime {};
+  struct tm localTime{};
   localtime_r(&now, &localTime);
-  const uint32_t todayDate = static_cast<uint32_t>((localTime.tm_year + 1900) * 10000 + (localTime.tm_mon + 1) * 100 +
-                                                   localTime.tm_mday);
+  const uint32_t todayDate =
+      static_cast<uint32_t>((localTime.tm_year + 1900) * 10000 + (localTime.tm_mon + 1) * 100 + localTime.tm_mday);
   result.todaySeconds = secondsForDate(todayDate);
 
   // Monday is the first day of the weekly total. mktime() handles month/year

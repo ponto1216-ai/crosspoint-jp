@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "../Activity.h"
-#include "ReadingStatusHelper.h"
 #include "ReadingHistoryStore.h"
+#include "ReadingStatusHelper.h"
 #include "RecentBooksStore.h"
 #include "util/ButtonNavigator.h"
 

@@ -7,8 +7,8 @@
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 namespace {
@@ -151,10 +151,10 @@ void ButtonRemapActivity::render(RenderLock&&) {
   snprintf(cancelHint, sizeof(cancelHint), tr(STR_REMAP_CANCEL_HINT),
            I18N.get(mappedInput.sideButtonPositionLabel(MappedInputManager::Button::Down)));
   GUI.drawHelpText(renderer, Rect{layout.content.x, helpY, layout.content.width, helpLineHeight}, resetHint);
-  GUI.drawHelpText(renderer,
-                   Rect{layout.content.x, helpY + helpLineHeight + metrics.verticalSpacing, layout.content.width,
-                        helpLineHeight},
-                   cancelHint);
+  GUI.drawHelpText(
+      renderer,
+      Rect{layout.content.x, helpY + helpLineHeight + metrics.verticalSpacing, layout.content.width, helpLineHeight},
+      cancelHint);
 
   // Live preview of logical labels under front buttons.
   // This mirrors the on-device front button order: Back, Confirm, Left, Right.

@@ -79,7 +79,8 @@ uint64_t fontMark(GfxRenderer& renderer, int fontId, uint32_t cp, int size) {
 
 bool TextBlock::tokenHasEmphasis(size_t index) const {
   if (index >= words.size() || index >= emphasis.size() || emphasis[index] == TextEmphasis::None ||
-      !textEmphasis::valid(static_cast<uint8_t>(emphasis[index]))) return false;
+      !textEmphasis::valid(static_cast<uint8_t>(emphasis[index])))
+    return false;
   auto* p = reinterpret_cast<const unsigned char*>(words[index].c_str());
   while (uint32_t cp = utf8NextCodepoint(&p))
     if (textEmphasis::eligible(cp)) return true;
@@ -88,7 +89,8 @@ bool TextBlock::tokenHasEmphasis(size_t index) const {
 
 bool TextBlock::rubyBaseHasEmphasis(size_t start) const {
   if (start >= words.size() || start >= rubyTexts.size() || rubyTexts[start].empty() ||
-      isRubyContinuation(rubyTexts[start])) return false;
+      isRubyContinuation(rubyTexts[start]))
+    return false;
   // Only the start token and its continuation tokens belong to this ruby.
   size_t i = start;
   do {
@@ -192,8 +194,8 @@ void TextBlock::renderEmphasis(GfxRenderer& renderer, int fontId, int x, int y) 
         while (*p) {
           const auto* start = p;
           const uint32_t cp = utf8NextCodepoint(&p);
-          const int before = useLinearAdvance ? runningAdvance
-                                              : renderer.getTextAdvanceX(fontId, prefix.c_str(), wordStyles[i]);
+          const int before =
+              useLinearAdvance ? runningAdvance : renderer.getTextAdvanceX(fontId, prefix.c_str(), wordStyles[i]);
           const std::string character(reinterpret_cast<const char*>(start), p - start);
           prefix.append(character);
           const int after = useLinearAdvance
@@ -201,8 +203,7 @@ void TextBlock::renderEmphasis(GfxRenderer& renderer, int fontId, int x, int y) 
                                 : renderer.getTextAdvanceX(fontId, prefix.c_str(), wordStyles[i]);
           runningAdvance = after;
           if (textEmphasis::eligible(cp)) {
-            draw(x + wordXpos[i] + bodyWidth + 2 + size / 2,
-                 y + wordYpos[i] + sidewaysShift + (before + after) / 2);
+            draw(x + wordXpos[i] + bodyWidth + 2 + size / 2, y + wordYpos[i] + sidewaysShift + (before + after) / 2);
           }
         }
       }
@@ -218,9 +219,8 @@ void TextBlock::renderEmphasis(GfxRenderer& renderer, int fontId, int x, int y) 
             useLinearAdvance ? runningAdvance : renderer.getTextAdvanceX(fontId, prefix.c_str(), wordStyles[i]);
         const std::string character(reinterpret_cast<const char*>(start), p - start);
         prefix.append(character);
-        const int after = useLinearAdvance
-                              ? before + renderer.getTextAdvanceX(fontId, character.c_str(), wordStyles[i])
-                              : renderer.getTextAdvanceX(fontId, prefix.c_str(), wordStyles[i]);
+        const int after = useLinearAdvance ? before + renderer.getTextAdvanceX(fontId, character.c_str(), wordStyles[i])
+                                           : renderer.getTextAdvanceX(fontId, prefix.c_str(), wordStyles[i]);
         runningAdvance = after;
         if (textEmphasis::eligible(cp)) draw(x + wordXpos[i] + (before + after) / 2, y - 2 - (size + 1) / 2);
       }

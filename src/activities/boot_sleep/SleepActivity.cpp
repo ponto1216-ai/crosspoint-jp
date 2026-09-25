@@ -53,8 +53,7 @@ uint32_t readLe32(FsFile& file) {
 }
 
 uint8_t alphaThreshold(const int x, const int y) {
-  static constexpr uint8_t bayer4x4[16] = {0, 128, 32, 160, 192, 64, 224, 96,
-                                            48, 176, 16, 144, 240, 112, 208, 80};
+  static constexpr uint8_t bayer4x4[16] = {0, 128, 32, 160, 192, 64, 224, 96, 48, 176, 16, 144, 240, 112, 208, 80};
   return bayer4x4[((y & 3) << 2) | (x & 3)];
 }
 
@@ -75,8 +74,7 @@ bool findNextTransparentOverlayBmp(FsFile& directory, char* name, const size_t n
 void SleepActivity::onEnter() {
   Activity::onEnter();
 
-  const bool transparentOverlay =
-      SETTINGS.sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::TRANSPARENT_CUSTOM;
+  const bool transparentOverlay = SETTINGS.sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::TRANSPARENT_CUSTOM;
 
   // Show popup with reader orientation only when going to sleep from reader
   if (APP_STATE.lastSleepFromReader) {

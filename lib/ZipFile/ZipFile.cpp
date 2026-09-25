@@ -630,8 +630,8 @@ bool ZipFile::readFileToStream(const char* filename, Print& out, const size_t ch
         return false;
       }
 
-      LOG_DBG("ZIP", "One-shot streamed %s (%lu -> %lu bytes)", filename,
-              static_cast<unsigned long>(deflatedDataSize), static_cast<unsigned long>(inflatedDataSize));
+      LOG_DBG("ZIP", "One-shot streamed %s (%lu -> %lu bytes)", filename, static_cast<unsigned long>(deflatedDataSize),
+              static_cast<unsigned long>(inflatedDataSize));
       free(inflatedData);
       return true;
     }
@@ -684,8 +684,8 @@ bool ZipFile::readFileToStream(const char* filename, Print& out, const size_t ch
 
       if (produced > 0) {
         if (out.write(outputBuffer, produced) != produced) {
-          LOG_ERR("ZIP", "Failed to write all output bytes to stream (heap free=%u, maxAlloc=%u)",
-                  ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+          LOG_ERR("ZIP", "Failed to write all output bytes to stream (heap free=%u, maxAlloc=%u)", ESP.getFreeHeap(),
+                  ESP.getMaxAllocHeap());
           break;
         }
       }

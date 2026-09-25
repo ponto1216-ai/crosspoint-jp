@@ -6,8 +6,8 @@
 #include <algorithm>
 
 #include "MappedInputManager.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 const char* const KeyboardEntryActivity::shiftString[2] = {"shift", "SHIFT"};
@@ -554,8 +554,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
             centerOffset);
         if (!uiLayout.landscape) {
           hintLineY += hintLh;
-          renderer.drawCenteredTextOffset(SMALL_FONT_ID, hintLineY, tr(STR_KB_HINT_RETURN_CURSOR), true,
-                                          centerOffset);
+          renderer.drawCenteredTextOffset(SMALL_FONT_ID, hintLineY, tr(STR_KB_HINT_RETURN_CURSOR), true, centerOffset);
         }
       } else {
         renderer.drawCenteredTextOffset(SMALL_FONT_ID, hintLineY, tr(STR_KB_HINT_MOVE_CURSOR), true, centerOffset);
@@ -576,15 +575,13 @@ void KeyboardEntryActivity::render(RenderLock&&) {
   const int contentCols = getContentColCount();
   const int keyboardWidth = contentWidth * metrics.keyboardWidthPercent / 100;
   const int keyWidth = (keyboardWidth - (contentCols - 1) * keySpacing) / contentCols;
-  const int leftMargin =
-      contentX + (contentWidth - (contentCols * keyWidth + (contentCols - 1) * keySpacing)) / 2;
+  const int leftMargin = contentX + (contentWidth - (contentCols * keyWidth + (contentCols - 1) * keySpacing)) / 2;
 
   const int bottomRowGap = metrics.keyboardBottomKeySpacing > 0 ? 4 : 0;
   const int bottomHints = uiLayout.landscape ? 0 : metrics.buttonHintsHeight + metrics.verticalSpacing;
   const int keyboardStartY = metrics.keyboardBottomAligned
-                                 ? contentBottom - bottomHints -
-                                       (keyHeight + keySpacing) * getContentRowCount() - bottomKeyHeight -
-                                       bottomRowGap + metrics.keyboardVerticalOffset
+                                 ? contentBottom - bottomHints - (keyHeight + keySpacing) * getContentRowCount() -
+                                       bottomKeyHeight - bottomRowGap + metrics.keyboardVerticalOffset
                                  : inputStartY + inputHeight + lineHeight + metrics.verticalSpacing;
 
   const int tipsLh = renderer.getLineHeight(SMALL_FONT_ID);
@@ -668,8 +665,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
   const int contentTotalWidth = COLS * abcKeyWidth + (COLS - 1) * keySpacing;
   const int bottomKeyWidth = (contentTotalWidth - (BOTTOM_KEY_COUNT - 1) * bkSpacing) / BOTTOM_KEY_COUNT;
   const int bottomLeftMargin =
-      contentX +
-      (contentWidth - (BOTTOM_KEY_COUNT * bottomKeyWidth + (BOTTOM_KEY_COUNT - 1) * bkSpacing)) / 2;
+      contentX + (contentWidth - (BOTTOM_KEY_COUNT * bottomKeyWidth + (BOTTOM_KEY_COUNT - 1) * bkSpacing)) / 2;
 
   int urlLeftMargin = leftMargin;
   if (urlMode) {

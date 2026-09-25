@@ -25,8 +25,8 @@ void BookCacheClearActivity::render(RenderLock&&) {
   const int topHintGutter = portraitInverted ? metrics.buttonHintsHeight + metrics.verticalSpacing : 0;
   const int headerY = layout.content.y + metrics.topPadding + topHintGutter;
   const int centerX = layout.content.x + layout.content.width / 2 - renderer.getScreenWidth() / 2;
-  const int centerY = headerY + metrics.headerHeight +
-                      (layout.content.y + layout.content.height - headerY - metrics.headerHeight) / 2;
+  const int centerY =
+      headerY + metrics.headerHeight + (layout.content.y + layout.content.height - headerY - metrics.headerHeight) / 2;
   renderer.clearScreen();
   GUI.drawHeader(renderer, Rect{layout.content.x, headerY, layout.content.width, metrics.headerHeight},
                  tr(STR_DELETE_CACHE));
@@ -41,8 +41,7 @@ void BookCacheClearActivity::render(RenderLock&&) {
   } else if (state == CLEARING) {
     renderer.drawCenteredTextOffset(UI_10_FONT_ID, centerY, tr(STR_CLEARING_CACHE), true, centerX);
   } else if (state == SUCCESS) {
-    renderer.drawCenteredTextOffset(UI_10_FONT_ID, centerY, tr(STR_CACHE_CLEARED), true, centerX,
-                                    EpdFontFamily::BOLD);
+    renderer.drawCenteredTextOffset(UI_10_FONT_ID, centerY, tr(STR_CACHE_CLEARED), true, centerX, EpdFontFamily::BOLD);
     const auto labels = mappedInput.mapLabels(tr(STR_BACK), "", "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   } else {

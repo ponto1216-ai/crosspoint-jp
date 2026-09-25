@@ -9,8 +9,8 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "activities/settings/ReaderTestViewActivity.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 namespace {
@@ -217,7 +217,8 @@ void BookReaderSettingsActivity::render(RenderLock&&) {
   const int listTop = noteY + noteHeight + metrics.verticalSpacing;
   const int bottomHints = layout.landscape ? 0 : metrics.buttonHintsHeight + metrics.verticalSpacing;
   const int resultHeight = resultText ? noteHeight + metrics.verticalSpacing : 0;
-  const int listBottom = layout.content.y + layout.content.height - bottomHints - metrics.verticalSpacing - resultHeight;
+  const int listBottom =
+      layout.content.y + layout.content.height - bottomHints - metrics.verticalSpacing - resultHeight;
   GUI.drawList(
       renderer, Rect{layout.content.x, listTop, layout.content.width, std::max(0, listBottom - listTop)},
       visibleItemCount, selectedIndex,
@@ -226,12 +227,12 @@ void BookReaderSettingsActivity::render(RenderLock&&) {
         const Item item = itemAtIndex(index);
         return std::string(item == Item::TestView
                                ? tr(STR_BOOK_SETTINGS_PREVIEW)
-                               : (isOverridden(item) ? tr(STR_BOOK_SETTINGS_THIS_BOOK)
-                                                     : tr(STR_BOOK_SETTINGS_GLOBAL)));
+                               : (isOverridden(item) ? tr(STR_BOOK_SETTINGS_THIS_BOOK) : tr(STR_BOOK_SETTINGS_GLOBAL)));
       },
       false);
-  if (resultText) renderer.drawCenteredTextOffset(UI_10_FONT_ID, listBottom + metrics.verticalSpacing, resultText, true,
-                                                   centerOffset);
+  if (resultText)
+    renderer.drawCenteredTextOffset(UI_10_FONT_ID, listBottom + metrics.verticalSpacing, resultText, true,
+                                    centerOffset);
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_PREVIOUS), tr(STR_NEXT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();

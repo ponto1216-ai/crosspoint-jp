@@ -2,11 +2,11 @@
 
 #include <I18n.h>
 
-#include "../../components/UiLayout.h"
 #include "../../components/UITheme.h"
-#include "Utf8.h"
+#include "../../components/UiLayout.h"
 #include "../ActivityResult.h"
 #include "HalDisplay.h"
+#include "Utf8.h"
 
 namespace {
 
@@ -38,8 +38,7 @@ std::vector<std::string> wrapConfirmationText(const GfxRenderer& renderer, const
       continue;
     }
     const std::string candidate = current + character;
-    if (!current.empty() &&
-        renderer.getTextWidth(fontId, candidate.c_str(), EpdFontFamily::REGULAR) > maxWidth) {
+    if (!current.empty() && renderer.getTextWidth(fontId, candidate.c_str(), EpdFontFamily::REGULAR) > maxWidth) {
       if (preferredBreak != std::string::npos) {
         lines.push_back(current.substr(0, preferredBreak));
         current.erase(0, preferredBreak);

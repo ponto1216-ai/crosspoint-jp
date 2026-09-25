@@ -1,11 +1,11 @@
 #pragma once
 
+#include <Epub.h>
+
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <Epub.h>
 
 #include "activities/Activity.h"
 

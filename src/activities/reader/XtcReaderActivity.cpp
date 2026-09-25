@@ -240,8 +240,8 @@ XtcReaderActivity::StatusBarInfo XtcReaderActivity::getStatusBarInfo() const {
 void XtcReaderActivity::renderStatusBarOverlay(const StatusBarOverlayPosition position) const {
   const bool drawBottom = SETTINGS.xtcStatusBarMode == CrossPointSettings::XTC_STATUS_BAR_BOTTOM &&
                           position == StatusBarOverlayPosition::Bottom;
-  const bool drawTop = SETTINGS.xtcStatusBarMode == CrossPointSettings::XTC_STATUS_BAR_TOP &&
-                       position == StatusBarOverlayPosition::Top;
+  const bool drawTop =
+      SETTINGS.xtcStatusBarMode == CrossPointSettings::XTC_STATUS_BAR_TOP && position == StatusBarOverlayPosition::Top;
   if ((!drawBottom && !drawTop) || !xtc || xtc->getPageCount() == 0) return;
 
   const int statusBarHeight = UITheme::getInstance().getStatusBarHeight();
@@ -257,15 +257,15 @@ void XtcReaderActivity::renderStatusBarOverlay(const StatusBarOverlayPosition po
   } else {
     paddingBottom = screenHeight - statusBarHeight - marginBottom - marginTop - 4;
   }
-  const int clearHeight = position == StatusBarOverlayPosition::Bottom ? screenHeight - marginBottom - clearY
-                                                                         : statusBarHeight + 4;
+  const int clearHeight =
+      position == StatusBarOverlayPosition::Bottom ? screenHeight - marginBottom - clearY : statusBarHeight + 4;
   renderer.fillRect(0, clearY, renderer.getScreenWidth(), clearHeight, false);
 
   const int pageCount = static_cast<int>(xtc->getPageCount());
   const float bookProgress = static_cast<float>(currentPage + 1) * 100.0f / pageCount;
   const auto pageInfo = getStatusBarInfo();
-  GUI.drawStatusBar(renderer, bookProgress, pageInfo.currentPage, pageInfo.pageCount, pageInfo.title, paddingBottom,
-                    0, true);
+  GUI.drawStatusBar(renderer, bookProgress, pageInfo.currentPage, pageInfo.pageCount, pageInfo.title, paddingBottom, 0,
+                    true);
 }
 
 void XtcReaderActivity::renderPage() {
@@ -481,9 +481,9 @@ void XtcReaderActivity::saveProgress(bool isFinished) const {
   data[3] = (currentPage >> 24) & 0xFF;
   data[4] = isFinished ? 1 : 0;
   data[5] = xtc->getPageCount() > 0
-                ? static_cast<uint8_t>((static_cast<uint64_t>(std::min<uint32_t>(currentPage + 1, xtc->getPageCount())) *
-                                        100) /
-                                       xtc->getPageCount())
+                ? static_cast<uint8_t>(
+                      (static_cast<uint64_t>(std::min<uint32_t>(currentPage + 1, xtc->getPageCount())) * 100) /
+                      xtc->getPageCount())
                 : ReadingProgress::PERCENT_UNKNOWN;
   if (isFinished) data[5] = 100;
   if (!ProgressFile::writeAtomic(xtc->getCachePath(), data, sizeof(data))) {

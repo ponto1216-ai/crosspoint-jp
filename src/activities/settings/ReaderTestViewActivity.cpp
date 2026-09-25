@@ -18,8 +18,8 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "SdCardFontGlobals.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 
 namespace {
 
@@ -34,9 +34,12 @@ ParsedText makeSampleLine(const DirectionSettings& settings, const size_t sample
     const char* suffix;
   };
   static constexpr SampleLine kLines[] = {
-      {"一", "だいいちれつ", true, "の本文です。"},   {"二", "", false, "（ABC 12 123ー）です。"},
-      {"三", "", false, "は圏点確認です。"},           {"四", "だいよんれつ", true, "はルビ・圏点併用です。"},
-      {"五", "", false, "は太字確認です。"},           {"六", "", false, "は通常本文です。"},
+      {"一", "だいいちれつ", true, "の本文です。"},
+      {"二", "", false, "（ABC 12 123ー）です。"},
+      {"三", "", false, "は圏点確認です。"},
+      {"四", "だいよんれつ", true, "はルビ・圏点併用です。"},
+      {"五", "", false, "は太字確認です。"},
+      {"六", "", false, "は通常本文です。"},
       {"七", "だいななれつ", true,
        "の本文です。これは改行位置を確認するための長い文章です。表示設定による行送りと余白も確認します。"},
       {"八", "", false, "はルビなし本文です。"},
@@ -124,7 +127,8 @@ int resolveRubyFont(const DirectionSettings& settings, const int bodyFontId) {
   if (!settings.rubyEnabled) return 0;
   constexpr uint8_t kRubyFontSize = 5;  // 8pt, matching EpubReaderActivity.
   if (settings.sdFontFamilyName[0] != '\0' && SETTINGS.sdFontIdResolver) {
-    const int rubyFontId = SETTINGS.sdFontIdResolver(SETTINGS.sdFontResolverCtx, settings.sdFontFamilyName, kRubyFontSize);
+    const int rubyFontId =
+        SETTINGS.sdFontIdResolver(SETTINGS.sdFontResolverCtx, settings.sdFontFamilyName, kRubyFontSize);
     if (rubyFontId != 0) return rubyFontId;
   }
   return bodyFontId;
@@ -302,8 +306,8 @@ void ReaderTestViewActivity::render(RenderLock&&) {
       // Mirror ChapterHtmlSlimParser::addLineToPage(): in vertical writing,
       // the reader's line-spacing setting scales the column width, then adds
       // the normal quarter-column gutter between adjacent columns.
-      const int columnWidth = std::max(1, static_cast<int>(renderer.getLineHeight(fontId) *
-                                                            SETTINGS.getReaderLineCompression(true)));
+      const int columnWidth =
+          std::max(1, static_cast<int>(renderer.getLineHeight(fontId) * SETTINGS.getReaderLineCompression(true)));
       const int columnSpacing = columnWidth / 4;
       int nextColumnX = left + contentWidth - columnWidth;
       bool firstColumn = true;
@@ -336,8 +340,7 @@ void ReaderTestViewActivity::render(RenderLock&&) {
       // settings path used by ChapterHtmlSlimParser.  A sample item represents
       // one EPUB <p>, so omitting extraParagraphSpacing made horizontal text
       // look much tighter than the same text in the reader.
-      const int lineAdvance =
-          std::max(1, static_cast<int>(bodyLineHeight * SETTINGS.getReaderLineCompression(false)));
+      const int lineAdvance = std::max(1, static_cast<int>(bodyLineHeight * SETTINGS.getReaderLineCompression(false)));
       const int paragraphGap = (lineAdvance * static_cast<int>(direction.extraParagraphSpacing)) / 6;
       int y = top;
       for (size_t sampleIndex = 0; sampleIndex < 9; ++sampleIndex) {
@@ -367,10 +370,10 @@ void ReaderTestViewActivity::render(RenderLock&&) {
       }
     }
   }
-  const auto labels = rubyAdjustActive
-                          ? mappedInput.mapLabels(tr(STR_BACK), tr(STR_DONE), tr(STR_RUBY_X_MINUS), tr(STR_RUBY_X_PLUS))
-                          : mappedInput.mapLabels(tr(STR_BACK), tr(STR_RUBY_OFFSET), tr(STR_WM_HORIZONTAL),
-                                                  tr(STR_WM_VERTICAL));
+  const auto labels =
+      rubyAdjustActive
+          ? mappedInput.mapLabels(tr(STR_BACK), tr(STR_DONE), tr(STR_RUBY_X_MINUS), tr(STR_RUBY_X_PLUS))
+          : mappedInput.mapLabels(tr(STR_BACK), tr(STR_RUBY_OFFSET), tr(STR_WM_HORIZONTAL), tr(STR_WM_VERTICAL));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   if (rubyAdjustActive) {
     GUI.drawSideButtonHints(renderer, tr(STR_RUBY_Y_MINUS), tr(STR_RUBY_Y_PLUS));

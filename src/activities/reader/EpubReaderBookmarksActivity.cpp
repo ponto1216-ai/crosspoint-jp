@@ -13,8 +13,8 @@
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
-#include "util/BookmarkUtil.h"
 #include "util/BookDataPath.h"
+#include "util/BookmarkUtil.h"
 
 namespace {
 // A 54px row places 12 two-line entries comfortably between the header and
@@ -62,7 +62,8 @@ void EpubReaderBookmarksActivity::save() {
   uint64_t bookId = 0;
   const bool hasBookId = epub && epub->getSourceFingerprint(&bookId);
   const std::string path = hasBookId ? BookDataPath::getBookmarkPath(bookId) : BookmarkUtil::getBookmarkPath(epubPath);
-  if (!((!hasBookId || BookDataPath::ensureDirectory(bookId)) && JsonSettingsIO::saveBookmarks(bookmarks, path.c_str()))) {
+  if (!((!hasBookId || BookDataPath::ensureDirectory(bookId)) &&
+        JsonSettingsIO::saveBookmarks(bookmarks, path.c_str()))) {
     LOG_ERR("BKM", "Failed to save bookmarks");
   }
 }
@@ -124,7 +125,8 @@ void EpubReaderBookmarksActivity::loop() {
       return;
     }
     const auto& bookmark = bookmarks.at(selectedIndex);
-    setResult(BookmarkResult{bookmark.spineIndex, bookmark.chapterPage, bookmark.chapterPageCount, bookmark.percentage});
+    setResult(
+        BookmarkResult{bookmark.spineIndex, bookmark.chapterPage, bookmark.chapterPageCount, bookmark.percentage});
     finish();
     return;
   }
@@ -160,20 +162,20 @@ void EpubReaderBookmarksActivity::render(RenderLock&&) {
   const int itemCount = static_cast<int>(bookmarks.size()) + 1;  // final item is Delete All
   const int pageCount = std::max(1, (itemCount + rows - 1) / rows);
   const int currentListPage = bookmarks.empty() ? 1 : (selectedIndex / rows) + 1;
-  const std::string title = std::string(tr(STR_BOOKMARKS)) + " " + std::to_string(currentListPage) + "/" +
-                            std::to_string(pageCount);
+  const std::string title =
+      std::string(tr(STR_BOOKMARKS)) + " " + std::to_string(currentListPage) + "/" + std::to_string(pageCount);
   const int centerOffset = layout.content.x + layout.content.width / 2 - renderer.getScreenWidth() / 2;
   renderer.drawCenteredTextOffset(UI_12_FONT_ID, titleY, title.c_str(), true, centerOffset, EpdFontFamily::BOLD);
 
   if (bookmarks.empty()) {
-    renderer.drawCenteredTextOffset(UI_10_FONT_ID, layout.content.y + layout.content.height / 2,
-                                    tr(STR_NO_FILES_FOUND), true, centerOffset);
+    renderer.drawCenteredTextOffset(UI_10_FONT_ID, layout.content.y + layout.content.height / 2, tr(STR_NO_FILES_FOUND),
+                                    true, centerOffset);
   } else if (deleteMode != DeleteMode::NONE) {
     const bool deleteAll = deleteMode == DeleteMode::ALL;
     const int centerY = layout.content.y + layout.content.height / 2;
-    renderer.drawCenteredTextOffset(
-        UI_10_FONT_ID, centerY - kLineHeight,
-        deleteAll ? tr(STR_CONFIRM_DELETE_ALL_BOOKMARKS) : tr(STR_CONFIRM_DELETE_BOOKMARK), true, centerOffset);
+    renderer.drawCenteredTextOffset(UI_10_FONT_ID, centerY - kLineHeight,
+                                    deleteAll ? tr(STR_CONFIRM_DELETE_ALL_BOOKMARKS) : tr(STR_CONFIRM_DELETE_BOOKMARK),
+                                    true, centerOffset);
     if (!deleteAll)
       renderer.drawCenteredTextOffset(UI_10_FONT_ID, centerY, bookmarks.at(selectedIndex).summary.c_str(), true,
                                       centerOffset);
@@ -200,8 +202,8 @@ void EpubReaderBookmarksActivity::render(RenderLock&&) {
     renderer.drawCenteredTextOffset(UI_10_FONT_ID, listBottom + metrics.verticalSpacing / 2,
                                     tr(STR_HOLD_OPEN_TO_DELETE), true, centerOffset);
   }
-  const auto labels = mappedInput.mapLabels(tr(STR_BACK), deleteMode != DeleteMode::NONE ? tr(STR_DELETE) : tr(STR_SELECT),
-                                            tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  const auto labels = mappedInput.mapLabels(
+      tr(STR_BACK), deleteMode != DeleteMode::NONE ? tr(STR_DELETE) : tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }

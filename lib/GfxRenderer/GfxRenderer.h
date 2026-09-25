@@ -290,8 +290,7 @@ class GfxRenderer {
 
   class MeasureOnlyScope {
    public:
-    explicit MeasureOnlyScope(const GfxRenderer& renderer)
-        : renderer_(renderer), previous_(renderer.measureOnly_) {
+    explicit MeasureOnlyScope(const GfxRenderer& renderer) : renderer_(renderer), previous_(renderer.measureOnly_) {
       renderer_.measureOnly_ = true;
     }
     ~MeasureOnlyScope() { renderer_.measureOnly_ = previous_; }

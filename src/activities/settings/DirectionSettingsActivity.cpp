@@ -12,8 +12,8 @@
 #include "LineSpacingSelectionActivity.h"
 #include "MappedInputManager.h"
 #include "SdCardFontGlobals.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 DirectionSettingsActivity::DirectionSettingsActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
@@ -252,8 +252,8 @@ void DirectionSettingsActivity::render(RenderLock&&) {
   // Header
   const char* title = isVertical ? tr(STR_VERTICAL_SETTINGS) : tr(STR_HORIZONTAL_SETTINGS);
   GUI.drawHeader(renderer,
-                 Rect{layout.content.x, layout.content.y + metrics.topPadding + hintGutterHeight,
-                      layout.content.width, metrics.headerHeight},
+                 Rect{layout.content.x, layout.content.y + metrics.topPadding + hintGutterHeight, layout.content.width,
+                      metrics.headerHeight},
                  title, "");
 
   const int itemCount = static_cast<int>(items.size());
@@ -261,8 +261,8 @@ void DirectionSettingsActivity::render(RenderLock&&) {
   const int listTop =
       layout.content.y + metrics.topPadding + hintGutterHeight + metrics.headerHeight + metrics.verticalSpacing;
   const int bottomHints = layout.landscape ? 0 : metrics.buttonHintsHeight;
-  const int listBottom = layout.content.y + layout.content.height - bottomHints - metrics.verticalSpacing * 2 -
-                         helpTextHeight;
+  const int listBottom =
+      layout.content.y + layout.content.height - bottomHints - metrics.verticalSpacing * 2 - helpTextHeight;
 
   // List
   GUI.drawList(

@@ -3,13 +3,13 @@
 #include <GfxRenderer.h>
 #include <I18n.h>
 
-#include <cstring>
 #include <algorithm>
+#include <cstring>
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 namespace {
@@ -115,7 +115,6 @@ void StatusBarSettingsActivity::loop() {
     selectedIndex = ButtonNavigator::previousIndex(selectedIndex, MENU_ITEMS);
     requestUpdate();
   });
-
 }
 
 void StatusBarSettingsActivity::changeCurrentSetting(const int delta, const bool toggleValue) {
@@ -125,8 +124,8 @@ void StatusBarSettingsActivity::changeCurrentSetting(const int delta, const bool
     SETTINGS.statusBarBookProgressPercentage =
         toggleValue ? !SETTINGS.statusBarBookProgressPercentage : (delta < 0 ? 0 : 1);
   } else if (selectedIndex == 2) {
-    SETTINGS.statusBarProgressBar = static_cast<uint8_t>(std::clamp(
-        static_cast<int>(SETTINGS.statusBarProgressBar) + delta, 0, PROGRESS_BAR_ITEMS - 1));
+    SETTINGS.statusBarProgressBar = static_cast<uint8_t>(
+        std::clamp(static_cast<int>(SETTINGS.statusBarProgressBar) + delta, 0, PROGRESS_BAR_ITEMS - 1));
   } else if (selectedIndex == 3) {
     SETTINGS.statusBarProgressBarThickness = static_cast<uint8_t>(std::clamp(
         static_cast<int>(SETTINGS.statusBarProgressBarThickness) + delta, 0, PROGRESS_BAR_THICKNESS_ITEMS - 1));
@@ -136,8 +135,8 @@ void StatusBarSettingsActivity::changeCurrentSetting(const int delta, const bool
   } else if (selectedIndex == 5) {
     SETTINGS.statusBarBattery = toggleValue ? !SETTINGS.statusBarBattery : (delta < 0 ? 0 : 1);
   } else if (selectedIndex == 6) {
-    SETTINGS.xtcStatusBarMode = static_cast<uint8_t>(std::clamp(static_cast<int>(SETTINGS.xtcStatusBarMode) + delta,
-                                                                 0, XTC_STATUS_BAR_ITEMS - 1));
+    SETTINGS.xtcStatusBarMode = static_cast<uint8_t>(
+        std::clamp(static_cast<int>(SETTINGS.xtcStatusBarMode) + delta, 0, XTC_STATUS_BAR_ITEMS - 1));
   }
   SETTINGS.saveToFile();
 }
@@ -157,8 +156,8 @@ void StatusBarSettingsActivity::render(RenderLock&&) {
 
   const int contentTop = headerY + metrics.headerHeight + metrics.verticalSpacing;
   const int previewPadding = layout.landscape ? metrics.verticalSpacing : verticalPreviewPadding;
-  const int previewTextY = pageHeight - UITheme::getInstance().getStatusBarHeight() - previewPadding -
-                           verticalPreviewTextPadding;
+  const int previewTextY =
+      pageHeight - UITheme::getInstance().getStatusBarHeight() - previewPadding - verticalPreviewTextPadding;
   const int contentHeight = previewTextY - contentTop - metrics.verticalSpacing;
   GUI.drawList(
       renderer, Rect{layout.content.x, contentTop, layout.content.width, contentHeight}, static_cast<int>(MENU_ITEMS),
@@ -186,8 +185,8 @@ void StatusBarSettingsActivity::render(RenderLock&&) {
       },
       editingValue);
 
-  const auto labels = mappedInput.mapLabels(tr(STR_BACK), editingValue ? tr(STR_SELECT) : tr(STR_EDIT),
-                                            tr(STR_PREVIOUS), tr(STR_NEXT));
+  const auto labels =
+      mappedInput.mapLabels(tr(STR_BACK), editingValue ? tr(STR_SELECT) : tr(STR_EDIT), tr(STR_PREVIOUS), tr(STR_NEXT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
   std::string title;
@@ -199,11 +198,9 @@ void StatusBarSettingsActivity::render(RenderLock&&) {
 
   const int previewInsetLeft = layout.content.x;
   const int previewInsetRight = renderer.getScreenWidth() - layout.content.x - layout.content.width;
-  GUI.drawStatusBar(renderer, 75, 8, 32, title, previewPadding, 0, false, false, previewInsetLeft,
-                    previewInsetRight);
+  GUI.drawStatusBar(renderer, 75, 8, 32, title, previewPadding, 0, false, false, previewInsetLeft, previewInsetRight);
 
-  renderer.drawText(UI_10_FONT_ID, layout.content.x + metrics.contentSidePadding,
-                    previewTextY, tr(STR_PREVIEW));
+  renderer.drawText(UI_10_FONT_ID, layout.content.x + metrics.contentSidePadding, previewTextY, tr(STR_PREVIEW));
 
   renderer.displayBuffer();
 }

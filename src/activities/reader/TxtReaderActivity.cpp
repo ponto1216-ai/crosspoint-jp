@@ -11,9 +11,9 @@
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
 #include "ProgressFile.h"
+#include "ReaderUtils.h"
 #include "ReadingHistoryStore.h"
 #include "ReadingStatusHelper.h"
-#include "ReaderUtils.h"
 #include "RecentBooksStore.h"
 #include "SdCardFontGlobals.h"
 #include "components/UITheme.h"
@@ -161,9 +161,8 @@ void TxtReaderActivity::initializeReader() {
   linesPerPage = viewportHeight / lineHeight;
   if (linesPerPage < 1) linesPerPage = 1;
 
-  LOG_INF("TRS", "Viewport: %dx%d, lines per page: %d, horizontal=1, font=%d, sdFont=%d", viewportWidth,
-          viewportHeight, linesPerPage, cachedFontId,
-          renderer.isSdCardFont(cachedFontId) ? 1 : 0);
+  LOG_INF("TRS", "Viewport: %dx%d, lines per page: %d, horizontal=1, font=%d, sdFont=%d", viewportWidth, viewportHeight,
+          linesPerPage, cachedFontId, renderer.isSdCardFont(cachedFontId) ? 1 : 0);
 
   // Try to load cached page index first
   if (!loadPageIndexCache()) {
@@ -224,8 +223,7 @@ void TxtReaderActivity::buildPageIndex() {
   inputFile.close();
 
   totalPages = pageOffsets.size();
-  LOG_INF("TRS", "Built page index: pages=%d bytes=%zu duration=%lu ms", totalPages, fileSize,
-          millis() - startedAt);
+  LOG_INF("TRS", "Built page index: pages=%d bytes=%zu duration=%lu ms", totalPages, fileSize, millis() - startedAt);
 }
 
 bool TxtReaderActivity::loadPageAtOffset(size_t offset, std::vector<std::string>& outLines, size_t& nextOffset,
@@ -334,7 +332,6 @@ void TxtReaderActivity::render(RenderLock&&) {
   // Save progress
   const bool nearEnd = totalPages > 0 && static_cast<float>(currentPage + 1) / totalPages >= 0.95f;
   saveProgress(nearEnd);
-
 }
 
 void TxtReaderActivity::renderPage() {
@@ -410,10 +407,9 @@ void TxtReaderActivity::saveProgress(const bool isFinished) const {
   data[2] = (currentPage >> 16) & 0xFF;
   data[3] = (currentPage >> 24) & 0xFF;
   data[4] = isFinished ? 1 : 0;
-  data[5] = totalPages > 0
-                ? static_cast<uint8_t>((static_cast<uint32_t>(std::min(currentPage + 1, totalPages)) * 100) /
-                                       static_cast<uint32_t>(totalPages))
-                : ReadingProgress::PERCENT_UNKNOWN;
+  data[5] = totalPages > 0 ? static_cast<uint8_t>((static_cast<uint32_t>(std::min(currentPage + 1, totalPages)) * 100) /
+                                                  static_cast<uint32_t>(totalPages))
+                           : ReadingProgress::PERCENT_UNKNOWN;
   if (isFinished) data[5] = 100;
   ProgressFile::writeAtomic(txt->getCachePath(), data, sizeof(data));
 }

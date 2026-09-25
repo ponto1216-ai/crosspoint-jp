@@ -18,7 +18,7 @@ class ReaderTestViewActivity final : public Activity {
 
  public:
   explicit ReaderTestViewActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, uint64_t bookFingerprint = 0,
-                                 int8_t initialVertical = -1)
+                                  int8_t initialVertical = -1)
       : Activity("ReaderTestView", renderer, mappedInput),
         bookFingerprint(bookFingerprint),
         initialVertical(initialVertical) {}

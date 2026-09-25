@@ -11,8 +11,8 @@
 #include "MappedInputManager.h"
 #include "activities/home/FileBrowserActivity.h"
 #include "activities/util/ConfirmationActivity.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 #include "network/FirmwareFlasher.h"
 
@@ -255,11 +255,10 @@ void SdFirmwareUpdateActivity::render(RenderLock&&) {
     renderer.drawCenteredTextOffset(UI_10_FONT_ID, top, tr(STR_UPDATING), true, centerOffset, EpdFontFamily::BOLD);
 
     int y = top + lineHeight + metrics.verticalSpacing;
-    GUI.drawProgressBar(
-        renderer,
-        Rect{layout.content.x + metrics.contentSidePadding, y,
-             layout.content.width - metrics.contentSidePadding * 2, metrics.progressBarHeight},
-        static_cast<int>(pct), 100);
+    GUI.drawProgressBar(renderer,
+                        Rect{layout.content.x + metrics.contentSidePadding, y,
+                             layout.content.width - metrics.contentSidePadding * 2, metrics.progressBarHeight},
+                        static_cast<int>(pct), 100);
     y += metrics.progressBarHeight + metrics.verticalSpacing;
     // Percent label is drawn by BaseTheme::drawProgressBar; this slot is left intentionally empty
     // so the do-not-power-off line below stays at the same Y as before.
@@ -268,11 +267,10 @@ void SdFirmwareUpdateActivity::render(RenderLock&&) {
   } else if (state == State::SUCCESS) {
     renderer.drawCenteredTextOffset(UI_10_FONT_ID, top, tr(STR_UPDATE_COMPLETE), true, centerOffset,
                                     EpdFontFamily::BOLD);
-    renderer.drawCenteredTextOffset(UI_10_FONT_ID, top + lineHeight + metrics.verticalSpacing,
-                                    tr(STR_RESTARTING_HINT), true, centerOffset);
+    renderer.drawCenteredTextOffset(UI_10_FONT_ID, top + lineHeight + metrics.verticalSpacing, tr(STR_RESTARTING_HINT),
+                                    true, centerOffset);
   } else if (state == State::FAILED) {
-    renderer.drawCenteredTextOffset(UI_10_FONT_ID, top, tr(STR_UPDATE_FAILED), true, centerOffset,
-                                    EpdFontFamily::BOLD);
+    renderer.drawCenteredTextOffset(UI_10_FONT_ID, top, tr(STR_UPDATE_FAILED), true, centerOffset, EpdFontFamily::BOLD);
     if (!errorMessage.empty()) {
       renderer.drawCenteredTextOffset(UI_10_FONT_ID, top + lineHeight + metrics.verticalSpacing, errorMessage.c_str(),
                                       true, centerOffset);

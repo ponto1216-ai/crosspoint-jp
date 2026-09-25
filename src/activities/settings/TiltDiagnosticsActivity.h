@@ -1,9 +1,9 @@
 #pragma once
 
+#include <HalTiltSensor.h>
+
 #include <cstdint>
 #include <string>
-
-#include <HalTiltSensor.h>
 
 #include "activities/Activity.h"
 

@@ -330,10 +330,15 @@ int CrossPointSettings::getReaderFontIdForSize(bool isVertical, uint8_t fontSize
     case OPENDYSLEXIC:  // Legacy saved value: fall back to resident Noto Sans.
     default:
       switch (fontSize) {
-        case SMALL: return NOTOSANS_12_FONT_ID;
-        case LARGE: return NOTOSANS_16_FONT_ID;
-        case EXTRA_LARGE: return NOTOSANS_18_FONT_ID;
-        case MEDIUM: default: return NOTOSANS_14_FONT_ID;
+        case SMALL:
+          return NOTOSANS_12_FONT_ID;
+        case LARGE:
+          return NOTOSANS_16_FONT_ID;
+        case EXTRA_LARGE:
+          return NOTOSANS_18_FONT_ID;
+        case MEDIUM:
+        default:
+          return NOTOSANS_14_FONT_ID;
       }
   }
 }

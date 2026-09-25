@@ -41,8 +41,7 @@ void QrDisplayActivity::render(RenderLock&&) {
   const int bottomHints = layout.landscape ? 0 : metrics.buttonHintsHeight + metrics.verticalSpacing;
   const int startY = headerY + metrics.headerHeight + metrics.verticalSpacing;
   const int availableWidth = layout.content.width - metrics.contentSidePadding * 2;
-  const int availableHeight =
-      layout.content.y + layout.content.height - bottomHints - metrics.verticalSpacing - startY;
+  const int availableHeight = layout.content.y + layout.content.height - bottomHints - metrics.verticalSpacing - startY;
 
   const Rect qrBounds(layout.content.x + metrics.contentSidePadding, startY, availableWidth, availableHeight);
   QrUtils::drawQrCode(renderer, qrBounds, textPayload);

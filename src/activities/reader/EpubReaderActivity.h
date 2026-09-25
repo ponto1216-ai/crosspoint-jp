@@ -3,12 +3,11 @@
 #include <Epub/FootnoteEntry.h>
 #include <Epub/Section.h>
 
-#include "BookmarkEntry.h"
-
-#include <optional>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
+#include "BookmarkEntry.h"
 #include "EpubReaderMenuActivity.h"
 #include "activities/Activity.h"
 

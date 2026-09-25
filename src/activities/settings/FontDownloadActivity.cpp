@@ -14,8 +14,8 @@
 #include "MappedInputManager.h"
 #include "SdCardFontGlobals.h"
 #include "activities/network/WifiSelectionActivity.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 #include "network/HttpDownloader.h"
 #include "network/TlsHeapReclaim.h"
@@ -403,8 +403,7 @@ bool FontDownloadActivity::downloadFamily(ManifestFamily& family) {
             screenshotHeldDuringDownload_ = false;
             return mappedInput.wasPressed(MappedInputManager::Button::Back);
           },
-          /*preservePartialOnError=*/true,
-          FONT_DOWNLOAD_STREAM_IDLE_TIMEOUT_MS);
+          /*preservePartialOnError=*/true, FONT_DOWNLOAD_STREAM_IDLE_TIMEOUT_MS);
       if (result == HttpDownloader::OK || !isRetryableFontDownloadFailure(result)) break;
 
       LOG_ERR("FONT", "Download attempt %d/%d failed: %s (err=%d http=%d)", attempt + 1, FONT_DOWNLOAD_MAX_RETRIES,
@@ -565,8 +564,7 @@ void FontDownloadActivity::render(RenderLock&&) {
   const int bottomHints = layout.landscape ? 0 : metrics.buttonHintsHeight + metrics.verticalSpacing;
   const int contentBottom = layout.content.y + layout.content.height - bottomHints;
   const int centerY = contentTop + (contentBottom - contentTop - lineHeight) / 2;
-  const int centerOffset =
-      layout.content.x + layout.content.width / 2 - renderer.getScreenWidth() / 2;
+  const int centerOffset = layout.content.x + layout.content.width / 2 - renderer.getScreenWidth() / 2;
   const auto drawCentered = [&](const int y, const char* text,
                                 const EpdFontFamily::Style style = EpdFontFamily::REGULAR) {
     renderer.drawCenteredTextOffset(UI_10_FONT_ID, y, text, true, centerOffset, style);
@@ -653,10 +651,10 @@ void FontDownloadActivity::render(RenderLock&&) {
     }
 
     int barY = centerY + metrics.verticalSpacing;
-    GUI.drawProgressBar(
-        renderer, Rect{layout.content.x + metrics.contentSidePadding, barY,
-                       layout.content.width - metrics.contentSidePadding * 2, metrics.progressBarHeight},
-        static_cast<int>(progress * 100), 100);
+    GUI.drawProgressBar(renderer,
+                        Rect{layout.content.x + metrics.contentSidePadding, barY,
+                             layout.content.width - metrics.contentSidePadding * 2, metrics.progressBarHeight},
+                        static_cast<int>(progress * 100), 100);
     const auto labels = mappedInput.mapLabels(tr(STR_CANCEL), "", "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   } else if (state_ == COMPLETE) {

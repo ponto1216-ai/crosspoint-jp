@@ -3,11 +3,11 @@
 #include <GfxRenderer.h>
 #include <I18n.h>
 
-#include "ReaderProfile.h"
-#include "components/UiLayout.h"
-#include "components/UITheme.h"
-#include "fontIds.h"
 #include "../util/ConfirmationActivity.h"
+#include "ReaderProfile.h"
+#include "components/UITheme.h"
+#include "components/UiLayout.h"
+#include "fontIds.h"
 
 namespace {
 
@@ -47,16 +47,15 @@ void ReaderProfilesActivity::onEnter() {
 
 void ReaderProfilesActivity::selectCurrent() {
   if (selectedIndex == kResetItemIndex) {
-    startActivityForResult(
-        std::make_unique<ConfirmationActivity>(renderer, mappedInput, tr(STR_READER_SETTINGS_RESET),
-                                               tr(STR_READER_SETTINGS_RESET_CONFIRM)),
-        [this](const ActivityResult& result) {
-          if (!result.isCancelled) {
-            resultText = ReaderProfile::resetToDefaults() ? tr(STR_READER_SETTINGS_RESET_DONE)
-                                                           : tr(STR_READER_PROFILE_SAVE_FAILED);
-          }
-          requestUpdate();
-        });
+    startActivityForResult(std::make_unique<ConfirmationActivity>(renderer, mappedInput, tr(STR_READER_SETTINGS_RESET),
+                                                                  tr(STR_READER_SETTINGS_RESET_CONFIRM)),
+                           [this](const ActivityResult& result) {
+                             if (!result.isCancelled) {
+                               resultText = ReaderProfile::resetToDefaults() ? tr(STR_READER_SETTINGS_RESET_DONE)
+                                                                             : tr(STR_READER_PROFILE_SAVE_FAILED);
+                             }
+                             requestUpdate();
+                           });
     return;
   }
   const bool isLoad = selectedIndex >= ReaderProfile::SLOT_COUNT;
@@ -66,13 +65,12 @@ void ReaderProfilesActivity::selectCurrent() {
     requestUpdate();
     return;
   }
-  startActivityForResult(
-      std::make_unique<ConfirmationActivity>(renderer, mappedInput, tr(STR_READER_PROFILE_LOAD),
-                                             tr(STR_READER_PROFILE_LOAD_CONFIRM)),
-      [this, slot](const ActivityResult& result) {
-        if (!result.isCancelled) resultText = resultLabel(ReaderProfile::load(slot));
-        requestUpdate();
-      });
+  startActivityForResult(std::make_unique<ConfirmationActivity>(renderer, mappedInput, tr(STR_READER_PROFILE_LOAD),
+                                                                tr(STR_READER_PROFILE_LOAD_CONFIRM)),
+                         [this, slot](const ActivityResult& result) {
+                           if (!result.isCancelled) resultText = resultLabel(ReaderProfile::load(slot));
+                           requestUpdate();
+                         });
 }
 
 void ReaderProfilesActivity::loop() {

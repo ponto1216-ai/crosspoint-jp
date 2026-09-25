@@ -126,14 +126,13 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
       SettingInfo::Enum(StrId::STR_COLOR_MODE, &CrossPointSettings::colorMode, {StrId::STR_LIGHT, StrId::STR_DARK},
                         "colorMode", StrId::STR_CAT_DISPLAY),
       SettingInfo::Enum(StrId::STR_UI_ORIENTATION, &CrossPointSettings::uiOrientation,
-                        {StrId::STR_PORTRAIT, StrId::STR_INVERTED, StrId::STR_LANDSCAPE_CW,
-                         StrId::STR_LANDSCAPE_CCW, StrId::STR_FOLLOW_READER_ORIENTATION},
+                        {StrId::STR_PORTRAIT, StrId::STR_INVERTED, StrId::STR_LANDSCAPE_CW, StrId::STR_LANDSCAPE_CCW,
+                         StrId::STR_FOLLOW_READER_ORIENTATION},
                         "uiOrientation", StrId::STR_CAT_DISPLAY),
 
       // --- Reader ---
       SettingInfo::Enum(StrId::STR_BOOK_STYLE, &CrossPointSettings::embeddedStyle,
-                        {StrId::STR_BOOK_STYLE_CROSSPOINT, StrId::STR_BOOK_STYLE_BOOK,
-                         StrId::STR_BOOK_STYLE_BALANCED},
+                        {StrId::STR_BOOK_STYLE_CROSSPOINT, StrId::STR_BOOK_STYLE_BOOK, StrId::STR_BOOK_STYLE_BALANCED},
                         "embeddedStyle", StrId::STR_CAT_READER),
       SettingInfo::Enum(StrId::STR_ORIENTATION, &CrossPointSettings::orientation,
                         {StrId::STR_PORTRAIT, StrId::STR_LANDSCAPE_CW, StrId::STR_INVERTED, StrId::STR_LANDSCAPE_CCW},

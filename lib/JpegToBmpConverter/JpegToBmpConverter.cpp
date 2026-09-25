@@ -17,7 +17,7 @@
 // ============================================================================
 constexpr bool USE_8BIT_OUTPUT = false;  // true: 8-bit grayscale (no quantization), false: 2-bit (4 levels)
 // Dithering method selection (only one should be true, or all false for simple quantization):
-constexpr bool USE_ATKINSON = false;          // Atkinson dithering (cleaner than F-S, less error diffusion)
+constexpr bool USE_ATKINSON = false;         // Atkinson dithering (cleaner than F-S, less error diffusion)
 constexpr bool USE_FLOYD_STEINBERG = false;  // Floyd-Steinberg error diffusion (can cause "worm" artifacts)
 constexpr bool USE_NOISE_DITHERING = false;  // Hash-based noise dithering (good for downsampling)
 // Pre-resize to target display size (CRITICAL: avoids dithering artifacts from post-downsampling)
@@ -173,7 +173,8 @@ constexpr size_t BMP_WRITE_BUFFER_SIZE = 4096;
 // cache generator and the on-demand renderer use larger SD writes instead.
 class TimedBufferedPrint final : public Print {
  public:
-  explicit TimedBufferedPrint(Print& output) : output(output), buffer(new (std::nothrow) uint8_t[BMP_WRITE_BUFFER_SIZE]) {}
+  explicit TimedBufferedPrint(Print& output)
+      : output(output), buffer(new (std::nothrow) uint8_t[BMP_WRITE_BUFFER_SIZE]) {}
 
   ~TimedBufferedPrint() override { delete[] buffer; }
 
@@ -218,8 +219,7 @@ class TimedBufferedPrint final : public Print {
     const size_t written = output.write(buffer, used);
     writeMs += millis() - startedAt;
     if (written != used) {
-      LOG_ERR("JPG", "Short buffered BMP write: %u/%u", static_cast<unsigned>(written),
-              static_cast<unsigned>(used));
+      LOG_ERR("JPG", "Short buffered BMP write: %u/%u", static_cast<unsigned>(written), static_cast<unsigned>(used));
       failed = true;
       return false;
     }
@@ -331,9 +331,8 @@ static void writeOutputRow(BmpConvertCtx* ctx, const uint8_t* srcRow, int outY) 
     if (ctx->atkinson1BitDitherer) ctx->atkinson1BitDitherer->nextRow();
   } else {
     for (int x = 0; x < ctx->outWidth; x++) {
-      const uint8_t gray = ctx->useIllustrationRendering
-                               ? applyIllustrationToneCurve(adjustPixel(srcRow[x]))
-                               : darkenForEpaperImage(adjustPixel(srcRow[x]));
+      const uint8_t gray = ctx->useIllustrationRendering ? applyIllustrationToneCurve(adjustPixel(srcRow[x]))
+                                                         : darkenForEpaperImage(adjustPixel(srcRow[x]));
       uint8_t twoBit;
       if (ctx->useIllustrationRendering) {
         twoBit = applyBayerDither4Level(gray, x, outY);
@@ -352,7 +351,7 @@ static void writeOutputRow(BmpConvertCtx* ctx, const uint8_t* srcRow, int outY) 
       ctx->fsDitherer->nextRow();
   }
 
-    const size_t written = ctx->bmpOut->write(ctx->bmpRow, ctx->bytesPerRow);
+  const size_t written = ctx->bmpOut->write(ctx->bmpRow, ctx->bytesPerRow);
   if (written != static_cast<size_t>(ctx->bytesPerRow)) {
     LOG_ERR("JPG", "Short BMP row write: %u/%d", static_cast<unsigned>(written), ctx->bytesPerRow);
     ctx->error = true;
@@ -381,9 +380,8 @@ static void flushScaledRow(BmpConvertCtx* ctx) {
   } else {
     for (int x = 0; x < ctx->outWidth; x++) {
       const uint8_t sourceGray = (ctx->rowCount[x] > 0) ? (ctx->rowAccum[x] / ctx->rowCount[x]) : 0;
-      const uint8_t gray = ctx->useIllustrationRendering
-                               ? applyIllustrationToneCurve(adjustPixel(sourceGray))
-                               : darkenForEpaperImage(adjustPixel(sourceGray));
+      const uint8_t gray = ctx->useIllustrationRendering ? applyIllustrationToneCurve(adjustPixel(sourceGray))
+                                                         : darkenForEpaperImage(adjustPixel(sourceGray));
       uint8_t twoBit;
       if (ctx->useIllustrationRendering) {
         twoBit = applyBayerDither4Level(gray, x, ctx->currentOutY);
@@ -402,7 +400,7 @@ static void flushScaledRow(BmpConvertCtx* ctx) {
       ctx->fsDitherer->nextRow();
   }
 
-    const size_t written = ctx->bmpOut->write(ctx->bmpRow, ctx->bytesPerRow);
+  const size_t written = ctx->bmpOut->write(ctx->bmpRow, ctx->bytesPerRow);
   if (written != static_cast<size_t>(ctx->bytesPerRow)) {
     LOG_ERR("JPG", "Short scaled BMP row write: %u/%d", static_cast<unsigned>(written), ctx->bytesPerRow);
     ctx->error = true;
@@ -423,13 +421,8 @@ int bmpDrawCallback(JPEGDRAW* pDraw) {
   ctx->callbackCount++;
 
   if (ctx->callbackCount <= 8) {
-    LOG_DBG("JPG", "Callback #%d: x=%d y=%d w=%d used=%d h=%d",
-            ctx->callbackCount,
-            pDraw->x,
-            pDraw->y,
-            pDraw->iWidth,
-            pDraw->iWidthUsed,
-            pDraw->iHeight);
+    LOG_DBG("JPG", "Callback #%d: x=%d y=%d w=%d used=%d h=%d", ctx->callbackCount, pDraw->x, pDraw->y, pDraw->iWidth,
+            pDraw->iWidthUsed, pDraw->iHeight);
   }
 
   const uint8_t* pixels = reinterpret_cast<uint8_t*>(pDraw->pPixels);
@@ -444,8 +437,8 @@ int bmpDrawCallback(JPEGDRAW* pDraw) {
   const int blockX = pDraw->x;
   const int blockY = pDraw->y;
   if (blockY == 0) {
-    LOG_DBG("JPG", "Draw block x=%d y=%d w=%d used=%d h=%d src=%dx%d",
-            blockX, blockY, pDraw->iWidth, pDraw->iWidthUsed, blockH, ctx->srcWidth, ctx->srcHeight);
+    LOG_DBG("JPG", "Draw block x=%d y=%d w=%d used=%d h=%d src=%dx%d", blockX, blockY, pDraw->iWidth, pDraw->iWidthUsed,
+            blockH, ctx->srcWidth, ctx->srcHeight);
   }
   // Copy block pixels into MCU row buffer
   for (int r = 0; r < blockH && r < MAX_MCU_HEIGHT; r++) {
@@ -639,8 +632,8 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(FsFile& jpegFile, Print& bm
   ctx.mcuScratch = buildscratch::claim(mcuBytes);
   ctx.mcuBuf = ctx.mcuScratch ? ctx.mcuScratch : static_cast<uint8_t*>(malloc(mcuBytes));
   if (!ctx.mcuBuf) {
-    LOG_ERR("JPG", "Failed to allocate MCU buffer (%u bytes, free=%u, maxAlloc=%u)",
-            static_cast<unsigned>(mcuBytes), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+    LOG_ERR("JPG", "Failed to allocate MCU buffer (%u bytes, free=%u, maxAlloc=%u)", static_cast<unsigned>(mcuBytes),
+            ESP.getFreeHeap(), ESP.getMaxAllocHeap());
     return false;
   }
   memset(ctx.mcuBuf, 0, mcuBytes);
@@ -678,19 +671,19 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(FsFile& jpegFile, Print& bm
 
   const bool flushSuccess = bufferedOutput.flushOutput();
 
-  LOG_DBG("JPG", "JPEG decode result: rc=%d callbacks=%d rows=%d expectedRows=%d err=%d",
-          rc, ctx.callbackCount, ctx.rowsWritten, ctx.outHeight, jpeg->getLastError());
+  LOG_DBG("JPG", "JPEG decode result: rc=%d callbacks=%d rows=%d expectedRows=%d err=%d", rc, ctx.callbackCount,
+          ctx.rowsWritten, ctx.outHeight, jpeg->getLastError());
 
   if (rc != 1 || ctx.error || !flushSuccess || ctx.rowsWritten != ctx.outHeight) {
-    LOG_ERR("JPG", "JPEG decode incomplete: rc=%d callbacks=%d rows=%d/%d err=%d",
-            rc, ctx.callbackCount, ctx.rowsWritten, ctx.outHeight, jpeg->getLastError());
+    LOG_ERR("JPG", "JPEG decode incomplete: rc=%d callbacks=%d rows=%d/%d err=%d", rc, ctx.callbackCount,
+            ctx.rowsWritten, ctx.outHeight, jpeg->getLastError());
     return false;
   }
 
   const uint32_t totalMs = millis() - conversionStartedAt;
   const uint32_t writeMs = bufferedOutput.getWriteMs();
-  LOG_DBG("JPG", "JPEG timing: total=%lu ms, decode/resize/dither=%lu ms, BMP write=%lu ms, output=%lu bytes",
-          totalMs, totalMs >= writeMs ? totalMs - writeMs : 0, writeMs,
+  LOG_DBG("JPG", "JPEG timing: total=%lu ms, decode/resize/dither=%lu ms, BMP write=%lu ms, output=%lu bytes", totalMs,
+          totalMs >= writeMs ? totalMs - writeMs : 0, writeMs,
           static_cast<unsigned long>(bufferedOutput.getBytesWritten()));
   LOG_DBG("JPG", "Successfully converted JPEG to BMP");
   return true;

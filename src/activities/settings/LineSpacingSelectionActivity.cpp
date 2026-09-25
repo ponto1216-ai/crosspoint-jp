@@ -9,8 +9,8 @@
 #include "CrossPointSettings.h"
 #include "HalGPIO.h"
 #include "MappedInputManager.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 namespace {
@@ -59,14 +59,12 @@ void LineSpacingSelectionActivity::loop() {
   // screen. Keep the button labelled "+10" increasing the left-to-right bar.
   const bool reverseX4LandscapeStep =
       !gpio.deviceIsX3() && renderer.getOrientation() == GfxRenderer::Orientation::LandscapeCounterClockwise;
-  buttonNavigator.onPressAndContinuous({MappedInputManager::Button::ValueIncrease},
-                                       [this, reverseX4LandscapeStep] {
-                                         adjustValue(reverseX4LandscapeStep ? -kLargeStep : kLargeStep);
-                                       });
-  buttonNavigator.onPressAndContinuous({MappedInputManager::Button::ValueDecrease},
-                                       [this, reverseX4LandscapeStep] {
-                                         adjustValue(reverseX4LandscapeStep ? kLargeStep : -kLargeStep);
-                                       });
+  buttonNavigator.onPressAndContinuous({MappedInputManager::Button::ValueIncrease}, [this, reverseX4LandscapeStep] {
+    adjustValue(reverseX4LandscapeStep ? -kLargeStep : kLargeStep);
+  });
+  buttonNavigator.onPressAndContinuous({MappedInputManager::Button::ValueDecrease}, [this, reverseX4LandscapeStep] {
+    adjustValue(reverseX4LandscapeStep ? kLargeStep : -kLargeStep);
+  });
 }
 
 void LineSpacingSelectionActivity::render(RenderLock&&) {
@@ -99,8 +97,7 @@ void LineSpacingSelectionActivity::render(RenderLock&&) {
   snprintf(valueBuf, sizeof(valueBuf), "%.2fx", static_cast<float>(value) / 100.0f);
   const std::string valueText = valueBuf;
   const int valueY = headerY + metrics.headerHeight + metrics.verticalSpacing * 2;
-  renderer.drawCenteredTextOffset(UI_12_FONT_ID, valueY, valueText.c_str(), true, centerOffset,
-                                  EpdFontFamily::BOLD);
+  renderer.drawCenteredTextOffset(UI_12_FONT_ID, valueY, valueText.c_str(), true, centerOffset, EpdFontFamily::BOLD);
 
   const int barWidth = std::min(360, std::max(80, layout.content.width - metrics.contentSidePadding * 4));
   constexpr int barHeight = 16;
@@ -126,8 +123,7 @@ void LineSpacingSelectionActivity::render(RenderLock&&) {
   // X4's physical side-button pair appears in the opposite left-to-right
   // order in landscape. Match the labels to the orientation-specific action.
   const bool reverseX4LandscapeHints = !gpio.deviceIsX3() && layout.landscape;
-  GUI.drawSideButtonHints(renderer, reverseX4LandscapeHints ? "-10" : "+10",
-                          reverseX4LandscapeHints ? "+10" : "-10");
+  GUI.drawSideButtonHints(renderer, reverseX4LandscapeHints ? "-10" : "+10", reverseX4LandscapeHints ? "+10" : "-10");
 
   renderer.displayBuffer();
 }

@@ -209,9 +209,8 @@ void BaseTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* top
       constexpr int landscapeButtonWidth = 80;
       const int groupWidth = landscapeButtonWidth * 2;
       const int x = (screenWidth - groupWidth) / 2;
-      const int y = orientation == GfxRenderer::Orientation::LandscapeClockwise
-                        ? screenHeight - landscapeButtonHeight
-                        : 0;
+      const int y =
+          orientation == GfxRenderer::Orientation::LandscapeClockwise ? screenHeight - landscapeButtonHeight : 0;
       const bool openTop = y == 0;
       const char* labels[] = {topBtn, bottomBtn};
       for (int i = 0; i < 2; ++i) {
@@ -243,8 +242,7 @@ void BaseTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* top
       if (labels[i] != nullptr && labels[i][0] != '\0') {
         const int buttonY = y + i * buttonHeight;
         renderer.drawLine(x, buttonY, x + landscapeButtonWidth - 1, buttonY);
-        renderer.drawLine(x, buttonY + buttonHeight - 1, x + landscapeButtonWidth - 1,
-                          buttonY + buttonHeight - 1);
+        renderer.drawLine(x, buttonY + buttonHeight - 1, x + landscapeButtonWidth - 1, buttonY + buttonHeight - 1);
         renderer.drawLine(innerEdge, buttonY, innerEdge, buttonY + buttonHeight - 1);
         const int textWidth = renderer.getTextWidth(SMALL_FONT_ID, labels[i]);
         const int textHeight = renderer.getTextHeight(SMALL_FONT_ID);
@@ -566,7 +564,7 @@ void BaseTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std:
   const int bookY = rect.y;
   const int bookHeight = baseHeight;
   const auto drawCenteredInBook = [&renderer, bookX, bookWidth](const int fontId, const int y, const char* text,
-                                                               const bool color = true) {
+                                                                const bool color = true) {
     const int textWidth = renderer.getTextWidth(fontId, text);
     renderer.drawText(fontId, bookX + (bookWidth - textWidth) / 2, y, text, color);
   };
@@ -678,7 +676,7 @@ void BaseTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std:
     }
 
     int maxTitleLines = availableTitleHeight / titleLineHeight;
-    
+
     if (maxTitleLines < 1) {
       maxTitleLines = 1;
     }
@@ -857,7 +855,8 @@ void BaseTheme::updateProgressPopup(const GfxRenderer& renderer, const Rect& lay
   const int barY = layout.y + layout.height - margin - barHeight;
   const int detailWidth = renderer.getTextWidth(UI_10_FONT_ID, detail);
 
-  renderer.fillRect(layout.x + margin, detailY, layout.width - margin * 2, renderer.getLineHeight(UI_10_FONT_ID), false);
+  renderer.fillRect(layout.x + margin, detailY, layout.width - margin * 2, renderer.getLineHeight(UI_10_FONT_ID),
+                    false);
   renderer.drawText(UI_10_FONT_ID, layout.x + (layout.width - detailWidth) / 2, detailY + 1, detail, true);
   renderer.fillRect(barX, barY, barWidth, barHeight, false);
   renderer.fillRect(barX, barY, barWidth * std::clamp(progress, 0, 100) / 100, barHeight, true);

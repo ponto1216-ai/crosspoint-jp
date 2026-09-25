@@ -12,11 +12,11 @@
 
 #include <cstring>
 
+#include "Epub/parsers/ContainerParser.h"
 #include "MappedInputManager.h"
 #include "activities/network/WifiSelectionActivity.h"
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
-#include "Epub/parsers/ContainerParser.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 #include "network/HttpDownloader.h"
 #include "network/TlsHeapReclaim.h"
@@ -252,13 +252,11 @@ static bool isRetryableEpubDownloadFailure(const HttpDownloader::DownloadError r
   return httpCode <= 0 || httpCode == 408 || httpCode == 429 || httpCode >= 500;
 }
 
-static void releaseTransientFontCachesForTls(GfxRenderer& renderer) {
-  reclaimHeapForTls(renderer, "AOZORA");
-}
+static void releaseTransientFontCachesForTls(GfxRenderer& renderer) { reclaimHeapForTls(renderer, "AOZORA"); }
 
 static HttpDownloader::DownloadError downloadEpubWithRetry(GfxRenderer& renderer, const std::string& url,
-                                                            const std::string& tmpPath,
-                                                            HttpDownloader::ProgressCallback progress) {
+                                                           const std::string& tmpPath,
+                                                           HttpDownloader::ProgressCallback progress) {
   HttpDownloader::DownloadError result = HttpDownloader::HTTP_ERROR;
   for (int attempt = 0; attempt < EPUB_DOWNLOAD_MAX_RETRIES; ++attempt) {
     if (attempt > 0) {
@@ -271,8 +269,8 @@ static HttpDownloader::DownloadError downloadEpubWithRetry(GfxRenderer& renderer
     result = HttpDownloader::downloadToFile(url, tmpPath, progress, 30000);
     if (result == HttpDownloader::OK || !isRetryableEpubDownloadFailure(result)) break;
 
-    LOG_ERR("AOZORA", "EPUB download attempt %d/%d failed: err=%d http=%d", attempt + 1,
-            EPUB_DOWNLOAD_MAX_RETRIES, static_cast<int>(result), HttpDownloader::lastHttpCode);
+    LOG_ERR("AOZORA", "EPUB download attempt %d/%d failed: err=%d http=%d", attempt + 1, EPUB_DOWNLOAD_MAX_RETRIES,
+            static_cast<int>(result), HttpDownloader::lastHttpCode);
   }
   return result;
 }
@@ -449,13 +447,11 @@ bool AozoraActivity::downloadBook() {
   // file can only come from an interrupted prior download and is safe to remove.
   downloadProgress_ = 0;
   downloadTotal_ = 0;
-  auto result = downloadEpubWithRetry(
-      renderer, url, tmpPath,
-      [this](size_t downloaded, size_t total) {
-        downloadProgress_ = downloaded;
-        downloadTotal_ = total;
-        requestUpdate(true);
-      });
+  auto result = downloadEpubWithRetry(renderer, url, tmpPath, [this](size_t downloaded, size_t total) {
+    downloadProgress_ = downloaded;
+    downloadTotal_ = total;
+    requestUpdate(true);
+  });
 
   if (result != HttpDownloader::OK) {
     LOG_ERR("AOZORA", "Download failed: err=%d http=%d", static_cast<int>(result), HttpDownloader::lastHttpCode);
@@ -528,13 +524,11 @@ bool AozoraActivity::updateBook() {
   downloadProgress_ = 0;
   downloadTotal_ = 0;
   // 一時ファイルにダウンロード（既存ファイルはこの時点では無傷）
-  auto result = downloadEpubWithRetry(
-      renderer, url, tmpPath,
-      [this](size_t downloaded, size_t total) {
-        downloadProgress_ = downloaded;
-        downloadTotal_ = total;
-        requestUpdate(true);
-      });
+  auto result = downloadEpubWithRetry(renderer, url, tmpPath, [this](size_t downloaded, size_t total) {
+    downloadProgress_ = downloaded;
+    downloadTotal_ = total;
+    requestUpdate(true);
+  });
 
   if (result != HttpDownloader::OK) {
     LOG_ERR("AOZORA", "Update download failed: err=%d http=%d", static_cast<int>(result), HttpDownloader::lastHttpCode);
@@ -1236,8 +1230,7 @@ void AozoraActivity::render(RenderLock&&) {
 
   } else if (state_ == TOP_MENU) {
     GUI.drawList(
-        renderer,
-        Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
+        renderer, Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
         TOP_MENU_COUNT, selectedIndex_,
         [](int index) -> std::string {
           switch (index) {
@@ -1264,8 +1257,7 @@ void AozoraActivity::render(RenderLock&&) {
 
   } else if (state_ == KANA_SELECT) {
     GUI.drawList(
-        renderer,
-        Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
+        renderer, Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
         KANA_ROW_COUNT, selectedIndex_, [](int index) -> std::string { return I18N.get(KANA_ROWS[index].label); },
         nullptr, nullptr, nullptr, false, nullptr);
 
@@ -1275,8 +1267,7 @@ void AozoraActivity::render(RenderLock&&) {
   } else if (state_ == KANA_CHAR_SELECT) {
     const int charCount = KANA_CHAR_COUNTS[selectedKanaRowIndex_];
     GUI.drawList(
-        renderer,
-        Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
+        renderer, Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
         charCount, selectedIndex_,
         [this](int index) -> std::string { return KANA_CHARS[selectedKanaRowIndex_][index]; }, nullptr, nullptr,
         nullptr, false, nullptr);
@@ -1286,8 +1277,7 @@ void AozoraActivity::render(RenderLock&&) {
 
   } else if (state_ == GENRE_SELECT) {
     GUI.drawList(
-        renderer,
-        Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
+        renderer, Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
         GENRE_COUNT, selectedIndex_, [](int index) -> std::string { return I18N.get(GENRES[index].label); }, nullptr,
         nullptr, nullptr, false, nullptr);
 
@@ -1301,8 +1291,7 @@ void AozoraActivity::render(RenderLock&&) {
       GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     } else {
       GUI.drawList(
-          renderer,
-          Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
+          renderer, Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
           static_cast<int>(authors_.size()), selectedIndex_,
           [this](int index) -> std::string { return authors_[index].name; }, nullptr, nullptr,
           [this](int index) -> std::string {
@@ -1343,8 +1332,7 @@ void AozoraActivity::render(RenderLock&&) {
 
       const int listTop = (worksTotal_ > WORKS_PAGE_SIZE) ? contentTop + lineHeight + 4 : contentTop;
       GUI.drawList(
-          renderer,
-          Rect{layout.content.x, listTop, layout.content.width, pageHeight - listTop - bottomHints},
+          renderer, Rect{layout.content.x, listTop, layout.content.width, pageHeight - listTop - bottomHints},
           static_cast<int>(works_.size()), selectedIndex_,
           [this](int index) -> std::string { return works_[index].title; }, nullptr, nullptr,
           [this](int index) -> std::string {
@@ -1414,8 +1402,7 @@ void AozoraActivity::render(RenderLock&&) {
       GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     } else {
       GUI.drawList(
-          renderer,
-          Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
+          renderer, Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
           static_cast<int>(favEntries.size()), selectedIndex_,
           [&favEntries](int index) -> std::string { return favEntries[index].name; }, nullptr, nullptr, nullptr, false,
           nullptr);
@@ -1430,8 +1417,7 @@ void AozoraActivity::render(RenderLock&&) {
 
     bool isFav = favoritesManager_.isFavorited(selectedAuthorId_);
     GUI.drawList(
-        renderer,
-        Rect{layout.content.x, listTop, layout.content.width, pageHeight - listTop - bottomHints}, 2,
+        renderer, Rect{layout.content.x, listTop, layout.content.width, pageHeight - listTop - bottomHints}, 2,
         actionMenuIndex_,
         [isFav](int index) -> std::string {
           if (index == 0) return tr(STR_VIEW_WORKS);
@@ -1457,8 +1443,7 @@ void AozoraActivity::render(RenderLock&&) {
       }
 
       GUI.drawList(
-          renderer,
-          Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
+          renderer, Rect{layout.content.x, contentTop, layout.content.width, pageHeight - contentTop - bottomHints},
           total, selectedIndex_,
           [this](int index) -> std::string {
             const int localIdx = index - dlPageStart_;

@@ -627,8 +627,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
   // bearings vary by font and can extend much farther than the ascender/3
   // origin shift alone (notably Noto Serif Latin with combining accents).
   const int sidewaysShiftGuard = std::max(0, renderer.getLineHeight(fontId));
-  const int emphasisTailGuard =
-      hasAnyEmphasis ? (std::clamp(renderer.getLineHeight(fontId) / 5, 4, 8) + 1) / 2 + 1 : 0;
+  const int emphasisTailGuard = hasAnyEmphasis ? (std::clamp(renderer.getLineHeight(fontId) / 5, 4, 8) + 1) / 2 + 1 : 0;
   const int maxSidewaysRunAdvance =
       std::max(1, static_cast<int>(columnHeight) - cjkSpacing - sidewaysShiftGuard - emphasisTailGuard);
   bool needsSidewaysRunSplit = false;
@@ -906,8 +905,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
         const int visibleOverhang = std::max(0, visibleMaxX + 1 - static_cast<int>(wordHeights[i] - cjkSpacing));
         sidewaysTailGuard = std::max(0, renderer.getFontAscenderSize(wordFontId) / 3) + visibleOverhang;
         if (i < emphasis.size() && emphasis[i] != TextEmphasis::None) {
-          sidewaysTailGuard +=
-              (std::clamp(renderer.getLineHeight(wordFontId) / 5, 4, 8) + 1) / 2 + 1;
+          sidewaysTailGuard += (std::clamp(renderer.getLineHeight(wordFontId) / 5, 4, 8) + 1) / 2 + 1;
         }
       }
       if (currentY + fitHeight + sidewaysTailGuard > columnHeight && i > columnStart) {

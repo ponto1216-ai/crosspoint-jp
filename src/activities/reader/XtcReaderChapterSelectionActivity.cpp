@@ -122,14 +122,14 @@ void XtcReaderChapterSelectionActivity::render(RenderLock&&) {
   }
 
   const auto pageStartIndex = selectorIndex / pageItems * pageItems;
-  renderer.fillRect(layout.content.x, listY + (selectorIndex % pageItems) * kLineHeight - 2,
-                    layout.content.width - 1, kLineHeight);
+  renderer.fillRect(layout.content.x, listY + (selectorIndex % pageItems) * kLineHeight - 2, layout.content.width - 1,
+                    kLineHeight);
   for (int i = pageStartIndex; i < static_cast<int>(chapters.size()) && i < pageStartIndex + pageItems; i++) {
     const auto& chapter = chapters[i];
     const char* title = chapter.name.empty() ? tr(STR_UNNAMED) : chapter.name.c_str();
     const std::string chapterName = renderer.truncatedText(UI_10_FONT_ID, title, layout.content.width - 40);
-    renderer.drawText(UI_10_FONT_ID, layout.content.x + 20, listY + (i % pageItems) * kLineHeight,
-                      chapterName.c_str(), i != selectorIndex);
+    renderer.drawText(UI_10_FONT_ID, layout.content.x + 20, listY + (i % pageItems) * kLineHeight, chapterName.c_str(),
+                      i != selectorIndex);
   }
 
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);

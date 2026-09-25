@@ -10,8 +10,8 @@
 
 class FontSelectionActivity final : public Activity {
  public:
-  explicit FontSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
-                                 SdCardFontRegistry* registry, bool isVertical = false);
+  explicit FontSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, SdCardFontRegistry* registry,
+                                 bool isVertical = false);
 
   void onEnter() override;
   void onExit() override;

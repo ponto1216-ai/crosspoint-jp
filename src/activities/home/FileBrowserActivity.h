@@ -1,7 +1,8 @@
 #pragma once
 
-#include <functional>
 #include <Epub.h>
+
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -68,7 +69,8 @@ class FileBrowserActivity final : public Activity {
  public:
   explicit FileBrowserActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string initialPath = "/",
                                Mode mode = Mode::Books)
-      : Activity("FileBrowser", renderer, mappedInput), mode(mode),
+      : Activity("FileBrowser", renderer, mappedInput),
+        mode(mode),
         basepath(initialPath.empty() ? "/" : std::move(initialPath)) {}
   void onEnter() override;
   void onExit() override;

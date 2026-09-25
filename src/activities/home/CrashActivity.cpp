@@ -4,8 +4,8 @@
 #include <HalSystem.h>
 #include <I18n.h>
 
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 void CrashActivity::onEnter() {

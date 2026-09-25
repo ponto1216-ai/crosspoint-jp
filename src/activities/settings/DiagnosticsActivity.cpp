@@ -12,10 +12,10 @@
 #include <ctime>
 #include <string_view>
 
-#include "components/UITheme.h"
-#include "components/UiLayout.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 namespace {
@@ -53,9 +53,7 @@ const char* deviceName() {
   }
 }
 
-std::string deviceDescription() {
-  return std::string(deviceName()) + " (" + displayControllerName() + ")";
-}
+std::string deviceDescription() { return std::string(deviceName()) + " (" + displayControllerName() + ")"; }
 
 const char* inputStyleName() {
 #ifdef SIMULATOR
@@ -415,9 +413,9 @@ void DiagnosticsActivity::render(RenderLock&&) {
   GUI.drawHeader(renderer, Rect{layout.content.x, metrics.topPadding, layout.content.width, metrics.headerHeight},
                  tr(STR_DIAGNOSTICS));
   int y = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
-  const char* pageTitle = page == Page::Overview   ? tr(STR_DIAGNOSTICS_OVERVIEW)
-                          : page == Page::Logs     ? tr(STR_DIAGNOSTICS_RECENT_LOGS)
-                                                   : tr(STR_DIAGNOSTICS_DETAILS);
+  const char* pageTitle = page == Page::Overview ? tr(STR_DIAGNOSTICS_OVERVIEW)
+                          : page == Page::Logs   ? tr(STR_DIAGNOSTICS_RECENT_LOGS)
+                                                 : tr(STR_DIAGNOSTICS_DETAILS);
   renderer.drawText(UI_10_FONT_ID, x, y, pageTitle);
   y += lineHeight + metrics.verticalSpacing;
 
@@ -431,9 +429,9 @@ void DiagnosticsActivity::render(RenderLock&&) {
 
   // Button-hint space is deliberately narrower than the page heading, so use
   // short action labels while retaining the descriptive titles above.
-  const char* nextPageLabel = page == Page::Overview   ? tr(STR_DIAGNOSTICS_LOG_BUTTON)
-                              : page == Page::Logs     ? tr(STR_DIAGNOSTICS_DETAILS_BUTTON)
-                                                        : tr(STR_DIAGNOSTICS_OVERVIEW);
+  const char* nextPageLabel = page == Page::Overview ? tr(STR_DIAGNOSTICS_LOG_BUTTON)
+                              : page == Page::Logs   ? tr(STR_DIAGNOSTICS_DETAILS_BUTTON)
+                                                     : tr(STR_DIAGNOSTICS_OVERVIEW);
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SAVE), nextPageLabel, "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();

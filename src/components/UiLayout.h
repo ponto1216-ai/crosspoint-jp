@@ -18,9 +18,8 @@ struct UiLayout {
     result.landscape = orientation == GfxRenderer::Orientation::LandscapeClockwise ||
                        orientation == GfxRenderer::Orientation::LandscapeCounterClockwise;
     result.frontHintsOnLeft = orientation == GfxRenderer::Orientation::LandscapeClockwise;
-    result.frontHintGutter = result.landscape && reserveButtonHints
-                                 ? UITheme::getInstance().getMetrics().landscapeButtonHintsWidth
-                                 : 0;
+    result.frontHintGutter =
+        result.landscape && reserveButtonHints ? UITheme::getInstance().getMetrics().landscapeButtonHintsWidth : 0;
     result.content = result.screen;
     if (result.frontHintGutter > 0) {
       result.content.width -= result.frontHintGutter;

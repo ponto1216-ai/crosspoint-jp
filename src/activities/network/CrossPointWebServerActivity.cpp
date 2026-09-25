@@ -12,9 +12,9 @@
 #include "MappedInputManager.h"
 #include "NetworkModeSelectionActivity.h"
 #include "WifiSelectionActivity.h"
-#include "components/UiLayout.h"
 #include "activities/network/CalibreConnectActivity.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 #include "network/TaskWatchdog.h"
 #include "util/QrUtils.h"
@@ -149,8 +149,7 @@ void CrossPointWebServerActivity::onExit() {
     delay(20);
   }
 
-  LOG_DBG("WEBACT", "Free heap at onExit end: %d bytes, maxAlloc: %d bytes", ESP.getFreeHeap(),
-          ESP.getMaxAllocHeap());
+  LOG_DBG("WEBACT", "Free heap at onExit end: %d bytes, maxAlloc: %d bytes", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
 }
 
 void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) {
@@ -412,10 +411,10 @@ void CrossPointWebServerActivity::render(RenderLock&&) {
                    isApMode ? tr(STR_HOTSPOT_MODE) : tr(STR_FILE_TRANSFER), nullptr);
 
     if (state == WebServerActivityState::SERVER_RUNNING) {
-      GUI.drawSubHeader(renderer,
-                        Rect{layout.content.x, metrics.topPadding + metrics.headerHeight, layout.content.width,
-                             metrics.tabBarHeight},
-                        connectedSSID.c_str());
+      GUI.drawSubHeader(
+          renderer,
+          Rect{layout.content.x, metrics.topPadding + metrics.headerHeight, layout.content.width, metrics.tabBarHeight},
+          connectedSSID.c_str());
       renderServerRunning();
     } else {
       const auto height = renderer.getLineHeight(UI_10_FONT_ID);
@@ -434,10 +433,10 @@ void CrossPointWebServerActivity::renderServerRunning() const {
 
   GUI.drawHeader(renderer, Rect{layout.content.x, metrics.topPadding, layout.content.width, metrics.headerHeight},
                  isApMode ? tr(STR_HOTSPOT_MODE) : tr(STR_FILE_TRANSFER), nullptr);
-  GUI.drawSubHeader(renderer,
-                    Rect{layout.content.x, metrics.topPadding + metrics.headerHeight, layout.content.width,
-                         metrics.tabBarHeight},
-                    connectedSSID.c_str());
+  GUI.drawSubHeader(
+      renderer,
+      Rect{layout.content.x, metrics.topPadding + metrics.headerHeight, layout.content.width, metrics.tabBarHeight},
+      connectedSSID.c_str());
 
   int startY = metrics.topPadding + metrics.headerHeight + metrics.tabBarHeight + metrics.verticalSpacing * 2;
   int height10 = renderer.getLineHeight(UI_10_FONT_ID);
@@ -471,46 +470,44 @@ void CrossPointWebServerActivity::renderServerRunning() const {
       const std::string ipUrl = std::string("http://") + connectedIP + "/";
       drawColumnText(SMALL_FONT_ID, urlCenterX, detailY, ipUrl.c_str());
     } else {
-    // AP mode display
-    renderer.drawText(UI_10_FONT_ID, contentLeft, startY, tr(STR_CONNECT_WIFI_HINT), true,
-                      EpdFontFamily::BOLD);
-    startY += height10 + metrics.verticalSpacing * 2;
+      // AP mode display
+      renderer.drawText(UI_10_FONT_ID, contentLeft, startY, tr(STR_CONNECT_WIFI_HINT), true, EpdFontFamily::BOLD);
+      startY += height10 + metrics.verticalSpacing * 2;
 
-    // Show QR code for Wifi
-    const std::string wifiConfig = std::string("WIFI:T:nopass;S:") + connectedSSID + ";;";
-    const Rect qrBoundsWifi(contentLeft, startY, QR_CODE_WIDTH, QR_CODE_HEIGHT);
-    QrUtils::drawQrCode(renderer, qrBoundsWifi, wifiConfig);
+      // Show QR code for Wifi
+      const std::string wifiConfig = std::string("WIFI:T:nopass;S:") + connectedSSID + ";;";
+      const Rect qrBoundsWifi(contentLeft, startY, QR_CODE_WIDTH, QR_CODE_HEIGHT);
+      QrUtils::drawQrCode(renderer, qrBoundsWifi, wifiConfig);
 
-    // Show network name
-    renderer.drawText(UI_10_FONT_ID, contentLeft + QR_CODE_WIDTH + metrics.verticalSpacing, startY + 80,
-                      connectedSSID.c_str());
+      // Show network name
+      renderer.drawText(UI_10_FONT_ID, contentLeft + QR_CODE_WIDTH + metrics.verticalSpacing, startY + 80,
+                        connectedSSID.c_str());
 
-    startY += QR_CODE_HEIGHT + 2 * metrics.verticalSpacing;
+      startY += QR_CODE_HEIGHT + 2 * metrics.verticalSpacing;
 
-    // Show primary URL (hostname)
-    renderer.drawText(UI_10_FONT_ID, contentLeft, startY, tr(STR_OPEN_URL_HINT), true,
-                      EpdFontFamily::BOLD);
-    startY += height10 + metrics.verticalSpacing * 2;
+      // Show primary URL (hostname)
+      renderer.drawText(UI_10_FONT_ID, contentLeft, startY, tr(STR_OPEN_URL_HINT), true, EpdFontFamily::BOLD);
+      startY += height10 + metrics.verticalSpacing * 2;
 
-    std::string hostnameUrl = std::string("http://") + AP_HOSTNAME + ".local/";
+      std::string hostnameUrl = std::string("http://") + AP_HOSTNAME + ".local/";
 
-    // Show QR code for URL
-    const Rect qrBoundsUrl(contentLeft, startY, QR_CODE_WIDTH, QR_CODE_HEIGHT);
-    QrUtils::drawQrCode(renderer, qrBoundsUrl, hostnameUrl);
+      // Show QR code for URL
+      const Rect qrBoundsUrl(contentLeft, startY, QR_CODE_WIDTH, QR_CODE_HEIGHT);
+      QrUtils::drawQrCode(renderer, qrBoundsUrl, hostnameUrl);
 
-    // Keep hotspot connection details inside the narrow column beside the QR.
-    // Use the small UI font and split the fallback prefix from its URL rather
-    // than allowing one long Japanese/ASCII line to run off the display.
-    const int urlTextX = contentLeft + QR_CODE_WIDTH + metrics.verticalSpacing;
-    const std::string orPrefix = tr(STR_OR_HTTP_PREFIX);
-    const std::string ipOnly = std::string("http://") + connectedIP + "/";
-    const std::string hostnameOnly = std::string(AP_HOSTNAME) + ".local/";
-    // Both URL components fit independently in the side column, so preserve
-    // every character instead of replacing the hostname tail with an ellipsis.
-    renderer.drawText(SMALL_FONT_ID, urlTextX, startY + 65, "http://");
-    renderer.drawText(SMALL_FONT_ID, urlTextX, startY + 85, hostnameOnly.c_str());
-    renderer.drawText(SMALL_FONT_ID, urlTextX, startY + 105, orPrefix.c_str());
-    renderer.drawText(SMALL_FONT_ID, urlTextX, startY + 125, ipOnly.c_str());
+      // Keep hotspot connection details inside the narrow column beside the QR.
+      // Use the small UI font and split the fallback prefix from its URL rather
+      // than allowing one long Japanese/ASCII line to run off the display.
+      const int urlTextX = contentLeft + QR_CODE_WIDTH + metrics.verticalSpacing;
+      const std::string orPrefix = tr(STR_OR_HTTP_PREFIX);
+      const std::string ipOnly = std::string("http://") + connectedIP + "/";
+      const std::string hostnameOnly = std::string(AP_HOSTNAME) + ".local/";
+      // Both URL components fit independently in the side column, so preserve
+      // every character instead of replacing the hostname tail with an ellipsis.
+      renderer.drawText(SMALL_FONT_ID, urlTextX, startY + 65, "http://");
+      renderer.drawText(SMALL_FONT_ID, urlTextX, startY + 85, hostnameOnly.c_str());
+      renderer.drawText(SMALL_FONT_ID, urlTextX, startY + 105, orPrefix.c_str());
+      renderer.drawText(SMALL_FONT_ID, urlTextX, startY + 125, ipOnly.c_str());
     }
   } else {
     startY += metrics.verticalSpacing * 2;

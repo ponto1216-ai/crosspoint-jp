@@ -582,7 +582,7 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
                                : INT_MAX;
         const int rubyY =
             std::clamp((rubyBaseHasEmphasis(i) ? y - emphasisSize(renderer, effectiveFontId) - 4 - rubyLineHeight
-                                         : y + bodyLineHeight - rubyBaseOffset - rubyLineHeight - gap) +
+                                               : y + bodyLineHeight - rubyBaseOffset - rubyLineHeight - gap) +
                            rubyOffsetY,
                        minRubyY, maxRubyY);
         renderer.drawText(rubyFontId, rubyX, rubyY, rubyTexts[i].c_str(), true, EpdFontFamily::REGULAR);

@@ -201,10 +201,9 @@ HalTiltSensor::Diagnostics HalTiltSensor::getDiagnostics(const uint8_t orientati
   d.sample = _sample;
   d.currentAxisDps = -mappedAxis(CrossPointTiltPageTurn::TILT_NORMAL, orientation, _sample);
   d.displayAxisDps = _diagnosticDisplayAxisDps;
-  d.axisName[1] = (orientation == CrossPointOrientation::LANDSCAPE_CW ||
-                   orientation == CrossPointOrientation::LANDSCAPE_CCW)
-                      ? 'Y'
-                      : 'X';
+  d.axisName[1] =
+      (orientation == CrossPointOrientation::LANDSCAPE_CW || orientation == CrossPointOrientation::LANDSCAPE_CCW) ? 'Y'
+                                                                                                                  : 'X';
   d.triggerThresholdDps = RATE_THRESHOLD_DPS;
   d.neutralThresholdDps = NEUTRAL_RATE_DPS;
   d.rightPeakDps = _rightPeakDps;

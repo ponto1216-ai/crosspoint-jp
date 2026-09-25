@@ -7,8 +7,8 @@
 #include <I18n.h>
 #include <Logging.h>
 
-#include <ctime>
 #include <cstring>
+#include <ctime>
 
 #include "CrossPointSettings.h"
 #include "components/UITheme.h"
@@ -68,7 +68,7 @@ float tiltTriggerThreshold() { return HalTiltSensor::triggerThreshold(); }
 std::string makeReportPath() {
   const time_t now = time(nullptr);
   if (now >= 1704067200) {
-    struct tm timeInfo {};
+    struct tm timeInfo{};
     localtime_r(&now, &timeInfo);
     char filename[56];
     snprintf(filename, sizeof(filename), "imu_report_%04d%02d%02d_%02d%02d%02d.txt", timeInfo.tm_year + 1900,
@@ -167,8 +167,8 @@ void TiltDiagnosticsActivity::loop() {
   }
 }
 
-void TiltDiagnosticsActivity::drawWrapped(const char* text, const int x, int& y, const int width,
-                                          const int lineHeight, const int maxLines) {
+void TiltDiagnosticsActivity::drawWrapped(const char* text, const int x, int& y, const int width, const int lineHeight,
+                                          const int maxLines) {
   const char* segment = text;
   int linesDrawn = 0;
   while (*segment != '\0' && linesDrawn < maxLines) {
@@ -200,7 +200,8 @@ void TiltDiagnosticsActivity::render(RenderLock&&) {
   int y = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
 
   if (page == Page::Test) {
-    renderer.drawText(UI_10_FONT_ID, x, y, d.available ? tr(STR_TILT_SENSOR_DETECTED) : tr(STR_TILT_SENSOR_NOT_DETECTED));
+    renderer.drawText(UI_10_FONT_ID, x, y,
+                      d.available ? tr(STR_TILT_SENSOR_DETECTED) : tr(STR_TILT_SENSOR_NOT_DETECTED));
     y += lineHeight + metrics.verticalSpacing;
     drawWrapped(tr(STR_TILT_DIAGNOSTICS_INSTRUCTION), x, y, contentWidth, lineHeight);
     y += metrics.verticalSpacing;
@@ -244,8 +245,7 @@ void TiltDiagnosticsActivity::render(RenderLock&&) {
 
   if (saveResult != SaveResult::None) {
     y += metrics.verticalSpacing;
-    drawWrapped(saveResult == SaveResult::Saved ? tr(STR_DIAGNOSTICS_REPORT_SAVED)
-                                                : tr(STR_DIAGNOSTICS_REPORT_FAILED),
+    drawWrapped(saveResult == SaveResult::Saved ? tr(STR_DIAGNOSTICS_REPORT_SAVED) : tr(STR_DIAGNOSTICS_REPORT_FAILED),
                 x, y, contentWidth, lineHeight, 1);
   }
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SAVE), tr(STR_RETRY), tr(STR_NEXT));

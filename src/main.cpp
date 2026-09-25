@@ -24,8 +24,8 @@
 #include <sys/time.h>
 
 #include <algorithm>
-#include <cstring>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 
 #include "CrossPointSettings.h"
@@ -529,7 +529,7 @@ void setup() {
         std::make_unique<SettingsActivity>(renderer, mappedInputManager, nullptr, category, 0));
   } else
 #endif
-  if (HalSystem::isRebootFromPanic()) {
+      if (HalSystem::isRebootFromPanic()) {
     // If we rebooted from a panic, go to crash report screen to show the panic info
     activityManager.goToCrashReport();
   } else if (APP_STATE.openEpubPath.empty() || !APP_STATE.lastSleepFromReader ||

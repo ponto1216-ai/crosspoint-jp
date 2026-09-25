@@ -65,8 +65,7 @@ void EpubReaderFootnotesActivity::render(RenderLock&&) {
   const int bottomHints = layout.landscape ? 0 : metrics.buttonHintsHeight + metrics.verticalSpacing;
   const int listBottom = layout.content.y + layout.content.height - bottomHints;
   const int centerOffset = layout.content.x + layout.content.width / 2 - renderer.getScreenWidth() / 2;
-  renderer.drawCenteredTextOffset(UI_12_FONT_ID, titleY, tr(STR_FOOTNOTES), true, centerOffset,
-                                  EpdFontFamily::BOLD);
+  renderer.drawCenteredTextOffset(UI_12_FONT_ID, titleY, tr(STR_FOOTNOTES), true, centerOffset, EpdFontFamily::BOLD);
 
   if (footnotes.empty()) {
     renderer.drawCenteredTextOffset(UI_10_FONT_ID, listTop + 30, tr(STR_NO_FOOTNOTES), true, centerOffset);

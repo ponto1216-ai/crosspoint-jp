@@ -4,18 +4,15 @@
 #include <GfxRenderer.h>
 #include <Logging.h>
 
-#include <cstdio>
 #include <algorithm>
+#include <cstdio>
 
 #include "AozoraActivity.h"
 #include "ButtonRemapActivity.h"
 #include "ClearCacheActivity.h"
 #include "CrossPointSettings.h"
-#include "DirectionSettingsActivity.h"
 #include "DiagnosticsActivity.h"
-#include "TiltDiagnosticsActivity.h"
-#include "ReaderProfilesActivity.h"
-#include "ReaderTestViewActivity.h"
+#include "DirectionSettingsActivity.h"
 #include "FontDownloadActivity.h"
 #include "FontSelectActivity.h"
 #include "FontSelectionActivity.h"
@@ -25,11 +22,14 @@
 #include "LanguageSelectActivity.h"
 #include "LineSpacingSelectionActivity.h"
 #include "MappedInputManager.h"
-#include "SdFirmwareUpdateActivity.h"
+#include "ReaderProfilesActivity.h"
+#include "ReaderTestViewActivity.h"
 #include "SdCardFontGlobals.h"
-#include "SettingsList.h"
+#include "SdFirmwareUpdateActivity.h"
 #include "SettingsBackupActivity.h"
+#include "SettingsList.h"
 #include "StatusBarSettingsActivity.h"
+#include "TiltDiagnosticsActivity.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
@@ -357,8 +357,8 @@ void SettingsActivity::changeCurrentSetting(const int delta, const bool activate
       return;
     }
     const uint8_t currentValue = SETTINGS.*(setting.valuePtr);
-    const int next = std::clamp(static_cast<int>(currentValue) + delta, 0,
-                                static_cast<int>(setting.enumValues.size()) - 1);
+    const int next =
+        std::clamp(static_cast<int>(currentValue) + delta, 0, static_cast<int>(setting.enumValues.size()) - 1);
     SETTINGS.*(setting.valuePtr) = static_cast<uint8_t>(next);
 
     // Apply dark mode change immediately (renderer needs explicit notification)
@@ -542,9 +542,8 @@ void SettingsActivity::render(RenderLock&&) {
                  tabs, selectedSettingIndex == 0);
 
   const auto& settings = *currentSettings;
-  const int listTop =
-      contentArea.y + metrics.topPadding + hintGutterHeight + metrics.headerHeight + metrics.tabBarHeight +
-      metrics.verticalSpacing;
+  const int listTop = contentArea.y + metrics.topPadding + hintGutterHeight + metrics.headerHeight +
+                      metrics.tabBarHeight + metrics.verticalSpacing;
   const int helpTextHeight = renderer.getLineHeight(SMALL_FONT_ID) + metrics.verticalSpacing;
   const int bottomHints = layout.landscape ? 0 : metrics.buttonHintsHeight;
   const int listBottom =
@@ -603,8 +602,9 @@ void SettingsActivity::render(RenderLock&&) {
       },
       editingValue);
 
-  GUI.drawHelpText(renderer, Rect{contentArea.x + listLeftInset, listBottom + metrics.verticalSpacing,
-                                  contentArea.width - listLeftInset - listRightInset, helpTextHeight},
+  GUI.drawHelpText(renderer,
+                   Rect{contentArea.x + listLeftInset, listBottom + metrics.verticalSpacing,
+                        contentArea.width - listLeftInset - listRightInset, helpTextHeight},
                    currentSettingDescription());
 
   // Draw help text

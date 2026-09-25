@@ -8,8 +8,8 @@
 #include <algorithm>
 #include <cmath>
 
-#include "components/UiLayout.h"
 #include "components/UITheme.h"
+#include "components/UiLayout.h"
 #include "fontIds.h"
 
 BmpViewerActivity::BmpViewerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string path)
@@ -24,8 +24,7 @@ void BmpViewerActivity::onEnter() {
   const auto layout = UiLayout::from(renderer);
   const auto pageWidth = layout.content.width;
   const auto pageHeight = layout.content.height;
-  const int centerOffset =
-      layout.content.x + layout.content.width / 2 - renderer.getScreenWidth() / 2;
+  const int centerOffset = layout.content.x + layout.content.width / 2 - renderer.getScreenWidth() / 2;
   Rect popupRect = GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
   GUI.fillPopupProgress(renderer, popupRect, 20);  // Initial 20% progress
   // 1. Open the file

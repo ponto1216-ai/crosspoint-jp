@@ -114,8 +114,8 @@ void EpubReaderChapterSelectionActivity::render(RenderLock&&) {
                                   EpdFontFamily::BOLD);
 
   const auto pageStartIndex = selectorIndex / pageItems * pageItems;
-  renderer.fillRect(layout.content.x, listY + (selectorIndex % pageItems) * kLineHeight - 2,
-                    layout.content.width - 1, kLineHeight);
+  renderer.fillRect(layout.content.x, listY + (selectorIndex % pageItems) * kLineHeight - 2, layout.content.width - 1,
+                    kLineHeight);
 
   for (int i = 0; i < pageItems; i++) {
     int itemIndex = pageStartIndex + i;
