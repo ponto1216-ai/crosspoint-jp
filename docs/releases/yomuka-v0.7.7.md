@@ -49,9 +49,10 @@
 - **CrossPoint本家 [#3390](https://github.com/crosspoint-reader/crosspoint-reader/pull/3390) の取り込み**: HTMLの `hidden` 属性を非表示として扱う修正を移植しました。
 - **CrossPoint本家 [#3527](https://github.com/crosspoint-reader/crosspoint-reader/pull/3527) の取り込み**: EPUB章レイアウト前にフォントキャッシュを解放する修正を、YomukaのSDフォント対策と競合しない形で移植しました。
 - **CrossPoint JP [#138](https://github.com/zrn-ns/crosspoint-jp/pull/138) の取り込み・拡張**: Landscape UIの共通レイアウトと各画面対応を基に、Yomukaのテーマ、青空文庫、診断・保守画面、読書補助画面へ合わせて調整しました。さらに「読書画面に合わせる」、X3/X4と画面方向別のボタン案内、横向きホームの進捗・しおり表示を追加しています。
+- **CrossPoint JP [#150](https://github.com/zrn-ns/crosspoint-jp/pull/150) の取り込み・拡張**: ホーム画面の読書進捗表示を取り込み、YomukaのLyra／Extendedテーマ、しおり表示、横向きレイアウトへ合わせて調整しました。
 - **crosspoint-reader-modを参考にした選択移植**: 長い縦書き英字の再表示、ZIP読み込み、表紙縮小時の一時メモリ使用を見直しました。Yomukaの日本語組版、SDフォント、既存キャッシュ処理を残し、必要な部分だけを取り込んでいます。
 
-X3傾きセンサー診断、設定メニュー整理、読書進捗表示、読書履歴削除、X3バッテリー診断、X4電源ラッチ修正はYomuka側の実装です。
+X3傾きセンサー診断、設定メニュー整理、読書履歴削除、X3バッテリー診断、X4電源ラッチ修正はYomuka側の実装です。
 
 ### 更新時の注意
 
