@@ -29,15 +29,19 @@ void RecentBooksStore::addBook(const std::string& path, const std::string& title
     return book.path == path || (bookId != 0 && book.bookId == bookId);
   });
   if (it != recentBooks.end()) {
-    recentBooks.erase(it);
-  }
-
-  // Add to front
-  recentBooks.insert(recentBooks.begin(), {path, title, author, coverBmpPath, bookId});
-
-  // Trim to max size
-  if (recentBooks.size() > MAX_RECENT_BOOKS) {
-    recentBooks.resize(MAX_RECENT_BOOKS);
+    // Reuse the strings instead of allocating persistent buffers among the reader's working buffers.
+    std::rotate(recentBooks.begin(), it, it + 1);
+    RecentBook& book = recentBooks.front();
+    if (book.path != path) book.path = path;
+    if (book.bookId != bookId) book.bookId = bookId;
+    if (book.title != title) book.title = title;
+    if (book.author != author) book.author = author;
+    if (book.coverBmpPath != coverBmpPath) book.coverBmpPath = coverBmpPath;
+  } else {
+    recentBooks.insert(recentBooks.begin(), {path, title, author, coverBmpPath, bookId});
+    if (recentBooks.size() > MAX_RECENT_BOOKS) {
+      recentBooks.resize(MAX_RECENT_BOOKS);
+    }
   }
 
   saveToFile();
