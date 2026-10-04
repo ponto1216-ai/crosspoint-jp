@@ -5,8 +5,10 @@
 #include <WebServer.h>
 #include <WebSocketsServer.h>
 
+#include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "sync/SnapshotExchange.h"
@@ -71,6 +73,9 @@ class CrossPointWebServer {
 
   WsUploadStatus getWsUploadStatus() const;
 
+  // Polled on HTTP upload chunks. Only latch cancellation here; do not destroy the server in the callback.
+  void setUploadCancelCheck(std::function<bool()> check) { uploadCancelCheck = std::move(check); }
+
   // Get the port number
   uint16_t getPort() const { return port; }
 
@@ -83,6 +88,8 @@ class CrossPointWebServer {
   uint16_t wsPort = 81;  // WebSocket port
   NetworkUDP udp;
   bool udpActive = false;
+  std::function<bool()> uploadCancelCheck;
+  bool dropUploadIfCancelled() const;
 
   // WebSocket upload state
   void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length);

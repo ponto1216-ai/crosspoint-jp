@@ -43,6 +43,7 @@ class CrossPointWebServerActivity final : public Activity {
 
   // Performance monitoring
   unsigned long lastHandleClientTime = 0;
+  bool leaveRequested = false;
 
   void renderServerRunning() const;
 
@@ -51,6 +52,7 @@ class CrossPointWebServerActivity final : public Activity {
   void startAccessPoint();
   void startWebServer();
   void stopWebServer();
+  bool pollUploadCancel();
 
  public:
   explicit CrossPointWebServerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)

@@ -342,6 +342,13 @@ void CrossPointWebServer::begin() {
   LOG_DBG("WEB", "[MEM] Free heap after server.begin(): %d bytes", ESP.getFreeHeap());
 }
 
+bool CrossPointWebServer::dropUploadIfCancelled() const {
+  if (!server || !uploadCancelCheck || !uploadCancelCheck()) return false;
+  // The multipart parser reports ABORTED after the next failed read, including after a final chunk.
+  server->client().stop();
+  return true;
+}
+
 void CrossPointWebServer::abortWsUpload(const char* tag) {
   wsUploadFile.close();
   String filePath = wsUploadPath;
@@ -640,6 +647,10 @@ void CrossPointWebServer::handleSyncUpload() {
     syncDiagnosticNeeded = syncDiagnosticFree = syncDiagnosticLargest = 0;
     syncUpload.start();
   } else if (part.status == UPLOAD_FILE_WRITE) {
+    if (dropUploadIfCancelled()) {
+      syncUpload.abort();
+      return;
+    }
     const size_t needed = syncUpload.size() + part.currentSize;
     const bool enough = yomuka::sync::SnapshotUpload::memoryAvailable(
         needed, heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
@@ -649,12 +660,20 @@ void CrossPointWebServer::handleSyncUpload() {
       syncDiagnosticLargest = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
     }
     syncUpload.append(part.buf, part.currentSize, enough);
-  } else if (part.status == UPLOAD_FILE_END)
+  } else if (part.status == UPLOAD_FILE_END) {
+    if (!server->client().connected()) {
+      syncUpload.abort();
+      return;
+    }
     syncUpload.finish();
-  else if (part.status == UPLOAD_FILE_ABORTED)
+  } else if (part.status == UPLOAD_FILE_ABORTED)
     syncUpload.abort();
 }
 void CrossPointWebServer::handleSyncUploadPost() {
+  if (!server->client().connected()) {
+    syncUpload.abort();
+    return;
+  }
   JsonDocument snapshot;
   const bool parseMemory = yomuka::sync::SnapshotUpload::memoryAvailable(
       syncUpload.size(), heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
@@ -928,6 +947,7 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
 
     LOG_DBG("WEB", "[UPLOAD] File created successfully: %s", filePath.c_str());
   } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (dropUploadIfCancelled()) return;
     if (state.file && state.error.isEmpty()) {
       // Buffer incoming data and flush when buffer is full
       // This reduces SD card write operations and improves throughput
@@ -972,6 +992,8 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
       }
     }
   } else if (upload.status == UPLOAD_FILE_END) {
+    // The parser can emit END immediately after a cancelled final WRITE, before ABORTED.
+    if (!server->client().connected()) return;
     if (state.file) {
       // Flush any remaining buffered data
       if (!flushUploadBuffer(state)) {

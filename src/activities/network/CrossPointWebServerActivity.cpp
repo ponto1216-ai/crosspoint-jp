@@ -4,6 +4,7 @@
 #include <ESPmDNS.h>
 #include <FontCacheManager.h>
 #include <GfxRenderer.h>
+#include <HalGPIO.h>
 #include <I18n.h>
 #include <WiFi.h>
 
@@ -81,6 +82,7 @@ void CrossPointWebServerActivity::onEnter() {
   connectedIP.clear();
   connectedSSID.clear();
   lastHandleClientTime = 0;
+  leaveRequested = false;
   requestUpdate();
 
   // Launch network mode selection subactivity
@@ -300,6 +302,7 @@ void CrossPointWebServerActivity::startWebServer() {
 
   // Create the web server instance
   webServer.reset(new CrossPointWebServer());
+  webServer->setUploadCancelCheck([this] { return pollUploadCancel(); });
   webServer->begin();
 
   if (webServer->isRunning()) {
@@ -326,11 +329,27 @@ void CrossPointWebServerActivity::stopWebServer() {
   webServer.reset();
 }
 
+bool CrossPointWebServerActivity::pollUploadCancel() {
+  if (leaveRequested) return true;
+  mappedInput.update();
+  leaveRequested = mappedInput.wasPressed(MappedInputManager::Button::Back) ||
+                   mappedInput.isPressed(MappedInputManager::Button::Back);
+  // Sparse chunks may leave the first sample inside the SDK's 5 ms debounce window.
+  // Preserve an edge already seen before taking the second sample.
+  if (!leaveRequested && gpio.rawInputActive()) {
+    delay(6);
+    mappedInput.update();
+    leaveRequested = mappedInput.wasPressed(MappedInputManager::Button::Back) ||
+                     mappedInput.isPressed(MappedInputManager::Button::Back);
+  }
+  return leaveRequested;
+}
+
 void CrossPointWebServerActivity::loop() {
   // Handle different states
   if (state == WebServerActivityState::SERVER_RUNNING) {
     // Consume the main-loop edge before any nested input update can clear it.
-    if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+    if (leaveRequested || mappedInput.wasPressed(MappedInputManager::Button::Back)) {
       LOG_INF("WEBACT", "Exit requested before network work");
       onGoHome();
       return;
@@ -380,6 +399,11 @@ void CrossPointWebServerActivity::loop() {
       const unsigned long batchStart = millis();
       for (int i = 0; i < MAX_ITERATIONS && webServer->isRunning(); i++) {
         webServer->handleClient();
+        // Exit only after the multipart parser has finished its abort callbacks.
+        if (leaveRequested) {
+          onGoHome();
+          return;
+        }
         resetTaskWatchdogIfSubscribed();
         mappedInput.update();
         if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
