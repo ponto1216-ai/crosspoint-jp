@@ -84,7 +84,7 @@ std::vector<std::string> previewUnit(unsigned unit, JsonVariantConst current, Js
     lines.push_back(std::string(label) + ": " + (importing ? before + " → " : "") + after);
   };
   if (unit == 0) {
-    pair("読書位置", position(old, spines), position(next, spines));
+    pair("読書位置", current.isUnbound() ? "なし" : position(old, spines), position(next, spines));
     pair("進捗率", valueLabel(old["percent"]), valueLabel(next["percent"]));
     pair("完読", valueLabel(old["finished"]), valueLabel(next["finished"]));
     lines.emplace_back("受信側の表示設定に合わせて位置を近似");

@@ -1,5 +1,6 @@
 #include "BatchImportActivity.h"
 
+#include <HalPowerManager.h>
 #include <I18n.h>
 
 #include <algorithm>
@@ -8,12 +9,61 @@
 #include "components/UiLayout.h"
 #include "fontIds.h"
 #include "sync/ReceivedSnapshotImport.h"
+#include "sync/ReviewNavigation.h"
+#include "sync/SnapshotComparison.h"
 using namespace yomuka::sync;
 BatchImportActivity::BatchImportActivity(GfxRenderer& r, MappedInputManager& i, const std::vector<ReceivedBook>& source)
     : Activity("BatchImport", r, i), books(source) {
   for (size_t index = 0; index < books.size(); ++index)
     if (books[index].status == ReceivedStatus::Matched) rows.push_back(index);
   selection.resize(books.size(), 0);
+}
+int BatchImportActivity::reviewRowsPerPage() const {
+  const auto layout = UiLayout::from(renderer);
+  const auto& metrics = UITheme::getInstance().getMetrics();
+  const int line = renderer.getLineHeight(UI_10_FONT_ID) + 8;
+  const bool inverted = renderer.getOrientation() == GfxRenderer::Orientation::PortraitInverted;
+  const int top = layout.content.y + metrics.topPadding + (inverted ? metrics.buttonHintsHeight : 0) +
+                  metrics.headerHeight + metrics.verticalSpacing;
+  const int bottom = layout.content.y + layout.content.height - metrics.buttonHintsHeight - line;
+  return std::max(1, (bottom - top) / line);
+}
+void BatchImportActivity::prepareReview() {
+  HalPowerManager::Lock power;
+  reviewLines.clear();
+  const int width = UiLayout::from(renderer).content.width - 20;
+  for (const auto& original : compareReceivedBook(books[reviewBooks[reviewIndex]])) {
+    std::string line;
+    for (size_t at = 0; at < original.size();) {
+      size_t end = at + 1;
+      while (end < original.size() && (static_cast<unsigned char>(original[end]) & 0xc0) == 0x80) ++end;
+      const auto glyph = original.substr(at, end - at);
+      if (!line.empty() && renderer.getTextWidth(UI_10_FONT_ID, (line + glyph).c_str()) > width) {
+        reviewLines.push_back(line);
+        line.clear();
+      }
+      line += glyph;
+      at = end;
+    }
+    reviewLines.push_back(line);
+  }
+  cursor = 0;
+}
+void BatchImportActivity::beginReview(bool retry) {
+  retrying = retry;
+  reviewBooks.clear();
+  reviewIndex = 0;
+  if (retry) {
+    for (const auto& entry : batch.results())
+      if (entry.outcome.result == ImportResult::Failed || entry.outcome.result == ImportResult::Cancelled)
+        reviewBooks.push_back(entry.index);
+  } else {
+    for (const auto index : rows)
+      if (selection[index]) reviewBooks.push_back(index);
+  }
+  if (reviewBooks.empty()) return;
+  screen = Screen::Review;
+  prepareReview();
 }
 const char* BatchImportActivity::resultText(const ImportOutcome& outcome) const {
   if (outcome.result == ImportResult::Imported) return tr(STR_IMPORT_DONE);
@@ -63,7 +113,7 @@ void BatchImportActivity::loop() {
     return;
   }
   if (!skipBack && mappedInput.wasReleased(MappedInputManager::Button::Back)) {
-    if (screen == Screen::Confirm) {
+    if (screen == Screen::Confirm || screen == Screen::Review) {
       RenderLock lock;
       screen = retrying ? Screen::Results : Screen::Select;
       cursor = 0;
@@ -73,15 +123,16 @@ void BatchImportActivity::loop() {
     return;
   }
   RenderLock lock;
-  const size_t count = screen == Screen::Select    ? rows.size() + 1
+  const size_t count = screen == Screen::Review    ? finalReviewPage(reviewLines.size(), reviewRowsPerPage()) + 1
+                       : screen == Screen::Select  ? rows.size() + 1
                        : screen == Screen::Results ? batch.results().size() + (batch.canRetry() ? 1 : 0)
                                                    : 1;
   navigator.onNextRelease([this, count] {
-    cursor = ButtonNavigator::nextIndex(cursor, count);
+    cursor = screen == Screen::Review ? std::min(cursor + 1, count - 1) : ButtonNavigator::nextIndex(cursor, count);
     requestUpdate();
   });
   navigator.onPreviousRelease([this, count] {
-    cursor = ButtonNavigator::previousIndex(cursor, count);
+    cursor = screen == Screen::Review ? (cursor ? cursor - 1 : 0) : ButtonNavigator::previousIndex(cursor, count);
     requestUpdate();
   });
   if (skipConfirm || !mappedInput.wasReleased(MappedInputManager::Button::Confirm)) return;
@@ -89,9 +140,17 @@ void BatchImportActivity::loop() {
     if (cursor < rows.size())
       selection[rows[cursor]] ^= 1;
     else if (std::count(selection.begin(), selection.end(), 1)) {
-      screen = Screen::Confirm;
-      retrying = false;
-      cursor = 0;
+      beginReview(false);
+    }
+  } else if (screen == Screen::Review) {
+    if (cursor == static_cast<size_t>(finalReviewPage(reviewLines.size(), reviewRowsPerPage()))) {
+      if (reviewIndex + 1 < reviewBooks.size()) {
+        ++reviewIndex;
+        prepareReview();
+      } else {
+        screen = Screen::Confirm;
+        cursor = 0;
+      }
     }
   } else if (screen == Screen::Confirm) {
     if (retrying)
@@ -101,9 +160,7 @@ void BatchImportActivity::loop() {
     screen = Screen::Running;
     cursor = 0;
   } else if (screen == Screen::Results && cursor == batch.results().size() && batch.canRetry()) {
-    retrying = true;
-    screen = Screen::Confirm;
-    cursor = 0;
+    beginReview(true);
   }
   requestUpdate();
 }
@@ -135,6 +192,19 @@ void BatchImportActivity::render(RenderLock&&) {
           return i < static_cast<int>(rows.size()) ? std::string("　") + tr(STR_RECEIVED_MATCH) : std::string();
         });
     text(bottom, std::to_string(std::count(selection.begin(), selection.end(), 1)) + " " + tr(STR_SHARE_SELECTED));
+  } else if (screen == Screen::Review) {
+    const int perPage = reviewRowsPerPage();
+    const int finalPage = finalReviewPage(reviewLines.size(), perPage);
+    if (cursor < static_cast<size_t>(finalPage)) {
+      const size_t first = cursor * perPage, end = std::min(reviewLines.size(), first + perPage);
+      for (size_t i = first; i < end; ++i) text(top + (i - first) * line, reviewLines[i]);
+    } else {
+      text(top, books[reviewBooks[reviewIndex]].title);
+      text(top + line * 2, tr(STR_IMPORT_COMPARE_END));
+      text(top + line * 3, tr(STR_IMPORT_COMPARE_NEXT));
+    }
+    text(bottom, std::to_string(reviewIndex + 1) + " / " + std::to_string(reviewBooks.size()) + "冊・" +
+                     std::to_string(cursor + 1) + " / " + std::to_string(finalPage + 1) + "頁");
   } else if (screen == Screen::Confirm) {
     text(top, retrying ? tr(STR_IMPORT_RETRY_CONFIRM) : tr(STR_IMPORT_CONFIRM));
     text(top + line * 2, tr(STR_IMPORT_REPLACE));
@@ -171,14 +241,19 @@ void BatchImportActivity::render(RenderLock&&) {
         });
     if (batch.blocked()) text(bottom, tr(STR_IMPORT_RESTART));
   }
-  auto labels = mappedInput.mapLabels(batch.blocked() ? "" : tr(STR_BACK),
-                                      batch.blocked() || screen == Screen::Running       ? ""
-                                      : screen == Screen::Confirm                        ? tr(STR_SHARE_WRITE_SHORT)
-                                      : screen == Screen::Select && cursor < rows.size() ? tr(STR_SELECT)
-                                      : screen == Screen::Results && cursor < batch.results().size() ? ""
-                                                                                                     : tr(STR_CONFIRM),
-                                      screen == Screen::Running || batch.blocked() ? "" : tr(STR_DIR_UP),
-                                      screen == Screen::Running || batch.blocked() ? "" : tr(STR_DIR_DOWN));
+  auto labels = mappedInput.mapLabels(
+      batch.blocked() ? "" : tr(STR_BACK),
+      batch.blocked() || screen == Screen::Running ? ""
+      : screen == Screen::Review
+          ? (cursor == static_cast<size_t>(finalReviewPage(reviewLines.size(), reviewRowsPerPage()))
+                 ? tr(STR_IMPORT_COMPARE_NEXT_SHORT)
+                 : "")
+      : screen == Screen::Confirm                                    ? tr(STR_SHARE_WRITE_SHORT)
+      : screen == Screen::Select && cursor < rows.size()             ? tr(STR_SELECT)
+      : screen == Screen::Results && cursor < batch.results().size() ? ""
+                                                                     : tr(STR_CONFIRM),
+      screen == Screen::Running || batch.blocked() ? "" : tr(STR_DIR_UP),
+      screen == Screen::Running || batch.blocked() ? "" : tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }

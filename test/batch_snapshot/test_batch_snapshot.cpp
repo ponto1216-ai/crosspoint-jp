@@ -54,6 +54,12 @@ int main() {
     assert(!probeSnapshotBook("/a.epub", 1, count) && count == 123);
   }
   put("/a.epub::book.opf", opf);
+  put("/a.epub::book.opf",
+      "<!DOCTYPE package PUBLIC \"-//IDPF//DTD OEBPS 1.2 Package//EN\" "
+      "\"http://www.idpf.org/2007/opf/\"><package><manifest><item id='a' href='a.xhtml'/></manifest>"
+      "<spine><itemref idref='a'/></spine></package>");
+  assert(probeSnapshotBook("/a.epub", 1, count) && count == 1);  // Common EPUB 2 external DOCTYPE.
+  put("/a.epub::book.opf", opf);
   uint8_t raw[] = {1, 0, 2, 0, 10, 0, 0, 50};
   for (const auto& id : {"0000000000000001", "0000000000000002", "0000000000000003"})
     assert(saveProgress(std::string("/.crosspoint/books/") + id + "/progress.bin", raw, 8));

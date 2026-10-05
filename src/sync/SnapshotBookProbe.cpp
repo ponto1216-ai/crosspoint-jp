@@ -97,8 +97,11 @@ class ProbeXml final : public Print {
     if (self.depth == self.rootsDepth) self.rootsDepth = 0;
     --self.depth;
   }
-  static void doctype(void* context, const char*, const char*, const char*, int) {
-    static_cast<ProbeXml*>(context)->reject();
+  static void doctype(void* context, const char*, const char*, const char*, int hasInternalSubset) {
+    // EPUB 2 packages commonly declare their external DTD. Expat does not
+    // fetch it unless parameter-entity parsing is enabled, so allow that
+    // declaration while still rejecting inline entity definitions.
+    if (hasInternalSubset) static_cast<ProbeXml*>(context)->reject();
   }
 
  public:
@@ -114,6 +117,7 @@ class ProbeXml final : public Print {
     XML_SetUserData(parser, this);
     XML_SetElementHandler(parser, start, end);
     XML_SetStartDoctypeDeclHandler(parser, doctype);
+    XML_SetParamEntityParsing(parser, XML_PARAM_ENTITY_PARSING_NEVER);
   }
   ~ProbeXml() override {
     if (parser) XML_ParserFree(parser);

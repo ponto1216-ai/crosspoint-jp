@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "sync/BatchImport.h"
+#include "sync/ReviewNavigation.h"
 using namespace yomuka::sync;
 #define CHECK(x)                                   \
   do {                                             \
@@ -43,11 +44,40 @@ ImportOutcome importReceivedSnapshot(const ReceivedBook& b, int&, const std::fun
   return {ImportResult::Imported, ImportError::None, true};
 }
 struct BatchImportActivity {
-  enum class Screen { Select, Confirm, Running, Results };
+  enum class Screen { Select, Review, Confirm, Running, Results };
   Screen screen = Screen::Select;
   std::vector<ReceivedBook> books;
   std::vector<size_t> rows{0, 1, 2};
   std::vector<uint8_t> selection;
+  std::vector<size_t> reviewBooks;
+  std::vector<std::string> reviewLines;
+  size_t reviewIndex = 0;
+  int reviewRowsPerPage() const { return 3; }
+  void prepareReview() {
+    reviewLines = {"title", "position", "dates", "warning"};
+    cursor = 0;
+  }
+  void beginReview(bool retry) {
+    retrying = retry;
+    reviewBooks.clear();
+    reviewIndex = 0;
+    if (retry) {
+      for (const auto& entry : batch.results())
+        if (entry.outcome.result == ImportResult::Failed || entry.outcome.result == ImportResult::Cancelled)
+          reviewBooks.push_back(entry.index);
+    } else
+      for (auto index : rows)
+        if (selection[index]) reviewBooks.push_back(index);
+    screen = Screen::Review;
+    prepareReview();
+  }
+  void finishReview() {
+    while (screen == Screen::Review) {
+      cursor = finalReviewPage(reviewLines.size(), reviewRowsPerPage());
+      loop();
+    }
+  }
+
   BatchImport batch;
   ButtonNavigator navigator;
   MappedInputManager& mappedInput;
@@ -83,13 +113,20 @@ int main() {
   a.cursor = 3;
   i.released = B::Confirm;
   a.loop();
-  CHECK(a.screen == BatchImportActivity::Screen::Confirm && calls[0] == 0);
+  CHECK(a.screen == BatchImportActivity::Screen::Review && calls[0] == 0);
+  i.released = B::Left;
+  a.loop();
+  CHECK(a.cursor == 0);
+  i.released = B::Confirm;
+  a.loop();
+  CHECK(a.screen == BatchImportActivity::Screen::Review && calls[0] == 0);
   i.released = B::Back;
   a.loop();
   CHECK(a.screen == BatchImportActivity::Screen::Select);
   a.cursor = 3;
   i.released = B::Confirm;
   a.loop();
+  a.finishReview();
   a.loop();
   CHECK(a.screen == BatchImportActivity::Screen::Running);
   i.released = B::None;
@@ -99,7 +136,8 @@ int main() {
   a.cursor = a.batch.results().size();
   i.released = B::Confirm;
   a.loop();
-  CHECK(a.screen == BatchImportActivity::Screen::Confirm);
+  CHECK(a.screen == BatchImportActivity::Screen::Review && a.reviewBooks.size() == 1 && a.reviewBooks[0] == 1);
+  a.finishReview();
   failSecond = false;
   a.loop();
   i.released = B::None;
@@ -112,6 +150,7 @@ int main() {
   cancelled.cursor = 3;
   j.released = B::Confirm;
   cancelled.loop();
+  cancelled.finishReview();
   cancelled.loop();
   j.released = B::None;
   j.held = B::Back;
