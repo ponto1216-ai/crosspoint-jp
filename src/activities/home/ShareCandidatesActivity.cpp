@@ -5,6 +5,7 @@
 
 #include <algorithm>
 
+#include "activities/network/DirectShareActivity.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
@@ -91,7 +92,6 @@ void ShareCandidatesActivity::loop() {
     requestUpdate();
     return;
   }
-  if (scanner.books().empty()) return;
   if (!ignoreConfirm && !results && !review && !detail && selected < scanner.books().size() &&
       mappedInput.isPressed(MappedInputManager::Button::Confirm) && mappedInput.getHeldTime() >= 700) {
     RenderLock lock;
@@ -113,15 +113,28 @@ void ShareCandidatesActivity::loop() {
     } else if (!detail && !results) {
       if (selected < selection.size()) {
         selection[selected] = !selection[selected];
-      } else if (std::count(selection.begin(), selection.end(), 1) > 0) {
+        actionMessage.clear();
+      } else if (selected == selection.size() && std::count(selection.begin(), selection.end(), 1) > 0) {
         review = true;
+      } else if (selected == selection.size() + 1) {
+        if (std::count(selection.begin(), selection.end(), 1) != 1) {
+          actionMessage = tr(STR_DIRECT_ONE_BOOK);
+        } else {
+          const auto index = std::find(selection.begin(), selection.end(), 1) - selection.begin();
+          startActivityForResult(
+              std::make_unique<DirectShareActivity>(renderer, mappedInput, false, scanner.books()[index]),
+              [this](const ActivityResult&) { ignoreOpeningConfirm = true; });
+        }
+      } else if (selected == selection.size() + 2) {
+        startActivityForResult(std::make_unique<DirectShareActivity>(renderer, mappedInput, true),
+                               [this](const ActivityResult&) { ignoreOpeningConfirm = true; });
       }
     }
     requestUpdate();
     return;
   }
   if (detail || review) return;
-  const int count = static_cast<int>(results ? batch.results().size() : scanner.books().size() + 1);
+  const int count = static_cast<int>(results ? batch.results().size() : scanner.books().size() + 3);
   navigator.onNextRelease([this, count] {
     RenderLock lock;
     selected = ButtonNavigator::nextIndex(static_cast<int>(selected), count);
@@ -225,25 +238,29 @@ void ShareCandidatesActivity::render(RenderLock&&) {
     }
     centered(top + line * 6, selection[selected] ? tr(STR_SHARE_SELECTED) : tr(STR_SHARE_UNSELECTED));
   } else {
-    centered(top, std::to_string(std::count(selection.begin(), selection.end(), 1)) + " / " +
-                      std::to_string(scanner.books().size()) + " " + tr(STR_SHARE_SELECTED));
+    centered(top, actionMessage.empty() ? std::to_string(std::count(selection.begin(), selection.end(), 1)) + " / " +
+                                              std::to_string(scanner.books().size()) + " " + tr(STR_SHARE_SELECTED)
+                                        : actionMessage);
     const int footerLines = 3;
     const int listTop = top + line;
     const int height = bottom - listTop - line * footerLines;
-    if (scanner.books().empty())
-      centered(listTop + line, tr(STR_NO_BOOKS_FOUND));
-    else if (height >= metrics.listWithSubtitleRowHeight) {
+    if (height >= metrics.listWithSubtitleRowHeight) {
       GUI.drawList(
           renderer, Rect{layout.content.x, listTop, layout.content.width, height},
-          static_cast<int>(scanner.books().size() + 1), static_cast<int>(selected),
+          static_cast<int>(scanner.books().size() + 3), static_cast<int>(selected),
           [this](int index) {
             if (static_cast<size_t>(index) == scanner.books().size()) return std::string(tr(STR_SHARE_EXPORT));
+            if (static_cast<size_t>(index) == scanner.books().size() + 1) return std::string(tr(STR_DIRECT_SEND));
+            if (static_cast<size_t>(index) == scanner.books().size() + 2) return std::string(tr(STR_DIRECT_RECEIVE));
             return std::string(selection[index] ? "[x] " : "[ ] ") + scanner.books()[index].title;
           },
           [this](int index) {
-            if (static_cast<size_t>(index) == scanner.books().size()) return std::string(tr(STR_SHARE_LOCAL_ONLY));
+            if (static_cast<size_t>(index) == scanner.books().size())
+              return std::string("　") + tr(STR_SHARE_LOCAL_ONLY);
+            if (static_cast<size_t>(index) >= scanner.books().size() + 1)
+              return std::string("　") + tr(STR_DIRECT_SAME_WIFI);
             const auto& book = scanner.books()[index];
-            return unitSummary(book) +
+            return std::string("　") + unitSummary(book) +
                    (book.historyRank == UINT16_MAX ? " / " + std::string(tr(STR_SHARE_ORDER_UNKNOWN)) : "");
           });
     }
@@ -252,13 +269,13 @@ void ShareCandidatesActivity::render(RenderLock&&) {
     centered(bottom - line, std::string(tr(STR_SHARE_NEEDS_CHECK)) + ": " + std::to_string(scanner.warnings) + " / " +
                                 tr(STR_SHARE_LEGACY) + ": " + std::to_string(scanner.legacyCount));
   }
-  const auto labels = mappedInput.mapLabels(
-      tr(STR_BACK),
-      review                                                                             ? tr(STR_SHARE_WRITE_SHORT)
-      : scanner.done() && !detail && !generating && !results && !scanner.books().empty() ? tr(STR_SELECT)
-                                                                                         : "",
-      scanner.done() && !detail && !review && !generating ? tr(STR_DIR_UP) : "",
-      scanner.done() && !detail && !review && !generating ? tr(STR_DIR_DOWN) : "");
+  const auto labels =
+      mappedInput.mapLabels(tr(STR_BACK),
+                            review                                                 ? tr(STR_SHARE_WRITE_SHORT)
+                            : scanner.done() && !detail && !generating && !results ? tr(STR_SELECT)
+                                                                                   : "",
+                            scanner.done() && !detail && !review && !generating ? tr(STR_DIR_UP) : "",
+                            scanner.done() && !detail && !review && !generating ? tr(STR_DIR_DOWN) : "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }

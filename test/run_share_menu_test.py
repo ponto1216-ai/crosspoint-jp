@@ -25,6 +25,7 @@ cpp = r'''
 #include <functional>
 #include <memory>
 #include <vector>
+#include <string>
 #include <iostream>
 #undef assert
 #define assert(condition) do { if (!(condition)) { std::cerr << __LINE__ << ": " << #condition << "\n"; return 1; } } while (0)
@@ -77,12 +78,21 @@ struct Batch {
  void step(const std::vector<int>&,int,const std::function<bool()>& cancel){if(cancel())cursor=entries.size();else ++cursor;}
  const std::vector<int>& results(){return entries;}
 };
+constexpr int STR_DIRECT_ONE_BOOK=1;
+const char* tr(int){return "one book";}
+struct DirectShareActivity {
+ bool receiving;
+ DirectShareActivity(Renderer&,MappedInputManager&,bool receive,int=0):receiving(receive){}
+};
 struct ShareCandidatesActivity {
  Renderer& renderer; MappedInputManager& mappedInput; ButtonNavigator navigator;
  Scanner scanner; size_t selected=0;
  bool detail=false,ignoreOpeningConfirm=true,returnToMenu;
  bool consumeConfirmRelease=false,review=false,generating=false,results=false;
  bool consumeBackRelease=false;
+ std::string actionMessage;
+ int directMode=-1;
+ template<class F> void startActivityForResult(std::unique_ptr<DirectShareActivity> child,F){directMode=child->receiving?1:0;}
  std::vector<uint8_t> selection={0,0}; Batch batch;
  bool wentHome=false,finished=false; unsigned updates=0;
  unsigned long startedAt=0,lastProgressRender=0;
@@ -138,6 +148,11 @@ int main(){
  input.held=B::None; input.released=B::Back; child.loop(); assert(child.results && !child.consumeBackRelease);
  input.released=B::None; child.loop(); assert(child.results);
  input.released=B::Back; child.loop(); assert(!child.results);
+ child.selected=3; input.released=B::Confirm; child.loop(); assert(child.directMode==0);
+ child.selected=4; child.loop(); assert(child.directMode==1);
+ child.selection={0,0}; child.selected=3; child.directMode=-1; child.loop(); assert(child.directMode==-1 && !child.actionMessage.empty());
+ child.scanner.values.clear(); child.selection.clear(); child.selected=2; child.loop(); assert(child.directMode==1);
+ input.released=B::Back;
  child.loop(); assert(child.finished && !child.wentHome);
  assert(menu.selectedIndex==3); // parent chooser selection remains on sharing
  ShareCandidatesActivity direct(renderer,input); direct.loop(); assert(direct.wentHome && !direct.finished);

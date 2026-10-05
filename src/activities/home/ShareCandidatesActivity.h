@@ -19,6 +19,7 @@ class ShareCandidatesActivity final : public Activity {
   const bool returnToMenu;
   unsigned long lastProgressRender = 0, startedAt = 0;
   std::string unitSummary(const yomuka::sync::ShareCandidate& book) const;
+  std::string actionMessage;
 
  public:
   ShareCandidatesActivity(GfxRenderer& renderer, MappedInputManager& input, bool returnToMenu = false)
