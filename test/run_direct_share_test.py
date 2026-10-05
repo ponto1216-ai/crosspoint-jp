@@ -18,6 +18,8 @@ with tempfile.TemporaryDirectory(prefix='yomuka-direct-') as directory:
         command+=['-include',str(compat)]
     activity=(root/'src/activities/network/DirectShareActivity.cpp').read_text()
     methods=''.join(activity[activity.index('void DirectShareActivity::'+name+'('):activity.index('void DirectShareActivity::'+next_name+'(')] for name,next_name in [('fail','prepare'),('readReply','respond'),('respond','receive'),('receive','loop')])
+    preparation=activity[activity.index('void DirectShareActivity::prepare()'):activity.index('  if (transfer.done())',activity.index('void DirectShareActivity::prepare()'))]
+    methods+=preparation.replace('::prepare()', '::prepareOffline()')+'\n}\n'
     import re
     methods=re.sub(r'tr\((STR_[A-Z_]+)\)',r'"\1"',methods)
     fixture=(root/'test/direct_share/transport_fixture.h').read_text()

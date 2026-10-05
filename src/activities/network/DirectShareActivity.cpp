@@ -26,8 +26,16 @@ size_t largestMemory() { return heap_caps_get_largest_free_block(MALLOC_CAP_8BIT
 }  // namespace
 void DirectShareActivity::onEnter() {
   Activity::onEnter();
-  state = receiving ? State::Wifi : State::Prepare;
-  if (receiving) connectWifi();
+  if (receiving) {
+    state = State::Wifi;
+    connectWifi();
+  } else {
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+    preparingOffline = true;
+    offlineBatch.start(std::vector<uint8_t>(books.size(), 1));
+    state = State::Prepare;
+  }
   requestUpdate();
 }
 void DirectShareActivity::onExit() {
@@ -100,23 +108,84 @@ void DirectShareActivity::fail(const char* text) {
   header.clear();
   reply.clear();
   headerDone = false;
-  state = State::Message;
   message = text;
+  LOG_INF("DIRECT", "Result index=%u posted=%u sent=%u size=%u heap=%u largest=%u: %s",
+          static_cast<unsigned>(transfer.current()), posted, static_cast<unsigned>(sent),
+          static_cast<unsigned>(bodySize), static_cast<unsigned>(freeMemory()), static_cast<unsigned>(largestMemory()),
+          text);
+  if (batchStarted && !transfer.done()) {
+    auto result = TransferResult::Failed;
+    if (message == tr(STR_DIRECT_SENT))
+      result = TransferResult::Sent;
+    else if (message == tr(STR_DIRECT_UNCERTAIN))
+      result = TransferResult::Uncertain;
+    else if (message == tr(STR_DIRECT_CANCELLED))
+      result = TransferResult::Cancelled;
+    transferNotes[transfer.current()] = message;
+    transfer.record(result, consumeBackRelease || result == TransferResult::Cancelled);
+    body.reset();
+    bodySize = sent = 0;
+    posted = false;
+    state = transfer.done() ? State::Message : State::Prepare;
+  } else
+    state = State::Message;
   requestUpdate();
 }
+const char* DirectShareActivity::preparationMessage(BatchError error) {
+  return error == BatchError::Source         ? tr(STR_SHARE_SOURCE_ERROR)
+         : error == BatchError::Data         ? tr(STR_SHARE_DATA_ERROR)
+         : error == BatchError::WriteFailure ? tr(STR_SHARE_WRITE_ERROR)
+                                             : tr(STR_DIRECT_PREPARE_ERROR);
+}
+void DirectShareActivity::finishPreparation(bool stopped) {
+  preparingOffline = false;
+  prepared.assign(books.size(), 0);
+  preparationNotes.assign(books.size(), tr(STR_DIRECT_NOT_SENT));
+  for (const auto& entry : offlineBatch.results()) {
+    if (entry.result == BatchResult::Saved) {
+      prepared[entry.index] = 1;
+      preparationNotes[entry.index].clear();
+    } else if (entry.result == BatchResult::Failed) {
+      preparationNotes[entry.index] = preparationMessage(entry.error);
+    }
+  }
+  if (stopped || std::count(prepared.begin(), prepared.end(), 1) == 0) {
+    transfer.start(books.size());
+    transferNotes = preparationNotes;
+    batchStarted = true;
+    for (const auto& entry : offlineBatch.results()) {
+      const bool failed = entry.result == BatchResult::Failed;
+      transfer.record(failed ? TransferResult::Failed : TransferResult::NotSent);
+      if (!failed) transferNotes[entry.index] = tr(STR_DIRECT_NOT_SENT);
+    }
+    state = State::Message;
+    requestUpdate();
+    return;
+  }
+  connectWifi();
+}
 void DirectShareActivity::prepare() {
-  BatchSnapshot batch;
-  std::vector<ShareCandidate> source{book};
-  batch.start({1});
-  batch.step(source, READING_HISTORY, [this] { return cancelled(); });
-  if (batch.results()[0].result == BatchResult::Cancelled) {
-    fail(tr(STR_DIRECT_CANCELLED));
+  if (preparingOffline) {
+    LOG_INF("DIRECT", "Prepare offline index=%u heap=%u largest=%u", static_cast<unsigned>(offlineBatch.completed()),
+            static_cast<unsigned>(freeMemory()), static_cast<unsigned>(largestMemory()));
+    offlineBatch.step(books, READING_HISTORY, [this] { return cancelled(); });
+    if (offlineBatch.done()) finishPreparation(consumeBackRelease);
+    requestUpdate();
     return;
   }
-  if (batch.results()[0].result != BatchResult::Saved) {
-    fail(tr(STR_DIRECT_PREPARE_ERROR));
+  if (transfer.done()) {
+    state = State::Message;
+    requestUpdate();
     return;
   }
+  book = books[transfer.current()];
+  if (!prepared[transfer.current()]) {
+    fail(preparationNotes[transfer.current()].c_str());
+    return;
+  }
+  LOG_INF("DIRECT", "Load prepared index=%u id=%016llx heap=%u largest=%u", static_cast<unsigned>(transfer.current()),
+          static_cast<unsigned long long>(book.bookId), static_cast<unsigned>(freeMemory()),
+          static_cast<unsigned>(largestMemory()));
   const auto path = exchangeFilePath(book.bookId);
   HalFile file;
   if (!Storage.openFileForRead("DIRECT", path, file)) {
@@ -145,7 +214,7 @@ void DirectShareActivity::prepare() {
     }
   }
   digest = directDigest(body.get(), bodySize);
-  connectWifi();
+  beginRequest(true);
 }
 void DirectShareActivity::discover() {
   peers.clear();
@@ -175,9 +244,14 @@ void DirectShareActivity::beginRequest(bool upload) {
     return;
   }
   const auto& peer = peers[cursor];
-  socket.setConnectionTimeout(1000);
+  socket.setConnectionTimeout(3000);
   socket.setTimeout(1000);
-  if (!socket.connect(peer.ip, peer.port, 1000)) {
+  const auto connectStarted = millis();
+  const bool connected = socket.connect(peer.ip, peer.port, 3000);
+  LOG_INF("DIRECT", "Connect ip=%s port=%u ok=%u ms=%lu wifi=%u rssi=%d heap=%u largest=%u", peer.ip.toString().c_str(),
+          peer.port, connected, millis() - connectStarted, WiFi.status(), WiFi.RSSI(),
+          static_cast<unsigned>(freeMemory()), static_cast<unsigned>(largestMemory()));
+  if (!connected) {
     fail(tr(STR_DIRECT_NETWORK_ERROR));
     return;
   }
@@ -348,10 +422,9 @@ void DirectShareActivity::receive() {
         receiptId = receipt["bookId"].as<const char*>();
         cancelled();  // A late cancellation cannot undo publication; retain the received result.
         respond(200, receipt);
-        state = State::Message;
+        ++receivedCount;
+        state = State::Receive;
         message = tr(STR_DIRECT_RECEIVED);
-        listener.end();
-        MDNS.end();
         requestUpdate();
         return;
       }
@@ -378,7 +451,14 @@ void DirectShareActivity::loop() {
   if (mappedInput.wasPressed(MappedInputManager::Button::Back) ||
       mappedInput.wasReleased(MappedInputManager::Button::Back) ||
       mappedInput.isPressed(MappedInputManager::Button::Back)) {
-    if (state == State::Send || state == State::Reply || (state == State::Receive && incoming.size())) {
+    if (preparingOffline) {
+      RenderLock lock;
+      consumeBackRelease = true;
+      offlineBatch.cancel();
+      finishPreparation(true);
+      return;
+    }
+    if ((batchStarted && !transfer.done()) || (state == State::Receive && incoming.size())) {
       RenderLock lock;
       consumeBackRelease = true;
       fail(posted && sent == bodySize ? tr(STR_DIRECT_UNCERTAIN) : tr(STR_DIRECT_CANCELLED));
@@ -391,14 +471,17 @@ void DirectShareActivity::loop() {
   if (state == State::Confirm && !ignore && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     {
       RenderLock lock;
-      state = State::Send;
+      transfer.start(books.size());
+      transferNotes = preparationNotes;
+      batchStarted = true;
+      state = State::Prepare;
       requestUpdate();
     }
     requestUpdateAndWait();
     {
       RenderLock lock;
       HalPowerManager::Lock power;
-      beginRequest(true);
+      if (books.empty()) fail(tr(STR_DIRECT_ONE_BOOK));
     }
     return;
   }
@@ -452,6 +535,17 @@ void DirectShareActivity::loop() {
       requestUpdate();
     });
   }
+  if (state == State::Message && batchStarted && !books.empty()) {
+    const int count = static_cast<int>(books.size());
+    navigator.onNextRelease([this, count] {
+      resultCursor = ButtonNavigator::nextIndex(resultCursor, count);
+      requestUpdate();
+    });
+    navigator.onPreviousRelease([this, count] {
+      resultCursor = ButtonNavigator::previousIndex(resultCursor, count);
+      requestUpdate();
+    });
+  }
   if (ignore || !mappedInput.wasReleased(MappedInputManager::Button::Confirm)) return;
   if (state == State::Peers) {
     if (cursor == peers.size()) {
@@ -490,7 +584,7 @@ void DirectShareActivity::render(RenderLock&&) {
           return static_cast<size_t>(i) == peers.size() ? std::string("") : std::string(peers[i].ip.toString().c_str());
         });
   } else if (state == State::Confirm) {
-    text(0, book.title);
+    text(0, std::string(tr(STR_SHARE_SELECTED)) + ": " + std::to_string(books.size()));
     text(1, peers[cursor].name);
     text(2, peers[cursor].ip.toString().c_str());
     text(3, tr(STR_DIRECT_SEND_CONFIRM));
@@ -501,8 +595,25 @@ void DirectShareActivity::render(RenderLock&&) {
     text(1, WiFi.localIP().toString().c_str());
     text(2, tr(STR_DIRECT_WAITING));
     text(3, tr(STR_DIRECT_SAME_WIFI));
-    if (incoming.total()) text(4, std::to_string(incoming.size()) + " / " + std::to_string(incoming.total()));
+    if (incoming.total())
+      text(4, std::to_string(incoming.size()) + " / " + std::to_string(incoming.total()));
+    else
+      text(4, std::string(tr(STR_DIRECT_RECEIVED_COUNT)) + ": " + std::to_string(receivedCount));
     if (!message.empty()) text(5, message);
+    if (receivedCount) text(6, tr(STR_DIRECT_IMPORT_LATER));
+  } else if (state == State::Message && batchStarted && !books.empty()) {
+    text(0, std::string(tr(STR_DIRECT_RESULTS)) + " / " + tr(STR_DIRECT_SENT_SHORT) + ": " +
+                std::to_string(transfer.count(TransferResult::Sent)) + " / " + std::to_string(books.size()));
+    const int listTop = top + line;
+    GUI.drawList(
+        renderer,
+        Rect{layout.content.x, listTop, layout.content.width,
+             layout.content.y + layout.content.height - listTop - metrics.buttonHintsHeight - line},
+        books.size(), resultCursor, [this](int i) { return books[i].title; },
+        [this](int i) {
+          return transfer.results()[i] == TransferResult::NotSent ? std::string(tr(STR_DIRECT_NOT_SENT))
+                                                                  : transferNotes[i];
+        });
   } else if (state == State::Message) {
     text(0, message);
     if (!receiptId.empty()) {
@@ -515,15 +626,24 @@ void DirectShareActivity::render(RenderLock&&) {
             : state == State::Discover ? tr(STR_DIRECT_SEARCHING)
             : state == State::Wifi     ? tr(STR_DIRECT_CONNECTING)
                                        : tr(STR_DIRECT_TRANSFERRING));
-    if (state == State::Send || state == State::Reply) text(2, std::to_string(sent) + " / " + std::to_string(bodySize));
+    if (preparingOffline && !offlineBatch.done()) {
+      text(1, std::to_string(offlineBatch.completed() + 1) + " / " + std::to_string(books.size()));
+      text(2, books[offlineBatch.completed()].title);
+    }
+    if (batchStarted && !transfer.done()) {
+      text(1, std::to_string(transfer.current() + 1) + " / " + std::to_string(books.size()));
+      text(2, books[transfer.current()].title);
+    }
+    if (state == State::Send || state == State::Reply) text(3, std::to_string(sent) + " / " + std::to_string(bodySize));
     text(4, tr(STR_SHARE_CANCEL_HINT));
   }
-  const auto labels =
-      mappedInput.mapLabels(tr(STR_BACK),
-                            state == State::Confirm ? tr(STR_SHARE_WRITE_SHORT)
-                            : state == State::Peers ? tr(STR_SELECT)
-                                                    : "",
-                            state == State::Peers ? tr(STR_DIR_UP) : "", state == State::Peers ? tr(STR_DIR_DOWN) : "");
+  const auto labels = mappedInput.mapLabels(
+      tr(STR_BACK),
+      state == State::Confirm ? tr(STR_SHARE_WRITE_SHORT)
+      : state == State::Peers ? tr(STR_SELECT)
+                              : "",
+      (state == State::Peers || (state == State::Message && batchStarted)) ? tr(STR_DIR_UP) : "",
+      (state == State::Peers || (state == State::Message && batchStarted)) ? tr(STR_DIR_DOWN) : "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }

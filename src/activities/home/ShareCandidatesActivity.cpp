@@ -117,13 +117,14 @@ void ShareCandidatesActivity::loop() {
       } else if (selected == selection.size() && std::count(selection.begin(), selection.end(), 1) > 0) {
         review = true;
       } else if (selected == selection.size() + 1) {
-        if (std::count(selection.begin(), selection.end(), 1) != 1) {
+        if (std::count(selection.begin(), selection.end(), 1) == 0) {
           actionMessage = tr(STR_DIRECT_ONE_BOOK);
         } else {
-          const auto index = std::find(selection.begin(), selection.end(), 1) - selection.begin();
-          startActivityForResult(
-              std::make_unique<DirectShareActivity>(renderer, mappedInput, false, scanner.books()[index]),
-              [this](const ActivityResult&) { ignoreOpeningConfirm = true; });
+          std::vector<yomuka::sync::ShareCandidate> books;
+          for (size_t index = 0; index < selection.size(); ++index)
+            if (selection[index]) books.push_back(scanner.books()[index]);
+          startActivityForResult(std::make_unique<DirectShareActivity>(renderer, mappedInput, false, books),
+                                 [this](const ActivityResult&) { ignoreOpeningConfirm = true; });
         }
       } else if (selected == selection.size() + 2) {
         startActivityForResult(std::make_unique<DirectShareActivity>(renderer, mappedInput, true),

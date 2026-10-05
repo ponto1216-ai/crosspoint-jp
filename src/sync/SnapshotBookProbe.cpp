@@ -8,6 +8,7 @@
 #include <cstring>
 #include <vector>
 #if defined(ARDUINO_ARCH_ESP32)
+#include <Logging.h>
 #include <esp_heap_caps.h>
 #endif
 
@@ -71,8 +72,13 @@ class ProbeXml final : public Print {
       // Growing a vector doubles its capacity; retain headroom for that allocation.
       const size_t needed = (self.ids.size() + 1) * sizeof(std::string) * 2 + 8192;
       if (heap_caps_get_free_size(MALLOC_CAP_8BIT) < needed + 32768 ||
-          heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < needed)
+          heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < needed) {
+        LOG_INF("PROBE", "OPF memory admission failed items=%u need=%u free=%u largest=%u",
+                static_cast<unsigned>(self.ids.size()), static_cast<unsigned>(needed),
+                static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_8BIT)),
+                static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)));
         return self.reject();
+      }
 #endif
       self.ids.emplace_back(id);
       self.idBytes += length;

@@ -80,9 +80,10 @@ struct Batch {
 };
 constexpr int STR_DIRECT_ONE_BOOK=1;
 const char* tr(int){return "one book";}
+namespace yomuka::sync { using ShareCandidate = int; }
 struct DirectShareActivity {
- bool receiving;
- DirectShareActivity(Renderer&,MappedInputManager&,bool receive,int=0):receiving(receive){}
+ bool receiving; size_t count;
+ DirectShareActivity(Renderer&,MappedInputManager&,bool receive,const std::vector<int>& books={}):receiving(receive),count(books.size()){}
 };
 struct ShareCandidatesActivity {
  Renderer& renderer; MappedInputManager& mappedInput; ButtonNavigator navigator;
@@ -91,8 +92,8 @@ struct ShareCandidatesActivity {
  bool consumeConfirmRelease=false,review=false,generating=false,results=false;
  bool consumeBackRelease=false;
  std::string actionMessage;
- int directMode=-1;
- template<class F> void startActivityForResult(std::unique_ptr<DirectShareActivity> child,F){directMode=child->receiving?1:0;}
+ int directMode=-1; size_t directCount=0;
+ template<class F> void startActivityForResult(std::unique_ptr<DirectShareActivity> child,F){directMode=child->receiving?1:0; directCount=child->count;}
  std::vector<uint8_t> selection={0,0}; Batch batch;
  bool wentHome=false,finished=false; unsigned updates=0;
  unsigned long startedAt=0,lastProgressRender=0;
@@ -148,7 +149,8 @@ int main(){
  input.held=B::None; input.released=B::Back; child.loop(); assert(child.results && !child.consumeBackRelease);
  input.released=B::None; child.loop(); assert(child.results);
  input.released=B::Back; child.loop(); assert(!child.results);
- child.selected=3; input.released=B::Confirm; child.loop(); assert(child.directMode==0);
+ child.selected=3; input.released=B::Confirm; child.loop(); assert(child.directMode==0 && child.directCount==1);
+ child.selection={1,1}; child.loop(); assert(child.directMode==0 && child.directCount==2);
  child.selected=4; child.loop(); assert(child.directMode==1);
  child.selection={0,0}; child.selected=3; child.directMode=-1; child.loop(); assert(child.directMode==-1 && !child.actionMessage.empty());
  child.scanner.values.clear(); child.selection.clear(); child.selected=2; child.loop(); assert(child.directMode==1);

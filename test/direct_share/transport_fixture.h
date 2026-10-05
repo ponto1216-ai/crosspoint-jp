@@ -1,3 +1,6 @@
+#define LOG_INF(...) ((void)0)
+#include "sync/BatchSnapshot.h"
+#include "sync/DirectShareBatch.h"
 // The runner inserts the actual four transport methods into this socket/SD fixture.
 struct Channel {
   std::string input, output;
@@ -37,9 +40,36 @@ size_t freeMemory() { return 999999; }
 size_t largestMemory() { return 999999; }
 class DirectShareActivity {
  public:
-  enum class State { Hello, Confirm, Reply, Receive, Message };
+  enum class State { Prepare, Hello, Confirm, Reply, Receive, Message };
   State state = State::Receive;
   bool posted = false, headerDone = false, cancel = false;
+  bool batchStarted = false, consumeBackRelease = false, preparingOffline = false;
+  bool wifiStarted = false;
+  std::vector<int> books;
+  std::vector<uint8_t> prepared;
+  std::vector<std::string> preparationNotes;
+  struct OfflineBatch {
+    std::vector<BatchEntry> entries;
+    size_t cursor = 0;
+    size_t completed() const { return cursor; }
+    bool done() const { return cursor == entries.size(); }
+    void step(const std::vector<int>&, ReadingHistoryStore&, const std::function<bool()>& cancel) {
+      if (done()) return;
+      if (cancel()) {
+        while (!done()) entries[cursor++].result = BatchResult::Cancelled;
+      } else
+        ++cursor;
+    }
+    const auto& results() const { return entries; }
+  } offlineBatch;
+  void connectWifi() { wifiStarted = true; }
+  static const char* preparationMessage(BatchError);
+  void finishPreparation(bool);
+  void prepareOffline();
+  DirectShareBatch transfer;
+  std::vector<std::string> transferNotes;
+  std::unique_ptr<uint8_t[]> body;
+  size_t sent = 0, receivedCount = 0;
   size_t cursor = 0, bodySize = 0;
   struct Peer {
     std::string name;
@@ -140,7 +170,77 @@ int transportTests(const std::string& payload) {
   sender.socket.data->input = "HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nbad";
   sender.readReply();
   CHECK(sender.message == "STR_DIRECT_UNCERTAIN");
+  CHECK(receiver.receivedCount == 1 && receiver.state == DirectShareActivity::State::Receive);
+  std::string second = payload;
+  second.replace(second.find("0000000000000001"), 16, "0000000000000002");
+  auto next = feed(receiver, request(receiver.token, second));
+  drain(receiver, next);
+  CHECK(next->output.find("HTTP/1.1 200") == 0 && receiver.receivedCount == 2);
+  CHECK(*Storage.files[target] == payload && *Storage.files["/YomukaSync/0000000000000002.json"] == second);
+  // Drive the actual sender completion method across a partial failure and cancellation.
+  DirectShareActivity batchSender;
+  batchSender.batchStarted = true;
+  batchSender.transfer.start(4);
+  batchSender.transferNotes.assign(4, "");
+  batchSender.fail("STR_DIRECT_SENT");
+  CHECK(batchSender.transfer.current() == 1 && batchSender.state == DirectShareActivity::State::Prepare);
+  batchSender.fail("STR_DIRECT_RECEIVE_ERROR");
+  CHECK(batchSender.transfer.current() == 2);
+  batchSender.fail("STR_DIRECT_UNCERTAIN");
+  CHECK(batchSender.transfer.current() == 3);
+  batchSender.fail("STR_DIRECT_SENT");
+  CHECK(batchSender.transfer.done() && batchSender.transfer.count(TransferResult::Sent) == 2);
+  batchSender.transfer.start(3);
+  batchSender.transferNotes.assign(3, "");
+  batchSender.fail("STR_DIRECT_SENT");
+  batchSender.consumeBackRelease = true;
+  batchSender.fail("STR_DIRECT_UNCERTAIN");
+  CHECK(batchSender.transfer.done() && batchSender.transfer.results()[0] == TransferResult::Sent &&
+        batchSender.transfer.results()[1] == TransferResult::Uncertain &&
+        batchSender.transfer.results()[2] == TransferResult::NotSent);
+  batchSender.fail("STR_DIRECT_CANCELLED");
+  CHECK(batchSender.transfer.results()[0] == TransferResult::Sent);
+  CHECK(*Storage.files[target] == payload);
+  batchSender.transfer.start(3);
+  batchSender.transferNotes.assign(3, "");
+  batchSender.fail("STR_DIRECT_SENT");  // A late Back retains the acknowledged book, stopping only later books.
+  CHECK(batchSender.transfer.results()[0] == TransferResult::Sent &&
+        batchSender.transfer.count(TransferResult::NotSent) == 2);
+  batchSender.transfer.start(2);
+  batchSender.transferNotes.assign(2, "");
+  batchSender.fail("STR_DIRECT_CANCELLED");
+  CHECK(batchSender.transfer.results()[0] == TransferResult::Cancelled &&
+        batchSender.transfer.results()[1] == TransferResult::NotSent);
   std::cout << "PASS: actual receive/reply loops, handshake, truncated POST, idle timeout, session rejection, "
                "cancellation, failed save, ACK loss\n";
+  DirectShareActivity sequential;
+  sequential.books = {1, 2};
+  sequential.preparingOffline = true;
+  sequential.offlineBatch.entries = {{0, BatchResult::Saved, BatchError::None},
+                                     {1, BatchResult::Saved, BatchError::None}};
+  sequential.prepareOffline();
+  CHECK(!sequential.wifiStarted && sequential.offlineBatch.completed() == 1);
+  sequential.prepareOffline();
+  CHECK(sequential.wifiStarted && sequential.prepared == std::vector<uint8_t>({1, 1}));
+  DirectShareActivity offline;
+  offline.books = {1, 2, 3};
+  offline.offlineBatch.entries = {{0, BatchResult::Saved, BatchError::None},
+                                  {1, BatchResult::Failed, BatchError::Source},
+                                  {2, BatchResult::Saved, BatchError::None}};
+  offline.finishPreparation(false);
+  CHECK(offline.wifiStarted && offline.prepared == std::vector<uint8_t>({1, 0, 1}) &&
+        offline.preparationNotes[1] == "STR_SHARE_SOURCE_ERROR");
+  DirectShareActivity stopped;
+  stopped.books = {1, 2};
+  stopped.offlineBatch.entries = {{0, BatchResult::Saved, BatchError::None},
+                                  {1, BatchResult::Cancelled, BatchError::None}};
+  stopped.finishPreparation(true);
+  CHECK(!stopped.wifiStarted && stopped.transfer.done() && stopped.transfer.count(TransferResult::NotSent) == 2);
+  DirectShareActivity invalid;
+  invalid.books = {1};
+  invalid.offlineBatch.entries = {{0, BatchResult::Failed, BatchError::Data}};
+  invalid.finishPreparation(false);
+  CHECK(!invalid.wifiStarted && invalid.transfer.count(TransferResult::Failed) == 1 &&
+        invalid.transferNotes[0] == "STR_SHARE_DATA_ERROR");
   return 0;
 }
