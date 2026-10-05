@@ -25,6 +25,9 @@ cpp = r'''
 #include <functional>
 #include <memory>
 #include <vector>
+#include <iostream>
+#undef assert
+#define assert(condition) do { if (!(condition)) { std::cerr << __LINE__ << ": " << #condition << "\n"; return 1; } } while (0)
 #define LOG_INF(...) ((void)0)
 struct MappedInputManager {
  enum class Button {Back,Confirm,Left,Right,None};
@@ -32,6 +35,9 @@ struct MappedInputManager {
  bool wasPressed(Button b){return pressed==b;}
  bool wasReleased(Button b){return released==b;}
  bool isPressed(Button b){return held==b;}
+ unsigned heldMs=0;
+ unsigned getHeldTime(){return heldMs;}
+ void update(){}
 };
 using B=MappedInputManager::Button;
 struct RenderLock{};
@@ -62,10 +68,22 @@ struct Scanner {
  bool step(){++steps;return complete;}
  const std::vector<int>& books()const{return values;}
 };
+int READING_HISTORY=0;
+struct Batch {
+ std::vector<int> entries; unsigned cursor=0;
+ void start(const std::vector<uint8_t>& selection){entries.clear();cursor=0;for(auto value:selection)if(value)entries.push_back(value);}
+ void cancel(){cursor=entries.size();}
+ bool done(){return cursor==entries.size();}
+ void step(const std::vector<int>&,int,const std::function<bool()>& cancel){if(cancel())cursor=entries.size();else ++cursor;}
+ const std::vector<int>& results(){return entries;}
+};
 struct ShareCandidatesActivity {
  Renderer& renderer; MappedInputManager& mappedInput; ButtonNavigator navigator;
  Scanner scanner; size_t selected=0;
  bool detail=false,ignoreOpeningConfirm=true,returnToMenu;
+ bool consumeConfirmRelease=false,review=false,generating=false,results=false;
+ bool consumeBackRelease=false;
+ std::vector<uint8_t> selection={0,0}; Batch batch;
  bool wentHome=false,finished=false; unsigned updates=0;
  unsigned long startedAt=0,lastProgressRender=0;
  ShareCandidatesActivity(Renderer& r,MappedInputManager& i,bool parent=false)
@@ -102,8 +120,24 @@ int main(){
  input.pressed=B::None; input.held=B::None; input.released=B::Confirm;
  child.loop(); assert(!child.detail); // release of the chooser's opening press
  input.released=B::None; child.loop();
- input.released=B::Confirm; child.loop(); assert(child.detail);
+ child.selected=2; input.released=B::Confirm; child.loop(); assert(!child.review); // no selected books
+ child.selected=0;
+ input.released=B::Confirm; child.loop(); assert(child.selection[0] && !child.detail);
+ child.loop(); assert(!child.selection[0]); child.loop(); assert(child.selection[0]);
+ input.released=B::None; input.held=B::Confirm; input.heldMs=700; child.loop(); assert(child.detail);
+ input.held=B::None; input.released=B::Confirm; child.loop(); assert(child.selection[0]);
  input.released=B::Back; child.loop(); assert(!child.detail && !child.finished);
+ child.selected=2; input.released=B::Confirm; child.loop(); assert(child.review && !child.generating);
+ input.released=B::Back; child.loop(); assert(!child.review);
+ child.selected=2; input.released=B::Confirm; child.loop(); child.loop(); assert(child.generating);
+ input.released=B::Back; child.loop(); assert(child.results && !child.generating);
+ child.loop(); assert(!child.results);
+ child.selected=2; input.released=B::Confirm; child.loop(); child.loop(); assert(child.generating);
+ input.released=B::None; input.held=B::Back; input.heldMs=0; child.loop(); assert(child.results && child.consumeBackRelease);
+ child.loop(); assert(child.results && !child.finished);
+ input.held=B::None; input.released=B::Back; child.loop(); assert(child.results && !child.consumeBackRelease);
+ input.released=B::None; child.loop(); assert(child.results);
+ input.released=B::Back; child.loop(); assert(!child.results);
  child.loop(); assert(child.finished && !child.wentHome);
  assert(menu.selectedIndex==3); // parent chooser selection remains on sharing
  ShareCandidatesActivity direct(renderer,input); direct.loop(); assert(direct.wentHome && !direct.finished);

@@ -21,13 +21,29 @@ void ShareCandidatesActivity::onEnter() {
   requestUpdate();
 }
 void ShareCandidatesActivity::loop() {
+  if (consumeBackRelease) {
+    if (!mappedInput.isPressed(MappedInputManager::Button::Back)) consumeBackRelease = false;
+    return;
+  }
   // The transfer chooser opens this activity on press; consume that key's release.
   const bool ignoreConfirm = ignoreOpeningConfirm;
   if (ignoreOpeningConfirm && !mappedInput.isPressed(MappedInputManager::Button::Confirm)) ignoreOpeningConfirm = false;
-  if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
-    if (detail) {
+  if (mappedInput.wasReleased(MappedInputManager::Button::Back) ||
+      (generating && (mappedInput.wasPressed(MappedInputManager::Button::Back) ||
+                      mappedInput.isPressed(MappedInputManager::Button::Back)))) {
+    if (generating) {
       RenderLock lock;
+      batch.cancel();
+      consumeBackRelease = mappedInput.isPressed(MappedInputManager::Button::Back);
+      generating = false;
+      results = true;
+      selected = 0;
+      requestUpdate();
+    } else if (detail || review || results) {
+      RenderLock lock;
+      if (results) selected = 0;
       detail = false;
+      review = results = false;
       requestUpdate();
     } else if (returnToMenu) {
       finish();
@@ -47,6 +63,7 @@ void ShareCandidatesActivity::loop() {
       requestUpdate();
     }
     if (complete) {
+      selection.assign(scanner.books().size(), 0);
       LOG_INF("SHARE", "Discovery: books=%u missing=%u legacy=%u warnings=%u EPUBs=%u ms=%lu heap=%u",
               static_cast<unsigned>(scanner.books().size()), static_cast<unsigned>(scanner.missingBooks),
               static_cast<unsigned>(scanner.legacyCount), static_cast<unsigned>(scanner.warnings),
@@ -54,14 +71,57 @@ void ShareCandidatesActivity::loop() {
     }
     return;
   }
-  if (scanner.books().empty() || detail) return;
-  if (!ignoreConfirm && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+  if (generating) {
     RenderLock lock;
-    detail = true;
+    HalPowerManager::Lock power;
+    batch.step(scanner.books(), READING_HISTORY, [this] {
+      const bool alreadyPressed = mappedInput.wasPressed(MappedInputManager::Button::Back) ||
+                                  mappedInput.isPressed(MappedInputManager::Button::Back);
+      mappedInput.update();
+      const bool cancel = alreadyPressed || mappedInput.wasPressed(MappedInputManager::Button::Back) ||
+                          mappedInput.isPressed(MappedInputManager::Button::Back);
+      if (cancel) consumeBackRelease = true;
+      return cancel;
+    });
+    if (batch.done()) {
+      generating = false;
+      results = true;
+      selected = 0;
+    }
     requestUpdate();
     return;
   }
-  const int count = static_cast<int>(scanner.books().size());
+  if (scanner.books().empty()) return;
+  if (!ignoreConfirm && !results && !review && !detail && selected < scanner.books().size() &&
+      mappedInput.isPressed(MappedInputManager::Button::Confirm) && mappedInput.getHeldTime() >= 700) {
+    RenderLock lock;
+    detail = true;
+    consumeConfirmRelease = true;
+    requestUpdate();
+    return;
+  }
+  if (!ignoreConfirm && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+    RenderLock lock;
+    if (consumeConfirmRelease) {
+      consumeConfirmRelease = false;
+      return;
+    }
+    if (review) {
+      batch.start(selection);
+      review = false;
+      generating = true;
+    } else if (!detail && !results) {
+      if (selected < selection.size()) {
+        selection[selected] = !selection[selected];
+      } else if (std::count(selection.begin(), selection.end(), 1) > 0) {
+        review = true;
+      }
+    }
+    requestUpdate();
+    return;
+  }
+  if (detail || review) return;
+  const int count = static_cast<int>(results ? batch.results().size() : scanner.books().size() + 1);
   navigator.onNextRelease([this, count] {
     RenderLock lock;
     selected = ButtonNavigator::nextIndex(static_cast<int>(selected), count);
@@ -119,6 +179,37 @@ void ShareCandidatesActivity::render(RenderLock&&) {
   if (!scanner.done()) {
     centered(top + line, tr(STR_SHARE_SEARCHING));
     centered(top + line * 2, std::to_string(scanner.checkedFiles) + " EPUB");
+  } else if (review || generating) {
+    centered(top + line, generating ? tr(STR_SHARE_GENERATING) : tr(STR_SHARE_EXPORT_CONFIRM));
+    const auto count = static_cast<size_t>(std::count(selection.begin(), selection.end(), 1));
+    centered(top + line * 2, generating ? std::to_string(batch.completed()) + " / " + std::to_string(count)
+                                        : std::to_string(count) + " " + tr(STR_SHARE_BOOKS));
+    centered(top + line * 3, "/YomukaSync/<BookId>.json");
+    centered(top + line * 4, tr(STR_SHARE_REPLACE_NOTICE));
+    centered(top + line * 5, tr(STR_SHARE_LOCAL_ONLY));
+    if (generating) centered(top + line * 6, tr(STR_SHARE_CANCEL_HINT));
+  } else if (results) {
+    size_t saved = 0, failed = 0, cancelled = 0;
+    for (const auto& entry : batch.results()) {
+      saved += entry.result == BatchResult::Saved;
+      failed += entry.result == BatchResult::Failed;
+      cancelled += entry.result == BatchResult::Cancelled;
+    }
+    centered(top, std::string(tr(STR_SHARE_SUCCESS)) + ": " + std::to_string(saved) + " / " + tr(STR_SHARE_FAILED) +
+                      ": " + std::to_string(failed) + " / " + tr(STR_SHARE_CANCELLED) + ": " +
+                      std::to_string(cancelled));
+    GUI.drawList(
+        renderer, Rect{layout.content.x, top + line, layout.content.width, bottom - top - line},
+        static_cast<int>(batch.results().size()), static_cast<int>(selected),
+        [this](int i) { return scanner.books()[batch.results()[i].index].title; },
+        [this](int i) {
+          const auto& entry = batch.results()[i];
+          if (entry.result == BatchResult::Saved) return std::string(tr(STR_SHARE_SUCCESS));
+          if (entry.result == BatchResult::Cancelled) return std::string(tr(STR_SHARE_CANCELLED));
+          return std::string(entry.error == BatchError::Source ? tr(STR_SHARE_SOURCE_ERROR)
+                             : entry.error == BatchError::Data ? tr(STR_SHARE_DATA_ERROR)
+                                                               : tr(STR_SHARE_WRITE_ERROR));
+        });
   } else if (detail && selected < scanner.books().size()) {
     const auto& book = scanner.books()[selected];
     centered(top, book.title);
@@ -132,10 +223,11 @@ void ShareCandidatesActivity::render(RenderLock&&) {
                                                                      : StrId::STR_SHARE_SAVED);
       centered(top + line * (i + 2), text);
     }
-    centered(top + line * 6, tr(STR_SHARE_LIST_ONLY));
+    centered(top + line * 6, selection[selected] ? tr(STR_SHARE_SELECTED) : tr(STR_SHARE_UNSELECTED));
   } else {
-    centered(top, tr(STR_SHARE_ORDER));
-    const int footerLines = 2;
+    centered(top, std::to_string(std::count(selection.begin(), selection.end(), 1)) + " / " +
+                      std::to_string(scanner.books().size()) + " " + tr(STR_SHARE_SELECTED));
+    const int footerLines = 3;
     const int listTop = top + line;
     const int height = bottom - listTop - line * footerLines;
     if (scanner.books().empty())
@@ -143,21 +235,30 @@ void ShareCandidatesActivity::render(RenderLock&&) {
     else if (height >= metrics.listWithSubtitleRowHeight) {
       GUI.drawList(
           renderer, Rect{layout.content.x, listTop, layout.content.width, height},
-          static_cast<int>(scanner.books().size()), static_cast<int>(selected),
-          [this](int index) { return scanner.books()[index].title; },
+          static_cast<int>(scanner.books().size() + 1), static_cast<int>(selected),
           [this](int index) {
+            if (static_cast<size_t>(index) == scanner.books().size()) return std::string(tr(STR_SHARE_EXPORT));
+            return std::string(selection[index] ? "[x] " : "[ ] ") + scanner.books()[index].title;
+          },
+          [this](int index) {
+            if (static_cast<size_t>(index) == scanner.books().size()) return std::string(tr(STR_SHARE_LOCAL_ONLY));
             const auto& book = scanner.books()[index];
             return unitSummary(book) +
                    (book.historyRank == UINT16_MAX ? " / " + std::string(tr(STR_SHARE_ORDER_UNKNOWN)) : "");
           });
     }
+    centered(bottom - line * 3, tr(STR_SHARE_SELECT_HELP));
     centered(bottom - line * 2, std::string(tr(STR_SHARE_MISSING)) + ": " + std::to_string(scanner.missingBooks));
     centered(bottom - line, std::string(tr(STR_SHARE_NEEDS_CHECK)) + ": " + std::to_string(scanner.warnings) + " / " +
                                 tr(STR_SHARE_LEGACY) + ": " + std::to_string(scanner.legacyCount));
   }
   const auto labels = mappedInput.mapLabels(
-      tr(STR_BACK), scanner.done() && !detail && !scanner.books().empty() ? tr(STR_SELECT) : "",
-      scanner.done() && !detail ? tr(STR_DIR_UP) : "", scanner.done() && !detail ? tr(STR_DIR_DOWN) : "");
+      tr(STR_BACK),
+      review                                                                             ? tr(STR_SHARE_WRITE_SHORT)
+      : scanner.done() && !detail && !generating && !results && !scanner.books().empty() ? tr(STR_SELECT)
+                                                                                         : "",
+      scanner.done() && !detail && !review && !generating ? tr(STR_DIR_UP) : "",
+      scanner.done() && !detail && !review && !generating ? tr(STR_DIR_DOWN) : "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }
