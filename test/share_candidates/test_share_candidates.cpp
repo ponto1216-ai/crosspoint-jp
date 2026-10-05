@@ -97,6 +97,44 @@ int main() {
   CHECK(!find(scanner, 8) && !find(scanner, 9) && !find(scanner, 99));
   CHECK(scanner.legacyCount == 1 && scanner.missingBooks == 1);
 
+  // Opening the chooser verifies recorded paths first. A full SD search is
+  // available on demand and still recovers moved books.
+  ShareCandidateScanner quick(false);
+  CHECK(finish(quick));
+  CHECK(quick.canSearchMissing());
+  CHECK(quick.books().size() == 1 && quick.books()[0].bookId == 1);
+  CHECK(quick.checkedFiles == 2);
+  CHECK(quick.missingBooks == 6 && quick.unresolvedBooks == 7);
+  CHECK(Storage.snapshot() == before);
+  quick.restart(true);
+  CHECK(finish(quick));
+  CHECK(!quick.canSearchMissing());
+  CHECK(quick.books().size() == scanner.books().size());
+  CHECK(find(quick, 2)->path == "/moved/second.epub");
+  CHECK(Storage.snapshot() == before);
+
+  // A deleted-history record alone is retained, but is not a missing book.
+  // Explicit full search can still find its EPUB and expose the tombstone.
+  Storage = FakeStorage{};
+  doc = history();
+  doc["removedBooks"][key(3)] = 0;
+  putJson("/.crosspoint/reading-history.json", doc);
+  Storage.put("/Archived/deleted-history.epub", key(3));
+  const auto tombstoneBefore = Storage.snapshot();
+  ShareCandidateScanner tombstoneQuick(false);
+  CHECK(finish(tombstoneQuick) && tombstoneQuick.canSearchMissing());
+  CHECK(tombstoneQuick.missingBooks == 0 && tombstoneQuick.unresolvedBooks == 1);
+  CHECK(tombstoneQuick.checkedFiles == 0 && tombstoneQuick.books().empty());
+  tombstoneQuick.restart(true);
+  CHECK(finish(tombstoneQuick) && tombstoneQuick.missingBooks == 0);
+  CHECK(find(tombstoneQuick, 3) && find(tombstoneQuick, 3)->emptyUnits == SavedHistory);
+  CHECK(Storage.snapshot() == tombstoneBefore);
+  ShareCandidateCatalog withPosition;
+  size_t ignoredLegacy = 0;
+  CHECK(withPosition.collectHistory(doc, ignoredLegacy));
+  withPosition.observe(3, SavedPosition, true);
+  CHECK(withPosition.missingCount() == 1 && withPosition.unresolvedCount() == 1);
+
   // No history, no locator and >200 books: recursive enumeration is not capped.
   Storage = FakeStorage{};
   for (uint64_t id = 1; id <= 500; ++id) {
@@ -112,6 +150,10 @@ int main() {
   CHECK(large.warnings == 0 && large.missingBooks == 0);
   CHECK(Storage.snapshot() == largeBefore);
   for (const auto& book : large.books()) CHECK(book.resolved() && book.units == SavedPosition);
+  ShareCandidateScanner largeQuick(false);
+  CHECK(finish(largeQuick) && largeQuick.canSearchMissing());
+  CHECK(largeQuick.checkedFiles == 0 && largeQuick.missingBooks == 500);
+  CHECK(Storage.snapshot() == largeBefore);
   {
     ShareCandidateScanner cancelled;
     for (unsigned i = 0; i < 20; ++i) CHECK(!cancelled.step());

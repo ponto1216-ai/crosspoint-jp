@@ -139,13 +139,21 @@ void ShareCandidatesActivity::loop() {
       } else if (selected == selection.size() + 3) {
         startActivityForResult(std::make_unique<ReceivedReviewActivity>(renderer, mappedInput),
                                [this](const ActivityResult&) { ignoreOpeningConfirm = true; });
+      } else if (selected == selection.size() + 4 && scanner.canSearchMissing()) {
+        scanner.restart(true);
+        selection.clear();
+        selected = 0;
+        actionMessage.clear();
+        startedAt = millis();
+        lastProgressRender = 0;
       }
     }
     requestUpdate();
     return;
   }
   if (detail || review) return;
-  const int count = static_cast<int>(results ? batch.results().size() : scanner.books().size() + 4);
+  const int count = static_cast<int>(results ? batch.results().size()
+                                             : scanner.books().size() + 4 + (scanner.canSearchMissing() ? 1 : 0));
   navigator.onNextRelease([this, count] {
     RenderLock lock;
     selected = ButtonNavigator::nextIndex(static_cast<int>(selected), count);
@@ -258,12 +266,14 @@ void ShareCandidatesActivity::render(RenderLock&&) {
     if (height >= metrics.listWithSubtitleRowHeight) {
       GUI.drawList(
           renderer, Rect{layout.content.x, listTop, layout.content.width, height},
-          static_cast<int>(scanner.books().size() + 4), static_cast<int>(selected),
+          static_cast<int>(scanner.books().size() + 4 + (scanner.canSearchMissing() ? 1 : 0)),
+          static_cast<int>(selected),
           [this](int index) {
             if (static_cast<size_t>(index) == scanner.books().size()) return std::string(tr(STR_SHARE_EXPORT));
             if (static_cast<size_t>(index) == scanner.books().size() + 1) return std::string(tr(STR_DIRECT_SEND));
             if (static_cast<size_t>(index) == scanner.books().size() + 2) return std::string(tr(STR_DIRECT_RECEIVE));
             if (static_cast<size_t>(index) == scanner.books().size() + 3) return std::string(tr(STR_RECEIVED_TITLE));
+            if (static_cast<size_t>(index) == scanner.books().size() + 4) return std::string(tr(STR_SHARE_SEARCH_SD));
             return std::string(selection[index] ? "[x] " : "[ ] ") + scanner.books()[index].title;
           },
           [this](int index) {
@@ -275,6 +285,8 @@ void ShareCandidatesActivity::render(RenderLock&&) {
               return std::string("　") + tr(STR_DIRECT_SEND_DESC);
             if (static_cast<size_t>(index) == scanner.books().size() + 2)
               return std::string("　") + tr(STR_DIRECT_RECEIVE_DESC);
+            if (static_cast<size_t>(index) == scanner.books().size() + 4)
+              return std::string("　") + tr(STR_SHARE_SEARCH_SD_DESC);
             const auto& book = scanner.books()[index];
             return std::string("　") + unitSummary(book) +
                    (book.historyRank == UINT16_MAX ? " / " + std::string(tr(STR_SHARE_ORDER_UNKNOWN)) : "");

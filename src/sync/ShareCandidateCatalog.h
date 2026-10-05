@@ -33,6 +33,9 @@ class ShareCandidateCatalog {
   bool collectPaths(const JsonDocument& document);
   void resolve(uint64_t id, const std::string& path, uint8_t priority);
   void finish();
+  // Excludes unresolved history-deletion-only records from the user-facing count.
   size_t missingCount() const;
+  // Includes deletion records so an explicit SD search can still find them.
+  size_t unresolvedCount() const;
 };
 }  // namespace yomuka::sync

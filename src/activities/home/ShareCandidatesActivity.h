@@ -6,7 +6,7 @@
 #include "util/ButtonNavigator.h"
 
 class ShareCandidatesActivity final : public Activity {
-  yomuka::sync::ShareCandidateScanner scanner;
+  yomuka::sync::ShareCandidateScanner scanner{false};
   ButtonNavigator navigator;
   size_t selected = 0;
   bool detail = false;

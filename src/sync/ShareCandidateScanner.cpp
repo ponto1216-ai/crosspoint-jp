@@ -182,7 +182,7 @@ bool ShareCandidateScanner::step() {
         const auto id = catalog.books()[knownIndex].bookId;
         const auto path = catalog.books()[knownIndex++].path;
         checkEpub(path, id);
-      } else if (catalog.missingCount()) {
+      } else if (searchMissing && catalog.unresolvedCount()) {
         auto root = Storage.open("/");
         if (root && root.isDirectory())
           directories.push_back({std::move(root), ""});
@@ -229,9 +229,11 @@ bool ShareCandidateScanner::step() {
 }
 void ShareCandidateScanner::complete() {
   missingBooks = catalog.missingCount();
+  unresolvedBooks = catalog.unresolvedCount();
   catalog.finish();
   warnings += std::count_if(catalog.books().begin(), catalog.books().end(),
                             [](const ShareCandidate& book) { return book.errors != 0; });
   phase = Phase::Done;
 }
+void ShareCandidateScanner::restart(bool fullSearch) { *this = ShareCandidateScanner(fullSearch); }
 }  // namespace yomuka::sync

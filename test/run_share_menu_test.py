@@ -65,10 +65,12 @@ struct ButtonNavigator {
  template<class F> void onPreviousContinuous(F){}
 };
 struct Scanner {
- bool complete=true; unsigned steps=0;
+ bool complete=true, needsSearch=false, restarted=false; unsigned steps=0;
  std::vector<int> values={1,2};
  bool done()const{return complete;}
  bool step(){++steps;return complete;}
+ bool canSearchMissing()const{return complete && needsSearch;}
+ void restart(bool fullSearch){restarted=fullSearch;complete=false;needsSearch=false;}
  const std::vector<int>& books()const{return values;}
 };
 int READING_HISTORY=0;
@@ -161,6 +163,9 @@ int main(){
  child.selected=5;child.loop();assert(child.reviewOpened);
  child.selection={0,0}; child.selected=3; child.directMode=-1; child.loop(); assert(child.directMode==-1 && !child.actionMessage.empty());
  child.scanner.values.clear(); child.selection.clear(); child.selected=2; child.loop(); assert(child.directMode==1);
+ child.scanner.values={1,2}; child.selection={0,0}; child.scanner.needsSearch=true;
+ child.selected=6; input.released=B::Confirm; child.loop();
+ assert(child.scanner.restarted && !child.scanner.complete && child.selection.empty() && child.selected==0);
  input.released=B::Back;
  child.loop(); assert(child.finished && !child.wentHome);
  assert(menu.selectedIndex==3); // parent chooser selection remains on sharing
