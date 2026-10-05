@@ -3,6 +3,7 @@
 #include <ESPmDNS.h>
 #include <HalGPIO.h>
 #include <HalPowerManager.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include <esp_heap_caps.h>
 #include <esp_system.h>
@@ -21,21 +22,17 @@
 using namespace yomuka::sync;
 namespace {
 constexpr unsigned long IdleTimeout = 10000, RequestTimeout = 30000;
+constexpr char HotspotSsidPrefix[] = "Yomuka-Share-";
+constexpr char HotspotPreferencesNamespace[] = "yomukashare";
+constexpr char HotspotPasswordKey[] = "ap_pass";
+constexpr char HotspotPasswordAlphabet[] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 size_t freeMemory() { return heap_caps_get_free_size(MALLOC_CAP_8BIT); }
 size_t largestMemory() { return heap_caps_get_largest_free_block(MALLOC_CAP_8BIT); }
 }  // namespace
 void DirectShareActivity::onEnter() {
   Activity::onEnter();
-  if (receiving) {
-    state = State::Wifi;
-    connectWifi();
-  } else {
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_OFF);
-    preparingOffline = true;
-    offlineBatch.start(std::vector<uint8_t>(books.size(), 1));
-    state = State::Prepare;
-  }
+  state = State::NetworkMode;
+  networkModeCursor = 0;
   requestUpdate();
 }
 void DirectShareActivity::onExit() {
@@ -44,6 +41,7 @@ void DirectShareActivity::onExit() {
   MDNS.end();
   incoming.clear();
   body.reset();
+  if (receiving && hotspotMode) WiFi.softAPdisconnect(true);
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
   Activity::onExit();
@@ -54,7 +52,8 @@ void DirectShareActivity::connectWifi() {
     connected();
     return;
   }
-  startActivityForResult(std::make_unique<WifiSelectionActivity>(renderer, mappedInput),
+  startActivityForResult(std::make_unique<WifiSelectionActivity>(renderer, mappedInput, !hotspotMode, !hotspotMode,
+                                                                 hotspotMode ? HotspotSsidPrefix : ""),
                          [this](const ActivityResult& result) {
                            if (result.isCancelled || !std::get<WifiResult>(result.data).connected) {
                              finish();
@@ -62,6 +61,55 @@ void DirectShareActivity::connectWifi() {
                            }
                            connected();
                          });
+}
+void DirectShareActivity::startOfflinePreparation() {
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  preparingOffline = true;
+  offlineBatch.start(std::vector<uint8_t>(books.size(), 1));
+  state = State::Prepare;
+  requestUpdate();
+}
+void DirectShareActivity::startHotspot() {
+  hotspotMode = true;
+  WiFi.softAPdisconnect(true);
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  delay(100);
+  WiFi.mode(WIFI_AP);
+  delay(100);
+
+  String mac = WiFi.softAPmacAddress();
+  mac.replace(":", "");
+  const String suffix = mac.substring(mac.length() > 8 ? mac.length() - 8 : 0);
+  hotspotSsid = std::string(HotspotSsidPrefix) + suffix.c_str();
+
+  Preferences prefs;
+  if (!prefs.begin(HotspotPreferencesNamespace, false)) {
+    fail(tr(STR_DIRECT_NETWORK_ERROR));
+    return;
+  }
+  hotspotPassword = prefs.getString(HotspotPasswordKey, "").c_str();
+  const bool validPassword =
+      hotspotPassword.size() == 8 && hotspotPassword.find_first_not_of(HotspotPasswordAlphabet) == std::string::npos;
+  if (!validPassword) {
+    hotspotPassword.clear();
+    for (int i = 0; i < 8; ++i)
+      hotspotPassword.push_back(HotspotPasswordAlphabet[esp_random() % (sizeof(HotspotPasswordAlphabet) - 1)]);
+    if (prefs.putString(HotspotPasswordKey, hotspotPassword.c_str()) != hotspotPassword.size()) {
+      prefs.end();
+      fail(tr(STR_DIRECT_NETWORK_ERROR));
+      return;
+    }
+  }
+  prefs.end();
+
+  if (!WiFi.softAP(hotspotSsid.c_str(), hotspotPassword.c_str(), 1, false, 1)) {
+    fail(tr(STR_DIRECT_NETWORK_ERROR));
+    return;
+  }
+  delay(100);
+  connected();
 }
 void DirectShareActivity::connected() {
   const auto mac = WiFi.macAddress();
@@ -475,6 +523,35 @@ void DirectShareActivity::loop() {
     return;
   }
   if (state == State::Prepare || state == State::Discover) requestUpdateAndWait();
+  if (state == State::NetworkMode) {
+    bool selected = false;
+    {
+      RenderLock lock;
+      navigator.onNextRelease([this] {
+        networkModeCursor = ButtonNavigator::nextIndex(networkModeCursor, 2);
+        requestUpdate();
+      });
+      navigator.onPreviousRelease([this] {
+        networkModeCursor = ButtonNavigator::previousIndex(networkModeCursor, 2);
+        requestUpdate();
+      });
+      if (!ignore && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+        hotspotMode = networkModeCursor == 1;
+        selected = true;
+      }
+    }
+    if (selected) {
+      if (receiving) {
+        if (hotspotMode)
+          startHotspot();
+        else
+          connectWifi();
+      } else {
+        startOfflinePreparation();
+      }
+    }
+    return;
+  }
   if (state == State::Confirm && !ignore && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     {
       RenderLock lock;
@@ -496,7 +573,11 @@ void DirectShareActivity::loop() {
   }
   RenderLock lock;
   HalPowerManager::Lock power;
-  if (state != State::Prepare && state != State::Wifi && state != State::Message && WiFi.status() != WL_CONNECTED) {
+  const bool networkReady = receiving && hotspotMode
+                                ? (WiFi.getMode() & WIFI_MODE_AP) != 0 && WiFi.softAPIP() != IPAddress(0, 0, 0, 0)
+                                : WiFi.status() == WL_CONNECTED;
+  if (state != State::NetworkMode && state != State::Prepare && state != State::Wifi && state != State::Message &&
+      !networkReady) {
     fail(posted ? tr(STR_DIRECT_UNCERTAIN) : tr(STR_DIRECT_NETWORK_ERROR));
     return;
   }
@@ -623,17 +704,41 @@ void DirectShareActivity::render(RenderLock&&) {
     text(3, tr(STR_DIRECT_SEND_CONFIRM));
     text(4, tr(STR_SHARE_REPLACE_NOTICE));
     text(5, tr(STR_DIRECT_NO_IMPORT));
+  } else if (state == State::NetworkMode) {
+    text(0, tr(STR_DIRECT_CONNECTION_MODE));
+    GUI.drawList(
+        renderer,
+        Rect{layout.content.x, top + line, layout.content.width,
+             layout.content.y + layout.content.height - top - 2 * line - metrics.buttonHintsHeight},
+        2, static_cast<int>(networkModeCursor),
+        [this](int index) {
+          if (index == 0) return std::string(tr(STR_DIRECT_SAME_WIFI_OPTION));
+          return receiving ? std::string(tr(STR_DIRECT_HOTSPOT_CREATE)) : std::string(tr(STR_DIRECT_HOTSPOT_JOIN));
+        },
+        [this](int index) {
+          if (index == 0) return std::string(tr(STR_DIRECT_SAME_WIFI_DESC));
+          return receiving ? std::string(tr(STR_DIRECT_HOTSPOT_CREATE_DESC))
+                           : std::string(tr(STR_DIRECT_HOTSPOT_JOIN_DESC));
+        });
   } else if (state == State::Receive) {
     text(0, device);
-    text(1, WiFi.localIP().toString().c_str());
-    text(2, tr(STR_DIRECT_WAITING));
-    text(3, tr(STR_DIRECT_SAME_WIFI));
+    if (hotspotMode) {
+      text(1, std::string("SSID: ") + hotspotSsid);
+      text(2, std::string(tr(STR_DIRECT_HOTSPOT_PASSWORD)) + ": " + hotspotPassword);
+      text(3, std::string("IP: ") + WiFi.softAPIP().toString().c_str());
+      text(4, tr(STR_DIRECT_HOTSPOT_SEND_HINT));
+      text(5, tr(STR_DIRECT_WAITING));
+    } else {
+      text(1, WiFi.localIP().toString().c_str());
+      text(2, tr(STR_DIRECT_WAITING));
+      text(3, tr(STR_DIRECT_SAME_WIFI));
+    }
     if (incoming.total())
-      text(4, std::to_string(incoming.size()) + " / " + std::to_string(incoming.total()));
+      text(hotspotMode ? 6 : 4, std::to_string(incoming.size()) + " / " + std::to_string(incoming.total()));
     else
-      text(4, std::string(tr(STR_DIRECT_RECEIVED_COUNT)) + ": " + std::to_string(receivedCount));
-    if (!message.empty()) text(5, message);
-    if (receivedCount) text(6, tr(STR_DIRECT_IMPORT_LATER));
+      text(hotspotMode ? 6 : 4, std::string(tr(STR_DIRECT_RECEIVED_COUNT)) + ": " + std::to_string(receivedCount));
+    if (!message.empty()) text(hotspotMode ? 7 : 5, message);
+    if (receivedCount) text(hotspotMode ? 8 : 6, tr(STR_DIRECT_IMPORT_LATER));
   } else if (state == State::Message && batchStarted && !books.empty()) {
     text(0, std::string(tr(STR_DIRECT_RESULTS)) + " / " + tr(STR_DIRECT_SENT_SHORT) + ": " +
                 std::to_string(transfer.count(TransferResult::Sent)) + " / " + std::to_string(books.size()));
@@ -678,10 +783,14 @@ void DirectShareActivity::render(RenderLock&&) {
       tr(STR_BACK),
       state == State::Confirm ? tr(STR_SHARE_WRITE_SHORT)
       : state == State::Message && batchStarted && resultCursor == books.size() && transfer.canRetry() ? tr(STR_CONFIRM)
-      : state == State::Peers                                                                          ? tr(STR_SELECT)
+      : state == State::Peers || state == State::NetworkMode                                           ? tr(STR_SELECT)
                                                                                                        : "",
-      (state == State::Peers || (state == State::Message && batchStarted)) ? tr(STR_DIR_UP) : "",
-      (state == State::Peers || (state == State::Message && batchStarted)) ? tr(STR_DIR_DOWN) : "");
+      (state == State::Peers || state == State::NetworkMode || (state == State::Message && batchStarted))
+          ? tr(STR_DIR_UP)
+          : "",
+      (state == State::Peers || state == State::NetworkMode || (state == State::Message && batchStarted))
+          ? tr(STR_DIR_DOWN)
+          : "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }

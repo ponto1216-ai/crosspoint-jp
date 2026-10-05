@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "activities/Activity.h"
@@ -27,6 +28,7 @@ enum class WifiSelectionState {
   CONNECTING,         // Attempting to connect
   CONNECTED,          // Successfully connected
   SAVE_PROMPT,        // Asking user if they want to save the password
+  SAVE_WARNING,       // Connected, but could not save a temporary peer password
   CONNECTION_FAILED,  // Connection failed
   FORGET_PROMPT       // Asking user if they want to forget the network
 };
@@ -68,6 +70,9 @@ class WifiSelectionActivity final : public Activity {
 
   // Whether to attempt auto-connect on entry
   const bool allowAutoConnect;
+  // Temporary peer networks must not replace the user's normal auto-connect target.
+  const bool rememberConnectedNetwork;
+  const std::string ssidPrefix;
 
   // Whether we are attempting to auto-connect
   bool autoConnecting = false;
@@ -85,6 +90,7 @@ class WifiSelectionActivity final : public Activity {
   void renderConnecting() const;
   void renderConnected() const;
   void renderSavePrompt() const;
+  void renderSaveWarning() const;
   void renderConnectionFailed() const;
   void renderForgetPrompt() const;
 
@@ -98,8 +104,12 @@ class WifiSelectionActivity final : public Activity {
   void onComplete(bool connected);
 
  public:
-  explicit WifiSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, bool autoConnect = true)
-      : Activity("WifiSelection", renderer, mappedInput), allowAutoConnect(autoConnect) {}
+  explicit WifiSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, bool autoConnect = true,
+                                 bool rememberNetwork = true, std::string requiredSsidPrefix = {})
+      : Activity("WifiSelection", renderer, mappedInput),
+        allowAutoConnect(autoConnect),
+        rememberConnectedNetwork(rememberNetwork),
+        ssidPrefix(std::move(requiredSsidPrefix)) {}
   void onEnter() override;
   void onExit() override;
   void loop() override;

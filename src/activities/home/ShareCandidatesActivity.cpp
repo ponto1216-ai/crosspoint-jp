@@ -268,11 +268,13 @@ void ShareCandidatesActivity::render(RenderLock&&) {
           },
           [this](int index) {
             if (static_cast<size_t>(index) == scanner.books().size())
-              return std::string("　") + tr(STR_SHARE_LOCAL_ONLY);
+              return std::string("　") + tr(STR_SHARE_LOCAL_ONLY_SHORT);
             if (static_cast<size_t>(index) == scanner.books().size() + 3)
               return std::string("　") + tr(STR_RECEIVED_OFFLINE);
-            if (static_cast<size_t>(index) >= scanner.books().size() + 1)
-              return std::string("　") + tr(STR_DIRECT_SAME_WIFI);
+            if (static_cast<size_t>(index) == scanner.books().size() + 1)
+              return std::string("　") + tr(STR_DIRECT_SEND_DESC);
+            if (static_cast<size_t>(index) == scanner.books().size() + 2)
+              return std::string("　") + tr(STR_DIRECT_RECEIVE_DESC);
             const auto& book = scanner.books()[index];
             return std::string("　") + unitSummary(book) +
                    (book.historyRank == UINT16_MAX ? " / " + std::string(tr(STR_SHARE_ORDER_UNKNOWN)) : "");

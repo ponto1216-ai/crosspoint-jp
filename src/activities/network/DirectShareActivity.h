@@ -10,14 +10,14 @@
 #include "util/ButtonNavigator.h"
 
 class DirectShareActivity final : public Activity {
-  enum class State { Prepare, Wifi, Discover, Peers, Hello, Confirm, Send, Reply, Receive, Message };
+  enum class State { NetworkMode, Prepare, Wifi, Discover, Peers, Hello, Confirm, Send, Reply, Receive, Message };
   struct Peer {
     std::string name;
     IPAddress ip;
     uint16_t port;
   };
-  bool receiving, ignoreOpeningConfirm = true, consumeBackRelease = false, posted = false;
-  State state = State::Wifi;
+  bool receiving, ignoreOpeningConfirm = true, consumeBackRelease = false, posted = false, hotspotMode = false;
+  State state = State::NetworkMode;
   yomuka::sync::ShareCandidate book;
   std::vector<yomuka::sync::ShareCandidate> books;
   yomuka::sync::DirectShareBatch transfer;
@@ -26,12 +26,12 @@ class DirectShareActivity final : public Activity {
   yomuka::sync::BatchSnapshot offlineBatch;
   std::vector<uint8_t> prepared;
   std::vector<std::string> preparationNotes;
-  size_t resultCursor = 0, receivedCount = 0;
+  size_t resultCursor = 0, receivedCount = 0, networkModeCursor = 0;
   ButtonNavigator navigator;
   std::vector<Peer> peers;
   size_t cursor = 0, sent = 0, bodySize = 0;
   std::unique_ptr<uint8_t[]> body;
-  std::string identity, digest, device, token, header, reply, message, receiptId;
+  std::string identity, digest, device, token, header, reply, message, receiptId, hotspotSsid, hotspotPassword;
   yomuka::sync::DirectHeader parsed;
   yomuka::sync::DirectSnapshot incoming;
   std::vector<std::string> receivedFiles;
@@ -40,6 +40,8 @@ class DirectShareActivity final : public Activity {
   unsigned long lastIo = 0, startedIo = 0, lastProgress = 0;
   bool headerDone = false;
   void connectWifi();
+  void startHotspot();
+  void startOfflinePreparation();
   void connected();
   void discover();
   void prepare();

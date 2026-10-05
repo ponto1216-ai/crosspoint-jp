@@ -131,6 +131,7 @@ void WifiSelectionActivity::processWifiScanResults() {
     if (ssid.empty()) {
       continue;
     }
+    if (!ssidPrefix.empty() && ssid.compare(0, ssidPrefix.size(), ssidPrefix) != 0) continue;
 
     // Check if we've already seen this SSID
     auto it = uniqueNetworks.find(ssid);
@@ -140,7 +141,8 @@ void WifiSelectionActivity::processWifiScanResults() {
       network.ssid = ssid;
       network.rssi = rssi;
       network.isEncrypted = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
-      network.hasSavedPassword = WIFI_STORE.hasSavedCredential(network.ssid);
+      network.hasSavedPassword =
+          (rememberConnectedNetwork || !ssidPrefix.empty()) && WIFI_STORE.hasSavedCredential(network.ssid);
       uniqueNetworks[ssid] = network;
     }
   }
@@ -179,7 +181,8 @@ void WifiSelectionActivity::selectNetwork(const int index) {
   autoConnecting = false;
 
   // Check if we have saved credentials for this network
-  const auto* savedCred = WIFI_STORE.findCredential(selectedSSID);
+  const auto* savedCred =
+      (rememberConnectedNetwork || !ssidPrefix.empty()) ? WIFI_STORE.findCredential(selectedSSID) : nullptr;
   if (savedCred && !savedCred->password.empty()) {
     // Use saved password - connect directly
     enteredPassword = savedCred->password;
@@ -244,29 +247,31 @@ void WifiSelectionActivity::checkConnectionStatus() {
   const wl_status_t status = WiFi.status();
 
   if (status == WL_CONNECTED) {
-    // タイムゾーン設定（JST = UTC+9）+ NTP時刻同期（WiFi接続時は常に実行）
-    setenv("TZ", "JST-9", 1);
-    tzset();
-    if (esp_sntp_enabled()) {
-      esp_sntp_stop();
-    }
-    esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
-    esp_sntp_setservername(0, "pool.ntp.org");
-    esp_sntp_init();
-    for (int retry = 0; retry < 30 && sntp_get_sync_status() != SNTP_SYNC_STATUS_COMPLETED; retry++) {
-      vTaskDelay(100 / portTICK_PERIOD_MS);
-    }
-    if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) {
-      LOG_DBG("WIFI", "NTP time synced (JST)");
-      // DS3231 に UTC 時刻を書き込み
-      if (halRTC.isAvailable()) {
-        const time_t now = time(nullptr);
-        struct tm utc;
-        gmtime_r(&now, &utc);
-        halRTC.writeTime(utc);
+    if (rememberConnectedNetwork) {
+      // タイムゾーン設定（JST = UTC+9）+ NTP時刻同期（WiFi接続時は常に実行）
+      setenv("TZ", "JST-9", 1);
+      tzset();
+      if (esp_sntp_enabled()) {
+        esp_sntp_stop();
       }
-    } else {
-      LOG_DBG("WIFI", "NTP sync timeout");
+      esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+      esp_sntp_setservername(0, "pool.ntp.org");
+      esp_sntp_init();
+      for (int retry = 0; retry < 30 && sntp_get_sync_status() != SNTP_SYNC_STATUS_COMPLETED; retry++) {
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+      }
+      if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) {
+        LOG_DBG("WIFI", "NTP time synced (JST)");
+        // DS3231 に UTC 時刻を書き込み
+        if (halRTC.isAvailable()) {
+          const time_t now = time(nullptr);
+          struct tm utc;
+          gmtime_r(&now, &utc);
+          halRTC.writeTime(utc);
+        }
+      } else {
+        LOG_DBG("WIFI", "NTP sync timeout");
+      }
     }
 
     // Successfully connected
@@ -278,14 +283,23 @@ void WifiSelectionActivity::checkConnectionStatus() {
 
     // Save this as the last connected network - SD card operations need lock as
     // we use SPI for both
-    {
+    if (rememberConnectedNetwork) {
       RenderLock lock(*this);
       WIFI_STORE.setLastConnectedSsid(selectedSSID);
     }
 
-    // If we entered a new password, ask if user wants to save it
-    // Otherwise, immediately complete so parent can start web server
-    if (!usedSavedPassword && !enteredPassword.empty()) {
+    // A peer AP keeps its own credential without changing the normal auto-connect target.
+    if (!ssidPrefix.empty() && !usedSavedPassword && !enteredPassword.empty()) {
+      RenderLock lock(*this);
+      if (!WIFI_STORE.addCredential(selectedSSID, enteredPassword)) {
+        state = WifiSelectionState::SAVE_WARNING;
+        requestUpdate();
+        return;
+      }
+    }
+
+    // If we entered a new normal-network password, ask whether to save it.
+    if (rememberConnectedNetwork && !usedSavedPassword && !enteredPassword.empty()) {
       state = WifiSelectionState::SAVE_PROMPT;
       savePromptSelection = 0;  // Default to "Yes"
       requestUpdate();
@@ -364,6 +378,14 @@ void WifiSelectionActivity::loop() {
       // Skip saving, complete anyway
       onComplete(true);
     }
+    return;
+  }
+
+  if (state == WifiSelectionState::SAVE_WARNING) {
+    if (mappedInput.wasPressed(MappedInputManager::Button::Confirm))
+      onComplete(true);
+    else if (mappedInput.wasPressed(MappedInputManager::Button::Back))
+      onComplete(false);
     return;
   }
 
@@ -532,6 +554,9 @@ void WifiSelectionActivity::render(RenderLock&&) {
     case WifiSelectionState::SAVE_PROMPT:
       renderSavePrompt();
       break;
+    case WifiSelectionState::SAVE_WARNING:
+      renderSaveWarning();
+      break;
     case WifiSelectionState::CONNECTION_FAILED:
       renderConnectionFailed();
       break;
@@ -670,6 +695,17 @@ void WifiSelectionActivity::renderSavePrompt() const {
 
   // Use centralized button hints
   const auto labels = mappedInput.mapLabels(tr(STR_CANCEL), tr(STR_SELECT), tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+}
+
+void WifiSelectionActivity::renderSaveWarning() const {
+  const auto layout = UiLayout::from(renderer);
+  const int centerOffset = layout.content.x + layout.content.width / 2 - renderer.getScreenWidth() / 2;
+  const int top = layout.content.y + layout.content.height / 2 - 50;
+  renderer.drawCenteredTextOffset(UI_12_FONT_ID, top, tr(STR_CONNECTED), true, centerOffset, EpdFontFamily::BOLD);
+  renderer.drawCenteredTextOffset(UI_10_FONT_ID, top + 40, tr(STR_DIRECT_AP_SAVE_WARNING), true, centerOffset);
+  renderer.drawCenteredTextOffset(UI_10_FONT_ID, top + 70, tr(STR_DIRECT_AP_REENTER_WARNING), true, centerOffset);
+  const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_DONE), "", "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
