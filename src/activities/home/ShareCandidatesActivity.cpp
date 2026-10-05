@@ -5,6 +5,7 @@
 
 #include <algorithm>
 
+#include "ReceivedReviewActivity.h"
 #include "activities/network/DirectShareActivity.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
@@ -127,7 +128,16 @@ void ShareCandidatesActivity::loop() {
                                  [this](const ActivityResult&) { ignoreOpeningConfirm = true; });
         }
       } else if (selected == selection.size() + 2) {
-        startActivityForResult(std::make_unique<DirectShareActivity>(renderer, mappedInput, true),
+        startActivityForResult(
+            std::make_unique<DirectShareActivity>(renderer, mappedInput, true), [this](const ActivityResult& result) {
+              ignoreOpeningConfirm = true;
+              if (const auto* received = std::get_if<ReceivedFilesResult>(&result.data);
+                  received && !received->files.empty())
+                startActivityForResult(std::make_unique<ReceivedReviewActivity>(renderer, mappedInput, received->files),
+                                       [this](const ActivityResult&) { ignoreOpeningConfirm = true; });
+            });
+      } else if (selected == selection.size() + 3) {
+        startActivityForResult(std::make_unique<ReceivedReviewActivity>(renderer, mappedInput),
                                [this](const ActivityResult&) { ignoreOpeningConfirm = true; });
       }
     }
@@ -135,7 +145,7 @@ void ShareCandidatesActivity::loop() {
     return;
   }
   if (detail || review) return;
-  const int count = static_cast<int>(results ? batch.results().size() : scanner.books().size() + 3);
+  const int count = static_cast<int>(results ? batch.results().size() : scanner.books().size() + 4);
   navigator.onNextRelease([this, count] {
     RenderLock lock;
     selected = ButtonNavigator::nextIndex(static_cast<int>(selected), count);
@@ -248,16 +258,19 @@ void ShareCandidatesActivity::render(RenderLock&&) {
     if (height >= metrics.listWithSubtitleRowHeight) {
       GUI.drawList(
           renderer, Rect{layout.content.x, listTop, layout.content.width, height},
-          static_cast<int>(scanner.books().size() + 3), static_cast<int>(selected),
+          static_cast<int>(scanner.books().size() + 4), static_cast<int>(selected),
           [this](int index) {
             if (static_cast<size_t>(index) == scanner.books().size()) return std::string(tr(STR_SHARE_EXPORT));
             if (static_cast<size_t>(index) == scanner.books().size() + 1) return std::string(tr(STR_DIRECT_SEND));
             if (static_cast<size_t>(index) == scanner.books().size() + 2) return std::string(tr(STR_DIRECT_RECEIVE));
+            if (static_cast<size_t>(index) == scanner.books().size() + 3) return std::string(tr(STR_RECEIVED_TITLE));
             return std::string(selection[index] ? "[x] " : "[ ] ") + scanner.books()[index].title;
           },
           [this](int index) {
             if (static_cast<size_t>(index) == scanner.books().size())
               return std::string("　") + tr(STR_SHARE_LOCAL_ONLY);
+            if (static_cast<size_t>(index) == scanner.books().size() + 3)
+              return std::string("　") + tr(STR_RECEIVED_OFFLINE);
             if (static_cast<size_t>(index) >= scanner.books().size() + 1)
               return std::string("　") + tr(STR_DIRECT_SAME_WIFI);
             const auto& book = scanner.books()[index];

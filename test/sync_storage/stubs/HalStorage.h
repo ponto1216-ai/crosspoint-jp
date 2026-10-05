@@ -1,6 +1,8 @@
 #pragma once
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -17,6 +19,8 @@ class HalFile {
   bool directory = false;
   std::vector<std::string> children = {};
   size_t nextChild = 0;
+  bool enumerationError = false;
+  uint8_t getError() const { return enumerationError ? 1 : 0; }
   bool isDirectory() const { return directory; }
   size_t getName(char* output, size_t capacity) const {
     const auto name = path.substr(path.find_last_of('/') + 1);
@@ -55,8 +59,10 @@ struct FakeStorage {
   bool online = true;
   int failAt = 0, calls = 0;
   std::string failRead, failWrite, failClose, failRenameSource;
+  std::string failEnumeration;
   unsigned long nowMs = 0;
   bool recording = false;
+  bool assertValidClose = false;
   std::vector<Snapshot> snapshots;
   bool fail() { return ++calls == failAt; }
   bool ready() const { return online; }
@@ -124,6 +130,10 @@ struct FakeStorage {
 inline FakeStorage Storage;
 inline unsigned long millis() { return Storage.nowMs; }
 inline HalFile HalFile::openNextFile() {
+  if (storage && path == storage->failEnumeration) {
+    enumerationError = true;
+    return {};
+  }
   return nextChild < children.size() ? storage->open(children[nextChild++].c_str()) : HalFile{};
 }
 inline int HalFile::read(void* buffer, size_t length) {
@@ -142,4 +152,10 @@ inline size_t HalFile::write(const uint8_t* buffer, size_t length) {
   storage->record();
   return length;
 }
-inline bool HalFile::close() { return !storage || (!storage->fail() && path != storage->failClose); }
+inline bool HalFile::close() {
+  if (Storage.assertValidClose && storage == nullptr) {
+    std::fputs("invalid close: storage != nullptr\n", stderr);
+    std::abort();
+  }
+  return !storage || (!storage->fail() && path != storage->failClose);
+}

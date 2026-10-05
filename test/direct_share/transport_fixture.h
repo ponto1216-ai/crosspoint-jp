@@ -1,3 +1,4 @@
+#include "activities/ActivityResult.h"
 #define LOG_INF(...) ((void)0)
 #include "sync/BatchSnapshot.h"
 #include "sync/DirectShareBatch.h"
@@ -48,6 +49,9 @@ class DirectShareActivity {
   std::vector<int> books;
   std::vector<uint8_t> prepared;
   std::vector<std::string> preparationNotes;
+  std::vector<std::string> receivedFiles;
+  ActivityResult capturedResult;
+  void setResult(ActivityResult&& value) { capturedResult = std::move(value); }
   struct OfflineBatch {
     std::vector<BatchEntry> entries;
     size_t cursor = 0;
@@ -170,12 +174,14 @@ int transportTests(const std::string& payload) {
   sender.socket.data->input = "HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nbad";
   sender.readReply();
   CHECK(sender.message == "STR_DIRECT_UNCERTAIN");
+  CHECK(std::get<ReceivedFilesResult>(receiver.capturedResult.data).files.size() == 1);
   CHECK(receiver.receivedCount == 1 && receiver.state == DirectShareActivity::State::Receive);
   std::string second = payload;
   second.replace(second.find("0000000000000001"), 16, "0000000000000002");
   auto next = feed(receiver, request(receiver.token, second));
   drain(receiver, next);
   CHECK(next->output.find("HTTP/1.1 200") == 0 && receiver.receivedCount == 2);
+  CHECK(std::get<ReceivedFilesResult>(receiver.capturedResult.data).files.size() == 2);
   CHECK(*Storage.files[target] == payload && *Storage.files["/YomukaSync/0000000000000002.json"] == second);
   // Drive the actual sender completion method across a partial failure and cancellation.
   DirectShareActivity batchSender;

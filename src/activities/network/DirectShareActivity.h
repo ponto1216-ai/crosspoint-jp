@@ -34,6 +34,7 @@ class DirectShareActivity final : public Activity {
   std::string identity, digest, device, token, header, reply, message, receiptId;
   yomuka::sync::DirectHeader parsed;
   yomuka::sync::DirectSnapshot incoming;
+  std::vector<std::string> receivedFiles;
   NetworkServer listener{80, 1};
   NetworkClient socket;
   unsigned long lastIo = 0, startedIo = 0, lastProgress = 0;

@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include <vector>
 
 struct WifiResult {
   bool connected = false;
@@ -62,8 +63,13 @@ struct FilePathResult {
   std::string path;
 };
 
-using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult,
-                                   PageResult, BookmarkResult, SyncResult, NetworkModeResult, FootnoteResult, FilePathResult>;
+struct ReceivedFilesResult {
+  std::vector<std::string> files;
+};
+
+using ResultVariant =
+    std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult, PageResult,
+                 BookmarkResult, SyncResult, NetworkModeResult, FootnoteResult, FilePathResult, ReceivedFilesResult>;
 
 struct ActivityResult {
   bool isCancelled = false;

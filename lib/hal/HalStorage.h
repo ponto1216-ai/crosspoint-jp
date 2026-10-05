@@ -98,6 +98,7 @@ class HalFile : public Print {
   bool seekSet(size_t offset);
   int available() const;
   size_t position() const;
+  uint8_t getError() const;
   int read(void* buf, size_t count);
   int read();  // read a single byte
   size_t write(const uint8_t* buf, size_t count) override;

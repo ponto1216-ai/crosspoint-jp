@@ -423,6 +423,10 @@ void DirectShareActivity::receive() {
         cancelled();  // A late cancellation cannot undo publication; retain the received result.
         respond(200, receipt);
         ++receivedCount;
+        const std::string receivedPath = "/YomukaSync/" + receiptId + ".json";
+        if (std::find(receivedFiles.begin(), receivedFiles.end(), receivedPath) == receivedFiles.end())
+          receivedFiles.push_back(receivedPath);
+        setResult(ReceivedFilesResult{receivedFiles});
         state = State::Receive;
         message = tr(STR_DIRECT_RECEIVED);
         requestUpdate();

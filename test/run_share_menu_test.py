@@ -27,6 +27,7 @@ cpp = r'''
 #include <vector>
 #include <string>
 #include <iostream>
+#include <variant>
 #undef assert
 #define assert(condition) do { if (!(condition)) { std::cerr << __LINE__ << ": " << #condition << "\n"; return 1; } } while (0)
 #define LOG_INF(...) ((void)0)
@@ -43,7 +44,8 @@ struct MappedInputManager {
 using B=MappedInputManager::Button;
 struct RenderLock{};
 struct HalPowerManager {struct Lock{};};
-struct ActivityResult{};
+struct ReceivedFilesResult { std::vector<std::string> files; };
+struct ActivityResult { std::variant<std::monostate,ReceivedFilesResult> data; };
 struct Renderer {int getLineHeight(int){return 21;}};
 struct UiLayout {bool landscape=false; static UiLayout from(Renderer&){return {};}};
 struct UITheme {static int getNumberOfItemsPerPage(Renderer&,bool,bool,bool,bool,int){return 5;}};
@@ -85,6 +87,7 @@ struct DirectShareActivity {
  bool receiving; size_t count;
  DirectShareActivity(Renderer&,MappedInputManager&,bool receive,const std::vector<int>& books={}):receiving(receive),count(books.size()){}
 };
+struct ReceivedReviewActivity { ReceivedReviewActivity(Renderer&,MappedInputManager&,std::vector<std::string> = {}){} };
 struct ShareCandidatesActivity {
  Renderer& renderer; MappedInputManager& mappedInput; ButtonNavigator navigator;
  Scanner scanner; size_t selected=0;
@@ -92,8 +95,9 @@ struct ShareCandidatesActivity {
  bool consumeConfirmRelease=false,review=false,generating=false,results=false;
  bool consumeBackRelease=false;
  std::string actionMessage;
- int directMode=-1; size_t directCount=0;
- template<class F> void startActivityForResult(std::unique_ptr<DirectShareActivity> child,F){directMode=child->receiving?1:0; directCount=child->count;}
+ int directMode=-1; size_t directCount=0; bool reviewOpened=false; std::function<void(const ActivityResult&)> receivedCallback;
+ template<class F> void startActivityForResult(std::unique_ptr<DirectShareActivity> child,F callback){directMode=child->receiving?1:0; directCount=child->count;receivedCallback=callback;}
+ template<class F> void startActivityForResult(std::unique_ptr<ReceivedReviewActivity>,F){reviewOpened=true;}
  std::vector<uint8_t> selection={0,0}; Batch batch;
  bool wentHome=false,finished=false; unsigned updates=0;
  unsigned long startedAt=0,lastProgressRender=0;
@@ -152,6 +156,9 @@ int main(){
  child.selected=3; input.released=B::Confirm; child.loop(); assert(child.directMode==0 && child.directCount==1);
  child.selection={1,1}; child.loop(); assert(child.directMode==0 && child.directCount==2);
  child.selected=4; child.loop(); assert(child.directMode==1);
+ child.receivedCallback(ActivityResult{}); assert(!child.reviewOpened);
+ child.receivedCallback(ActivityResult{ReceivedFilesResult{{"/YomukaSync/0000000000000001.json"}}}); assert(child.reviewOpened);
+ child.selected=5;child.loop();assert(child.reviewOpened);
  child.selection={0,0}; child.selected=3; child.directMode=-1; child.loop(); assert(child.directMode==-1 && !child.actionMessage.empty());
  child.scanner.values.clear(); child.selection.clear(); child.selected=2; child.loop(); assert(child.directMode==1);
  input.released=B::Back;
