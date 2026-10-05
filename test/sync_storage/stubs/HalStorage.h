@@ -14,6 +14,19 @@ class HalFile {
   std::shared_ptr<std::string> bytes;
   std::string path;
   size_t offset = 0;
+  bool directory = false;
+  std::vector<std::string> children = {};
+  size_t nextChild = 0;
+  bool isDirectory() const { return directory; }
+  size_t getName(char* output, size_t capacity) const {
+    const auto name = path.substr(path.find_last_of('/') + 1);
+    if (!capacity) return 0;
+    const size_t count = std::min(name.size(), capacity - 1);
+    std::memcpy(output, name.data(), count);
+    output[count] = 0;
+    return count;
+  }
+  HalFile openNextFile();
   size_t size() const { return bytes ? bytes->size() : 0; }
   size_t position() const { return offset; }
   int read(void* buffer, size_t length);
@@ -49,7 +62,26 @@ struct FakeStorage {
   bool ready() const { return online; }
   bool ensureDirectoryExists(const char*) { return online; }
   bool mkdir(const char*) { return online; }
-  bool exists(const char* p) const { return files.count(p) != 0; }
+  bool exists(const char* p) const {
+    if (files.count(p)) return true;
+    const std::string prefix = std::string(p) == "/" ? "/" : std::string(p) + "/";
+    auto it = files.lower_bound(prefix);
+    return it != files.end() && it->first.compare(0, prefix.size(), prefix) == 0;
+  }
+  HalFile open(const char* p) {
+    if (!online || fail() || !exists(p)) return {};
+    if (files.count(p)) return {this, files[p], p, 0};
+    HalFile file{this, std::make_shared<std::string>(), p, 0};
+    file.directory = true;
+    const std::string prefix = std::string(p) == "/" ? "/" : std::string(p) + "/";
+    for (const auto& entry : files) {
+      if (entry.first.compare(0, prefix.size(), prefix) != 0) continue;
+      const auto slash = entry.first.find('/', prefix.size());
+      const auto child = entry.first.substr(0, slash);
+      if (file.children.empty() || file.children.back() != child) file.children.push_back(child);
+    }
+    return file;
+  }
   Snapshot snapshot() const {
     Snapshot result;
     for (const auto& item : files) result[item.first] = *item.second;
@@ -91,6 +123,9 @@ struct FakeStorage {
 };
 inline FakeStorage Storage;
 inline unsigned long millis() { return Storage.nowMs; }
+inline HalFile HalFile::openNextFile() {
+  return nextChild < children.size() ? storage->open(children[nextChild++].c_str()) : HalFile{};
+}
 inline int HalFile::read(void* buffer, size_t length) {
   if (!bytes || storage->fail() || path == storage->failRead) return -1;
   const size_t count = std::min(length, bytes->size() - offset);
@@ -107,4 +142,4 @@ inline size_t HalFile::write(const uint8_t* buffer, size_t length) {
   storage->record();
   return length;
 }
-inline bool HalFile::close() { return !storage->fail() && path != storage->failClose; }
+inline bool HalFile::close() { return !storage || (!storage->fail() && path != storage->failClose); }

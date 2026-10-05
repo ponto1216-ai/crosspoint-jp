@@ -197,6 +197,16 @@ bool BookReaderSettings::load(const uint64_t fingerprint, Override& result) {
   return readOverride(entry, result);
 }
 
+bool BookReaderSettings::decodeSavedOverride(JsonObjectConst entry, Override& value, uint32_t& updatedAt) {
+  Override candidate;
+  uint32_t timestamp = 0;
+  if (entry.isNull() || !readOverride(entry, candidate) || !yomuka::sync::readUpdateTime(entry, timestamp))
+    return false;
+  value = candidate;
+  updatedAt = timestamp;
+  return true;
+}
+
 yomuka::sync::ReadStatus BookReaderSettings::readForSync(const uint64_t fingerprint, Override& result,
                                                          uint32_t& updatedAt) {
   HalStorage::StorageLock lock;
@@ -210,8 +220,7 @@ yomuka::sync::ReadStatus BookReaderSettings::readForSync(const uint64_t fingerpr
   if (entry.isUnbound()) return yomuka::sync::ReadStatus::Absent;
   Override candidate;
   uint32_t timestamp = 0;
-  if (!entry.is<JsonObjectConst>() || !readOverride(entry.as<JsonObjectConst>(), candidate) ||
-      !yomuka::sync::readUpdateTime(entry.as<JsonObjectConst>(), timestamp))
+  if (!entry.is<JsonObjectConst>() || !decodeSavedOverride(entry.as<JsonObjectConst>(), candidate, timestamp))
     return yomuka::sync::ReadStatus::Corrupt;
   result = candidate;
   updatedAt = timestamp;

@@ -24,7 +24,7 @@
 #include "util/LibraryProfile.h"
 
 int HomeActivity::getMenuItemCount() const {
-  int count = 5;  // File Browser, Recents, Aozora, File transfer, Settings
+  int count = 5;  // File Browser, Recents, Aozora, Sharing/transfer, Settings
   if (!recentBooks.empty()) {
     count += recentBooks.size();
   }
@@ -290,7 +290,7 @@ void HomeActivity::render(RenderLock&&) {
                           coverBufferStored, bufferRestored, std::bind(&HomeActivity::storeCoverBuffer, this));
 
   // Build menu items dynamically
-  std::vector<const char*> menuItems = {tr(STR_BROWSE_FILES), tr(STR_MENU_RECENT_BOOKS), tr(STR_FILE_TRANSFER),
+  std::vector<const char*> menuItems = {tr(STR_BROWSE_FILES), tr(STR_MENU_RECENT_BOOKS), tr(STR_SHARE_TRANSFER),
                                         tr(STR_SETTINGS_TITLE)};
   std::vector<UIIcon> menuIcons = {Folder, Recent, Transfer, Settings};
 

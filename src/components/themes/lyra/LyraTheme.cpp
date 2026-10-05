@@ -31,6 +31,7 @@
 #include "components/icons/library.h"
 #include "components/icons/recent.h"
 #include "components/icons/settings2.h"
+#include "components/icons/share_transfer.h"
 #include "components/icons/text24.h"
 #include "components/icons/transfer.h"
 #include "components/icons/wifi.h"
@@ -175,6 +176,8 @@ const uint8_t* iconForName(UIIcon icon, int size) {
         return BookReading24Icon;
       case UIIcon::BookFinished:
         return BookFinished24Icon;
+      case UIIcon::ShareTransfer:
+        return ShareTransfer24Icon;
       default:
         return nullptr;
     }
@@ -190,6 +193,8 @@ const uint8_t* iconForName(UIIcon icon, int size) {
         return Settings2Icon;
       case UIIcon::Transfer:
         return TransferIcon;
+      case UIIcon::ShareTransfer:
+        return ShareTransferIcon;
       case UIIcon::Library:
         return LibraryIcon;
       case UIIcon::Wifi:

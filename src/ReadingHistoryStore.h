@@ -71,6 +71,10 @@ class ReadingHistoryStore {
   void noteBookChange(ReadingHistoryBook& book);
 
  public:
+  // Decode persisted book summaries and deletion records without storage writes.
+  static yomuka::sync::ReadStatus decodeSavedBooks(const JsonDocument& document,
+                                                   std::vector<ReadingHistoryBook>& output,
+                                                   std::vector<uint64_t>& removed);
   static ReadingHistoryStore& getInstance() { return instance; }
 
   // A session is deliberately separate from progress.bin.  It is used only by

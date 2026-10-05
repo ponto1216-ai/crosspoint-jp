@@ -67,6 +67,15 @@ bool sameBookmarks(JsonArrayConst previous, JsonArrayConst candidate) {
 }
 }  // namespace
 
+bool decodeSavedBookmarks(JsonObjectConst object, std::vector<BookmarkEntry>& value, uint32_t& updatedAt) {
+  uint32_t timestamp = 0;
+  std::vector<BookmarkEntry> candidate;
+  if (object.isNull() || !readUpdateTime(object, timestamp) || !decode(object, candidate)) return false;
+  value = std::move(candidate);
+  updatedAt = timestamp;
+  return true;
+}
+
 ReadStatus readBookmarks(const std::string& path, std::vector<BookmarkEntry>& value, uint32_t& updatedAt) {
   HalStorage::StorageLock lock;
   JsonDocument document;
@@ -74,8 +83,7 @@ ReadStatus readBookmarks(const std::string& path, std::vector<BookmarkEntry>& va
   if (status != ReadStatus::Present) return status;
   uint32_t timestamp = 0;
   std::vector<BookmarkEntry> candidate;
-  if (!document.is<JsonObject>() || !readUpdateTime(document.as<JsonObjectConst>(), timestamp) ||
-      !decode(document.as<JsonObjectConst>(), candidate))
+  if (!document.is<JsonObject>() || !decodeSavedBookmarks(document.as<JsonObjectConst>(), candidate, timestamp))
     return ReadStatus::Corrupt;
   value = std::move(candidate);
   updatedAt = timestamp;

@@ -12,6 +12,7 @@ enum class NetworkMode { JOIN_NETWORK, CONNECT_CALIBRE, CREATE_HOTSPOT };
  * - "Join a Network" - Connect to an existing WiFi network (STA mode)
  * - "Connect to Calibre" - Use Calibre wireless device transfers
  * - "Create Hotspot" - Create an Access Point that others can connect to (AP mode)
+ * - "Reading data sharing" - Inspect saved book data without starting WiFi
  *
  * The onModeSelected callback is called with the user's choice.
  * The onCancel callback is called if the user presses back.

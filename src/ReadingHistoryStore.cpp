@@ -89,6 +89,29 @@ yomuka::sync::ReadStatus validateHistory(const JsonDocument& document) {
 }  // namespace
 
 ReadingHistoryStore ReadingHistoryStore::instance;
+// Share-candidate discovery reads this aggregate once, rather than once per book.
+yomuka::sync::ReadStatus ReadingHistoryStore::decodeSavedBooks(const JsonDocument& document,
+                                                               std::vector<ReadingHistoryBook>& output,
+                                                               std::vector<uint64_t>& removed) {
+  const auto status = validateHistory(document);
+  if (status != yomuka::sync::ReadStatus::Present) return status;
+  std::vector<ReadingHistoryBook> candidate;
+  std::vector<uint64_t> deletions;
+  for (JsonVariantConst entry : document["books"].as<JsonArrayConst>()) {
+    ReadingHistoryBook book;
+    if (!readBook(entry, book)) return yomuka::sync::ReadStatus::Corrupt;
+    candidate.push_back(std::move(book));
+  }
+  for (JsonPairConst entry : document["removedBooks"].as<JsonObjectConst>()) {
+    uint64_t id = 0;
+    if (!parseBookId(entry.key().c_str(), id)) return yomuka::sync::ReadStatus::Corrupt;
+    deletions.push_back(id);
+  }
+  output = std::move(candidate);
+  removed = std::move(deletions);
+  return yomuka::sync::ReadStatus::Present;
+}
+
 bool ReadingHistoryStore::prepareForSync(const ReadingHistoryBook& book, uint32_t updatedAt, JsonDocument& output) {
   HalStorage::StorageLock lock;
   if (!activePath.empty() || dirty || !book.bookId) return false;

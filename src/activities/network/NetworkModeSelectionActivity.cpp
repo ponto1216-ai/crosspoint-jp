@@ -4,12 +4,13 @@
 #include <I18n.h>
 
 #include "MappedInputManager.h"
+#include "activities/home/ShareCandidatesActivity.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
 
 namespace {
-constexpr int MENU_ITEM_COUNT = 3;
+constexpr int MENU_ITEM_COUNT = 4;
 }  // namespace
 
 void NetworkModeSelectionActivity::onEnter() {
@@ -33,6 +34,11 @@ void NetworkModeSelectionActivity::loop() {
 
   // Handle confirm button - select current option
   if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+    if (selectedIndex == 3) {
+      startActivityForResult(std::make_unique<ShareCandidatesActivity>(renderer, mappedInput, true),
+                             [](const ActivityResult&) {});
+      return;
+    }
     NetworkMode mode = NetworkMode::JOIN_NETWORK;
     if (selectedIndex == 1) {
       mode = NetworkMode::CONNECT_CALIBRE;
@@ -63,17 +69,18 @@ void NetworkModeSelectionActivity::render(RenderLock&&) {
   const auto layout = UiLayout::from(renderer);
 
   GUI.drawHeader(renderer, Rect{layout.content.x, metrics.topPadding, layout.content.width, metrics.headerHeight},
-                 tr(STR_FILE_TRANSFER));
+                 tr(STR_SHARE_TRANSFER));
 
   const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
   const int bottomHints = layout.landscape ? 0 : metrics.buttonHintsHeight + metrics.verticalSpacing;
   const int contentHeight = pageHeight - contentTop - bottomHints - metrics.verticalSpacing;
   // Menu items and descriptions
   static constexpr StrId menuItems[MENU_ITEM_COUNT] = {StrId::STR_JOIN_NETWORK, StrId::STR_CALIBRE_WIRELESS,
-                                                       StrId::STR_CREATE_HOTSPOT};
+                                                       StrId::STR_CREATE_HOTSPOT, StrId::STR_SHARE_TITLE};
   static constexpr StrId menuDescs[MENU_ITEM_COUNT] = {StrId::STR_JOIN_DESC, StrId::STR_CALIBRE_DESC,
-                                                       StrId::STR_HOTSPOT_DESC};
-  static constexpr UIIcon menuIcons[MENU_ITEM_COUNT] = {UIIcon::Wifi, UIIcon::Library, UIIcon::Hotspot};
+                                                       StrId::STR_HOTSPOT_DESC, StrId::STR_SHARE_DATA_DESC};
+  static constexpr UIIcon menuIcons[MENU_ITEM_COUNT] = {UIIcon::Wifi, UIIcon::Library, UIIcon::Hotspot,
+                                                        UIIcon::ShareTransfer};
 
   GUI.drawList(
       renderer, Rect{layout.content.x, contentTop, layout.content.width, contentHeight},

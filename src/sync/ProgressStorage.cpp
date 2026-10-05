@@ -26,24 +26,31 @@ ReadStatus matchingTime(const std::string& path, const uint8_t* progress, size_t
     return ReadStatus::Present;
   }
   if (status != ReadStatus::Present) return status == ReadStatus::LimitExceeded ? ReadStatus::Corrupt : status;
-  if (size != sizeof(metadata) || std::memcmp(metadata, "YSM1", 4) != 0) return ReadStatus::Corrupt;
+  return decodeSavedProgressTime(progress, length, metadata, size, timestamp) ? ReadStatus::Present
+                                                                              : ReadStatus::Corrupt;
+}
+}  // namespace
+
+bool decodeSavedProgressTime(const uint8_t* progress, size_t length, const uint8_t* metadata, size_t size,
+                             uint32_t& timestamp) {
+  if (!progress || length > 8 || !metadata || size != kMetadataSize || std::memcmp(metadata, "YSM1", 4) != 0)
+    return false;
   for (size_t i = 0; i < 2; ++i) {
     const uint8_t* slot = metadata + 4 + kSlotSize * i;
-    if (slot[4] > 8) return ReadStatus::Corrupt;
+    if (slot[4] > 8) return false;
   }
   // The candidate slot comes first. A local no-op never prepares new metadata.
   for (size_t i = 0; i < 2; ++i) {
     const uint8_t* slot = metadata + 4 + kSlotSize * i;
     if (slot[4] == length && std::memcmp(slot + 5, progress, length) == 0) {
       timestamp = getTime(slot);
-      return ReadStatus::Present;
+      return true;
     }
   }
   // Legacy/external writes did not provide a date for these bytes.
   timestamp = 0;
-  return ReadStatus::Present;
+  return true;
 }
-}  // namespace
 
 ReadStatus readProgress(const std::string& path, Progress& value, uint32_t& updatedAt) {
   HalStorage::StorageLock lock;

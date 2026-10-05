@@ -60,6 +60,8 @@ bool prepareForSync(uint64_t fingerprint, const Override& value, uint32_t update
 // EPUB update. The prior override remains available under its original key.
 bool migrate(uint64_t previousFingerprint, uint64_t currentFingerprint);
 bool hasAnyField(const Override& value);
+// Validate a saved entry without reading or changing storage.
+bool decodeSavedOverride(JsonObjectConst entry, Override& value, uint32_t& updatedAt);
 Override captureAll(const CrossPointSettings& settings);
 
 // Apply an override to an in-memory effective reader configuration.  Fields

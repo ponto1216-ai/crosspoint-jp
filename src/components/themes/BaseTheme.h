@@ -89,7 +89,8 @@ enum UIIcon {
   Hotspot,
   BookUnread,
   BookReading,
-  BookFinished
+  BookFinished,
+  ShareTransfer
 };
 
 enum class KeyboardKeyType { Normal, Shift, Mode, Space, Del, Ok, Disabled };
