@@ -7,6 +7,7 @@ s=(root/'src/activities/home/ReceivedReviewActivity.cpp').read_text(encoding='ut
 loop=s[s.index('void ReceivedReviewActivity::loop()'):s.index('void ReceivedReviewActivity::render(')]
 cpp=r'''
 #include <algorithm>
+#include <memory>
 #include <functional>
 #include <iostream>
 #include <vector>
@@ -18,10 +19,14 @@ struct MappedInputManager {
  bool isPressed(Button b){return held==b;} bool wasPressed(Button b){return pressed==b;} bool wasReleased(Button b){return released==b;} void update(){}
 };
 using B=MappedInputManager::Button;
+enum class ReceivedStatus{Matched};
+struct ActivityResult{};
+struct BatchImportActivity {BatchImportActivity(int&,MappedInputManager&,const std::vector<int>&){}};
 struct RenderLock{~RenderLock(){}};struct HalPowerManager{struct Lock{~Lock(){}};};unsigned long millis(){return 2000;}
 struct Scanner {
  bool complete=false,cancelled=false;int steps=0;std::vector<int> entries{0,1,2};
  bool done(){return complete;} const auto& books(){return entries;}
+ size_t count(ReceivedStatus){return entries.empty()?0:1;}
  template<class F>void step(F f){++steps;cancelled=f();if(cancelled)complete=true;}
 };
 struct Navigator {
@@ -35,6 +40,8 @@ struct ButtonNavigator {
 };
 struct ReceivedReviewActivity {
  MappedInputManager& mappedInput;Scanner scanner;Navigator navigator;
+ int renderer=0; bool openedImport=false;
+ template<class F>void startActivityForResult(std::unique_ptr<BatchImportActivity>, F){openedImport=true;}
  size_t cursor=0,detailCursor=0;unsigned long lastUpdate=0;
  bool detail=false,ignoreConfirm=true,ignoreBack=true,finished=false;
  explicit ReceivedReviewActivity(MappedInputManager& i):mappedInput(i),navigator{i}{}
@@ -56,6 +63,7 @@ int main(){
  i.pressed=B::None;i.released=B::Back;list.loop();CHECK(!list.detail && !list.finished);
  i.released=B::None;list.loop();i.released=B::Back;list.loop();CHECK(list.finished);
  MappedInputManager j;ReceivedReviewActivity empty(j);empty.scanner.complete=true;empty.scanner.entries.clear();empty.loop();j.released=B::Confirm;empty.loop();CHECK(!empty.detail);
+ list.finished=false;list.cursor=3;i.released=B::Confirm;list.loop();CHECK(list.openedImport && !list.detail);
  std::cout<<"PASS: opening Back release ignored, scanning cancel, list navigation, detail, one Back returns once, empty inbox\n";
 }
 '''

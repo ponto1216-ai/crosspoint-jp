@@ -5,6 +5,7 @@
 
 #include <cstdio>
 
+#include "BatchImportActivity.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
@@ -66,7 +67,8 @@ void ReceivedReviewActivity::loop() {
   }
   if (scanner.books().empty()) return;
   RenderLock lock;
-  const auto count = detail ? details(scanner.books()[cursor]).size() : scanner.books().size();
+  const bool canImport = scanner.count(ReceivedStatus::Matched) > 0;
+  const auto count = detail ? details(scanner.books()[cursor]).size() : scanner.books().size() + (canImport ? 1 : 0);
   navigator.onNextRelease([this, count] {
     auto& index = detail ? detailCursor : cursor;
     index = ButtonNavigator::nextIndex(index, count);
@@ -78,6 +80,13 @@ void ReceivedReviewActivity::loop() {
     requestUpdate();
   });
   if (!skipConfirm && !detail && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+    if (cursor == scanner.books().size()) {
+      startActivityForResult(std::make_unique<BatchImportActivity>(renderer, mappedInput, scanner.books()),
+                             [](const ActivityResult&) {});
+      ignoreConfirm = true;
+      ignoreBack = true;
+      return;
+    }
     detail = true;
     detailCursor = 0;
     requestUpdate();
@@ -116,13 +125,23 @@ void ReceivedReviewActivity::render(RenderLock&&) {
                   " / " + tr(STR_RECEIVED_ERROR) + ": " + std::to_string(scanner.count(ReceivedStatus::Error)));
     GUI.drawList(
         renderer, Rect{layout.content.x, top + line, layout.content.width, bottom - top - line * 2},
-        scanner.books().size(), cursor, [this](int i) { return scanner.books()[i].title; },
-        [this](int i) { return std::string("　") + status(scanner.books()[i]); });
+        scanner.books().size() + (scanner.count(ReceivedStatus::Matched) ? 1 : 0), cursor,
+        [this](int i) {
+          return i < static_cast<int>(scanner.books().size()) ? scanner.books()[i].title
+                                                              : std::string(tr(STR_IMPORT_SELECT));
+        },
+        [this](int i) {
+          return i < static_cast<int>(scanner.books().size()) ? std::string("　") + status(scanner.books()[i])
+                                                              : std::string();
+        });
     text(bottom, scanner.warnings ? tr(STR_RECEIVED_INCOMPLETE) : tr(STR_DIRECT_NO_IMPORT));
   }
-  auto labels = mappedInput.mapLabels(
-      tr(STR_BACK), scanner.done() && !scanner.books().empty() && !detail ? tr(STR_RECEIVED_DETAIL) : "",
-      scanner.done() ? tr(STR_DIR_UP) : "", scanner.done() ? tr(STR_DIR_DOWN) : "");
+  auto labels =
+      mappedInput.mapLabels(tr(STR_BACK),
+                            scanner.done() && !scanner.books().empty() && !detail
+                                ? (cursor == scanner.books().size() ? tr(STR_CONFIRM) : tr(STR_RECEIVED_DETAIL))
+                                : "",
+                            scanner.done() ? tr(STR_DIR_UP) : "", scanner.done() ? tr(STR_DIR_DOWN) : "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }

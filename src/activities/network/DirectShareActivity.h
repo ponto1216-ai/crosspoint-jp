@@ -22,7 +22,7 @@ class DirectShareActivity final : public Activity {
   std::vector<yomuka::sync::ShareCandidate> books;
   yomuka::sync::DirectShareBatch transfer;
   std::vector<std::string> transferNotes;
-  bool batchStarted = false, preparingOffline = false;
+  bool batchStarted = false, preparingOffline = false, retryingTransfer = false;
   yomuka::sync::BatchSnapshot offlineBatch;
   std::vector<uint8_t> prepared;
   std::vector<std::string> preparationNotes;

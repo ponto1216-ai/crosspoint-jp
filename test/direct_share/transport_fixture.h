@@ -44,7 +44,7 @@ class DirectShareActivity {
   enum class State { Prepare, Hello, Confirm, Reply, Receive, Message };
   State state = State::Receive;
   bool posted = false, headerDone = false, cancel = false;
-  bool batchStarted = false, consumeBackRelease = false, preparingOffline = false;
+  bool batchStarted = false, consumeBackRelease = false, preparingOffline = false, retryingTransfer = false;
   bool wifiStarted = false;
   std::vector<int> books;
   std::vector<uint8_t> prepared;
@@ -248,5 +248,32 @@ int transportTests(const std::string& payload) {
   invalid.finishPreparation(false);
   CHECK(!invalid.wifiStarted && invalid.transfer.count(TransferResult::Failed) == 1 &&
         invalid.transferNotes[0] == "STR_SHARE_DATA_ERROR");
+  DirectShareBatch retry;
+  retry.start(4);
+  retry.record(TransferResult::Sent);
+  retry.record(TransferResult::Failed);
+  retry.record(TransferResult::Uncertain);
+  retry.record(TransferResult::NotSent);
+  CHECK(retry.canRetry());
+  retry.retry();
+  CHECK(retry.current() == 1);
+  retry.record(TransferResult::Sent);
+  CHECK(retry.current() == 3);
+  retry.record(TransferResult::Sent);
+  CHECK(retry.done() && !retry.canRetry());
+  CHECK(retry.results()[0] == TransferResult::Sent && retry.results()[2] == TransferResult::Uncertain);
+  DirectShareActivity failedRetry;
+  failedRetry.books = {1, 2, 3};
+  failedRetry.retryingTransfer = true;
+  failedRetry.transfer.start(3);
+  failedRetry.transfer.record(TransferResult::Sent);
+  failedRetry.transfer.record(TransferResult::Failed);
+  failedRetry.transfer.record(TransferResult::Sent);
+  failedRetry.transfer.retry();
+  failedRetry.transferNotes = {"STR_DIRECT_SENT", "failed", "STR_DIRECT_SENT"};
+  failedRetry.offlineBatch.entries = {{1, BatchResult::Failed, BatchError::Source}};
+  failedRetry.finishPreparation(false);
+  CHECK(failedRetry.transfer.done() && failedRetry.transfer.count(TransferResult::Sent) == 2 &&
+        failedRetry.transferNotes[0] == "STR_DIRECT_SENT");
   return 0;
 }

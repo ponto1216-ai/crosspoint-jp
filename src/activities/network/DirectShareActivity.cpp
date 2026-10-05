@@ -150,11 +150,14 @@ void DirectShareActivity::finishPreparation(bool stopped) {
     }
   }
   if (stopped || std::count(prepared.begin(), prepared.end(), 1) == 0) {
-    transfer.start(books.size());
-    transferNotes = preparationNotes;
+    if (!retryingTransfer) {
+      transfer.start(books.size());
+      transferNotes = preparationNotes;
+    }
     batchStarted = true;
     for (const auto& entry : offlineBatch.results()) {
       const bool failed = entry.result == BatchResult::Failed;
+      transferNotes[entry.index] = preparationNotes[entry.index];
       transfer.record(failed ? TransferResult::Failed : TransferResult::NotSent);
       if (!failed) transferNotes[entry.index] = tr(STR_DIRECT_NOT_SENT);
     }
@@ -475,8 +478,10 @@ void DirectShareActivity::loop() {
   if (state == State::Confirm && !ignore && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     {
       RenderLock lock;
-      transfer.start(books.size());
-      transferNotes = preparationNotes;
+      if (!retryingTransfer) {
+        transfer.start(books.size());
+        transferNotes = preparationNotes;
+      }
       batchStarted = true;
       state = State::Prepare;
       requestUpdate();
@@ -540,7 +545,7 @@ void DirectShareActivity::loop() {
     });
   }
   if (state == State::Message && batchStarted && !books.empty()) {
-    const int count = static_cast<int>(books.size());
+    const int count = static_cast<int>(books.size() + (transfer.canRetry() ? 1 : 0));
     navigator.onNextRelease([this, count] {
       resultCursor = ButtonNavigator::nextIndex(resultCursor, count);
       requestUpdate();
@@ -551,6 +556,29 @@ void DirectShareActivity::loop() {
     });
   }
   if (ignore || !mappedInput.wasReleased(MappedInputManager::Button::Confirm)) return;
+  if (state == State::Message && batchStarted && resultCursor == books.size() && transfer.canRetry()) {
+    // Explicit retry only. Never replay an acknowledged or uncertain POST.
+    socket.stop();
+    listener.end();
+    MDNS.end();
+    body.reset();
+    incoming.clear();
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+    transfer.retry();
+    std::vector<uint8_t> selection(books.size(), 0);
+    for (size_t i = 0; i < books.size(); ++i) selection[i] = transfer.results()[i] == TransferResult::Pending;
+    offlineBatch.start(selection);
+    retryingTransfer = true;
+    preparingOffline = true;
+    batchStarted = false;
+    peers.clear();
+    cursor = resultCursor = 0;
+    consumeBackRelease = false;
+    state = State::Prepare;
+    requestUpdate();
+    return;
+  }
   if (state == State::Peers) {
     if (cursor == peers.size()) {
       state = State::Discover;
@@ -588,7 +616,8 @@ void DirectShareActivity::render(RenderLock&&) {
           return static_cast<size_t>(i) == peers.size() ? std::string("") : std::string(peers[i].ip.toString().c_str());
         });
   } else if (state == State::Confirm) {
-    text(0, std::string(tr(STR_SHARE_SELECTED)) + ": " + std::to_string(books.size()));
+    text(0, std::string(tr(STR_SHARE_SELECTED)) + ": " +
+                std::to_string(retryingTransfer ? transfer.count(TransferResult::Pending) : books.size()));
     text(1, peers[cursor].name);
     text(2, peers[cursor].ip.toString().c_str());
     text(3, tr(STR_DIRECT_SEND_CONFIRM));
@@ -613,8 +642,12 @@ void DirectShareActivity::render(RenderLock&&) {
         renderer,
         Rect{layout.content.x, listTop, layout.content.width,
              layout.content.y + layout.content.height - listTop - metrics.buttonHintsHeight - line},
-        books.size(), resultCursor, [this](int i) { return books[i].title; },
+        books.size() + (transfer.canRetry() ? 1 : 0), resultCursor,
         [this](int i) {
+          return i < static_cast<int>(books.size()) ? books[i].title : std::string(tr(STR_DIRECT_RETRY_FAILED));
+        },
+        [this](int i) {
+          if (i == static_cast<int>(books.size())) return std::string();
           return transfer.results()[i] == TransferResult::NotSent ? std::string(tr(STR_DIRECT_NOT_SENT))
                                                                   : transferNotes[i];
         });
@@ -632,7 +665,7 @@ void DirectShareActivity::render(RenderLock&&) {
                                        : tr(STR_DIRECT_TRANSFERRING));
     if (preparingOffline && !offlineBatch.done()) {
       text(1, std::to_string(offlineBatch.completed() + 1) + " / " + std::to_string(books.size()));
-      text(2, books[offlineBatch.completed()].title);
+      text(2, books[offlineBatch.results()[offlineBatch.completed()].index].title);
     }
     if (batchStarted && !transfer.done()) {
       text(1, std::to_string(transfer.current() + 1) + " / " + std::to_string(books.size()));
@@ -644,8 +677,9 @@ void DirectShareActivity::render(RenderLock&&) {
   const auto labels = mappedInput.mapLabels(
       tr(STR_BACK),
       state == State::Confirm ? tr(STR_SHARE_WRITE_SHORT)
-      : state == State::Peers ? tr(STR_SELECT)
-                              : "",
+      : state == State::Message && batchStarted && resultCursor == books.size() && transfer.canRetry() ? tr(STR_CONFIRM)
+      : state == State::Peers                                                                          ? tr(STR_SELECT)
+                                                                                                       : "",
       (state == State::Peers || (state == State::Message && batchStarted)) ? tr(STR_DIR_UP) : "",
       (state == State::Peers || (state == State::Message && batchStarted)) ? tr(STR_DIR_DOWN) : "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
