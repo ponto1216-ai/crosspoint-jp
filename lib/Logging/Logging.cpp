@@ -78,9 +78,9 @@ void logPrintf(const char* level, const char* origin, const char* format, ...) {
   SemaphoreHandle_t mutex = diagnosticLogMutex();
   const bool locked = mutex && xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE;
 #endif
-  if (logSerial) {
-    logSerial.print(buf);
-  }
+  // USB CDC may briefly report disconnected while the CPU changes speed.
+  // Keep the bounded write attempt so those log lines are not skipped.
+  logSerial.print(buf);
   addToLogRingBuffer(buf);
 #if SD_FONT_DIAGNOSTICS
   if (locked) xSemaphoreGive(mutex);
