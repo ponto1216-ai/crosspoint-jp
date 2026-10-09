@@ -17,7 +17,8 @@ sources = ['test/layout_memory/LayoutMemoryTest.cpp', 'lib/Epub/Epub/ParsedText.
            'lib/Epub/Epub/hyphenation/Hyphenator.cpp', 'lib/Epub/Epub/hyphenation/LanguageRegistry.cpp',
            'lib/Epub/Epub/hyphenation/LiangHyphenation.cpp', 'lib/Epub/Epub/hyphenation/HyphenationCommon.cpp',
            'lib/Utf8/Utf8.cpp']
-includes = ['test/layout_memory/stubs', 'test/text_emphasis/stubs', 'lib/Epub', 'lib/Utf8', 'lib/GfxRenderer']
+includes = ['test/layout_memory/stubs', 'test/text_emphasis/stubs', 'lib/Epub', 'lib/Utf8', 'lib/GfxRenderer',
+            'lib/Logging']
 cmd = [args.compiler] + (['c++', '-Wno-nullability-completeness'] if args.zig else [])
 cmd += ['-std=c++20', '-O0', '-g', '-fno-exceptions']
 cmd += [f'-I{root / p}' for p in includes]

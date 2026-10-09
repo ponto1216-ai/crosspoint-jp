@@ -299,6 +299,41 @@ int main() {
     assert(!ellipsis.layoutFailed() && ellipsis.isEmpty());
     assertKinsokuBoundary(blocks);
   }
+  // A long plain column can save one pixel per gap to retain a final 、 or 。
+  // in its own cell. A short full column still uses the old kinsoku break.
+  for (const char* mark : {"、", "。"}) {
+    ESP = {};
+    BlockStyle style;
+    style.textIndentDefined = true;
+    ParsedText punctuation(false, style);
+    for (int i = 0; i < 20; ++i) punctuation.addWord("あ", EpdFontFamily::REGULAR);
+    punctuation.addWord(mark, EpdFontFamily::REGULAR);
+    punctuation.addWord("え", EpdFontFamily::REGULAR);
+    std::vector<std::unique_ptr<TextBlock>> columns;
+    punctuation.layoutVerticalColumns(renderer, 1, 400, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!punctuation.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().size() == 21 && columns[1]->getWords().front() == "え");
+    assert(columns[0]->getWordYpos()[20] == 380);
+    assert(columns[0]->getWordYpos()[20] > columns[0]->getWordYpos()[19]);
+
+    // A completely full column has no room to separate the punctuation;
+    // preserve the old kinsoku break rather than overlaying it on the body.
+    ParsedText fullColumn(false, style);
+    for (const char* word : {"あ", "い", "う"}) fullColumn.addWord(word, EpdFontFamily::REGULAR);
+    fullColumn.addWord(mark, EpdFontFamily::REGULAR);
+    fullColumn.addWord("え", EpdFontFamily::REGULAR);
+    columns.clear();
+    fullColumn.layoutVerticalColumns(renderer, 1, 60, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!fullColumn.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().size() == 2 && columns[1]->getWords()[1] == mark);
+    assert(columns[1]->getWordYpos()[1] > columns[1]->getWordYpos()[0]);
+  }
   ESP = {};
   assert(!LayoutMemory::admit(std::numeric_limits<size_t>::max(), "overflow"));
   assert(LayoutMemory::multiply(std::numeric_limits<size_t>::max(), 2) == std::numeric_limits<size_t>::max());

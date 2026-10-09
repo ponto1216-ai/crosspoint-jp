@@ -242,7 +242,8 @@ bool collectSectionFontCodepoints(const std::string& htmlPath, std::string& uniq
 // 134: Reserve the final rotated glyph and emphasis mark when splitting long
 // sideways Latin runs.
 // 135: Resolve missing SD-font space metrics in the actual style before layout.
-constexpr uint8_t SECTION_FILE_VERSION = 135;
+// 137: Rebuild vertical columns for line-end 、/。 spacing (replaces cell sharing).
+constexpr uint8_t SECTION_FILE_VERSION = 137;
 // Minimum free heap required before attempting to build section pages.
 // Section building involves heavy allocations (Page, TextBlock, PageLine, etc.)
 // and on ESP32 without C++ exceptions, allocation failure calls abort().
