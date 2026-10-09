@@ -1378,17 +1378,38 @@ void SdCardFont::clearAdvanceTables() {
     delete[] advanceTable_[i];
     advanceTable_[i] = nullptr;
     advanceTableSize_[i] = 0;
+    advanceTableCapacity_[i] = 0;
   }
+}
+
+bool SdCardFont::growAdvanceTable(uint8_t style, uint32_t needed) {
+  if (needed <= advanceTableCapacity_[style]) return true;
+  constexpr uint32_t MIN_CAPACITY = 64;
+  uint32_t capacity =
+      std::min<uint32_t>(1024, std::max(needed, std::max(advanceTableCapacity_[style] * 2, MIN_CAPACITY)));
+  AdvanceEntry* grown = new (std::nothrow) AdvanceEntry[capacity];
+  if (!grown && capacity > needed) {
+    capacity = needed;
+    grown = new (std::nothrow) AdvanceEntry[capacity];
+  }
+  if (!grown) return false;
+  if (advanceTableSize_[style] > 0) {
+    memcpy(grown, advanceTable_[style], advanceTableSize_[style] * sizeof(AdvanceEntry));
+  }
+  delete[] advanceTable_[style];
+  advanceTable_[style] = grown;
+  advanceTableCapacity_[style] = capacity;
+  return true;
 }
 
 bool SdCardFont::hasAdvanceTable() const {
   for (uint8_t i = 0; i < MAX_STYLES; i++) {
-    if (advanceTable_[i]) return true;
+    if (advanceTableSize_[i] > 0) return true;
   }
   return false;
 }
 
-bool SdCardFont::hasAdvanceTable(uint8_t style) const { return style < MAX_STYLES && advanceTable_[style] != nullptr; }
+bool SdCardFont::hasAdvanceTable(uint8_t style) const { return style < MAX_STYLES && advanceTableSize_[style] > 0; }
 
 uint16_t SdCardFont::getAdvance(uint32_t codepoint, uint8_t style) const {
   // Fall back to Regular (style 0) if requested style has no advance table
@@ -1536,12 +1557,23 @@ int SdCardFont::buildAdvanceTable(const char* utf8Text, uint8_t styleMask) {
     }
   }
   if (totalChars == 0) return 0;
+  static constexpr uint32_t MAX_ADVANCE_CODEPOINTS = 1024;
+
+  // Grow before the temporary codepoint buffers are allocated, so the table
+  // does not settle inside the hole those buffers leave after layout.
+  constexpr uint32_t GROWTH_HEADROOM = 64;
+  for (uint8_t si = 0; si < MAX_STYLES; si++) {
+    if (!(styleMask & (1 << si)) || !styles_[si].present) continue;
+    const uint32_t size = advanceTableSize_[si];
+    if (size < MAX_ADVANCE_CODEPOINTS && advanceTableCapacity_[si] - size < GROWTH_HEADROOM) {
+      growAdvanceTable(si, std::min(size + GROWTH_HEADROOM, MAX_ADVANCE_CODEPOINTS));
+    }
+  }
 
   // Allocate buffer for unique codepoints.
   // Cap at MAX_ADVANCE_CODEPOINTS to prevent OOM on large CJK sections.
   // Codepoints beyond the cap are still renderable via onGlyphMiss(), just
   // without a cached advance value (falls back to SD read).
-  static constexpr uint32_t MAX_ADVANCE_CODEPOINTS = 1024;
   const uint32_t bufSize = (totalChars < MAX_ADVANCE_CODEPOINTS) ? totalChars : MAX_ADVANCE_CODEPOINTS;
   uint32_t* codepoints = new (std::nothrow) uint32_t[bufSize];
   if (!codepoints) {
@@ -1652,6 +1684,7 @@ int SdCardFont::buildAdvanceTable(const char* utf8Text, uint8_t styleMask) {
       delete[] advanceTable_[si];
       advanceTable_[si] = nullptr;
       advanceTableSize_[si] = 0;
+      advanceTableCapacity_[si] = 0;
       delete[] mappings;
       continue;
     }
@@ -1705,27 +1738,24 @@ int SdCardFont::buildAdvanceTable(const char* utf8Text, uint8_t styleMask) {
     }
 
     const uint32_t mergedCount = oldCount + validCount;
-    AdvanceEntry* merged = new (std::nothrow) AdvanceEntry[mergedCount];
-    if (!merged) {
+    if (!growAdvanceTable(si, mergedCount)) {
       LOG_ERR("SDCF", "buildAdvanceTable: failed to grow table to %u entries for style %u", mergedCount, si);
       delete[] additions;
       continue;
     }
-    uint32_t oldPos = 0;
-    uint32_t addPos = 0;
-    uint32_t mergedPos = 0;
-    while (oldPos < oldCount && addPos < validCount) {
-      if (advanceTable_[si][oldPos].codepoint < additions[addPos].codepoint) {
-        merged[mergedPos++] = advanceTable_[si][oldPos++];
+    // Merge from the end to preserve existing entries while filling spare capacity.
+    AdvanceEntry* table = advanceTable_[si];
+    uint32_t oldPos = oldCount;
+    uint32_t addPos = validCount;
+    uint32_t mergedPos = mergedCount;
+    while (addPos > 0) {
+      if (oldPos > 0 && table[oldPos - 1].codepoint > additions[addPos - 1].codepoint) {
+        table[--mergedPos] = table[--oldPos];
       } else {
-        merged[mergedPos++] = additions[addPos++];
+        table[--mergedPos] = additions[--addPos];
       }
     }
-    while (oldPos < oldCount) merged[mergedPos++] = advanceTable_[si][oldPos++];
-    while (addPos < validCount) merged[mergedPos++] = additions[addPos++];
     delete[] additions;
-    delete[] advanceTable_[si];
-    advanceTable_[si] = merged;
     advanceTableSize_[si] = mergedCount;
 
     LOG_DBG("SDCF", "Extended advance table: style %u, +%u = %u entries", si, validCount, mergedCount);

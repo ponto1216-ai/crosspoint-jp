@@ -284,7 +284,9 @@ class SdCardFont {
   };
   AdvanceEntry* advanceTable_[MAX_STYLES] = {};
   uint32_t advanceTableSize_[MAX_STYLES] = {};
+  uint32_t advanceTableCapacity_[MAX_STYLES] = {};
   void clearAdvanceTables();
+  bool growAdvanceTable(uint8_t style, uint32_t needed);
 
   Stats stats_;
   uint32_t contentHash_ = 0;
