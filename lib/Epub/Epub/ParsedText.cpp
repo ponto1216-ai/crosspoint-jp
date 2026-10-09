@@ -497,6 +497,7 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
 
   // Only accepted lines are consumed, including when a later line fails.
   consumePrefix(consumed);
+  if (consumed) firstLineConsumed = true;
 }
 
 void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fontId, const uint16_t columnHeight,
@@ -862,7 +863,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
   // space (U+3000): the book uses it as its own first-line indent, so adding
   // another cell would double the gap (2 cells). Match Kindle.
   const bool startsWithIdeographicSpace = !words.empty() && firstCodepoint(words.front()) == 0x3000;
-  if (firstLineIndent && blockStyle.textIndent == 0 && !blockStyle.textIndentDefined &&
+  if (!firstLineConsumed && firstLineIndent && blockStyle.textIndent == 0 && !blockStyle.textIndentDefined &&
       (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left) &&
       !startsWithIdeographicSpace) {
     verticalIndent = cjkCharAdvance > 0 ? cjkCharAdvance : lineHeight;
@@ -1018,6 +1019,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
   }
 
   consumePrefix(emitStart);
+  if (emitStart) firstLineConsumed = true;
 }
 
 std::vector<uint16_t> ParsedText::calculateWordWidths(const GfxRenderer& renderer, const int fontId) {
@@ -1063,7 +1065,7 @@ std::vector<size_t> ParsedText::computeLineBreaks(const GfxRenderer& renderer, c
 
   // Ensure any word that would overflow even as the first entry on a line is split using fallback hyphenation.
   for (size_t i = 0; i < wordWidths.size(); ++i) {
-    const int effectiveWidth = i == 0 ? pageWidth - effectiveIndent : pageWidth;
+    const int effectiveWidth = i == 0 && !firstLineConsumed ? pageWidth - effectiveIndent : pageWidth;
     while (wordWidths[i] > effectiveWidth) {
       if (!hyphenateWordAtIndex(i, effectiveWidth, renderer, fontId, wordWidths, /*allowFallbackBreaks=*/true,
                                 &continuesVec, &wordIsCjkVec)) {
@@ -1077,7 +1079,7 @@ std::vector<size_t> ParsedText::computeLineBreaks(const GfxRenderer& renderer, c
   std::vector<size_t> lineBreakIndices;
   lineBreakIndices.reserve(words.size());
   size_t currentIndex = 0;
-  bool isFirstLine = true;
+  bool isFirstLine = !firstLineConsumed;
 
   while (currentIndex < wordWidths.size()) {
     const size_t lineStart = currentIndex;
@@ -1118,7 +1120,7 @@ std::vector<size_t> ParsedText::computeLineBreaks(const GfxRenderer& renderer, c
 }
 
 void ParsedText::applyParagraphIndent() {
-  if (words.empty()) {
+  if (words.empty() || firstLineConsumed || fallbackIndentApplied) {
     return;
   }
 
@@ -1128,6 +1130,7 @@ void ParsedText::applyParagraphIndent() {
     // No indent configured - use EmSpace fallback for visual indent
     if (!admitLayout(LayoutMemory::add(words.front().size(), 64), "paragraph indent")) return;
     words.front().insert(0, "\xe2\x80\x83");
+    fallbackIndentApplied = true;
   }
 }
 
@@ -1149,7 +1152,7 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
   std::vector<size_t> lineBreakIndices;
   lineBreakIndices.reserve(words.size());
   size_t currentIndex = 0;
-  bool isFirstLine = true;
+  bool isFirstLine = !firstLineConsumed;
 
   while (currentIndex < wordWidths.size()) {
     const size_t lineStart = currentIndex;
@@ -1286,7 +1289,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   const size_t lastBreakAt = breakIndex > 0 ? lineBreakIndices[breakIndex - 1] : 0;
   const size_t lineWordCount = lineBreak - lastBreakAt;
 
-  const bool isFirstLine = breakIndex == 0;
+  const bool isFirstLine = breakIndex == 0 && !firstLineConsumed;
   const bool isHangingIndent3 = blockStyle.textIndentDefined && blockStyle.textIndent < 0;
   const bool isFirstLineIndent3 = firstLineIndent && blockStyle.textIndent > 0;
   const int effectiveIndent =

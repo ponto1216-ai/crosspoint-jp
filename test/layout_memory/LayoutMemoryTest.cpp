@@ -70,6 +70,67 @@ void assertKinsokuBoundary(const std::vector<std::vector<std::string>>& blocks) 
 
 int main() {
   GfxRenderer renderer;
+  // A memory flush keeps the final line/column and later resumes the same paragraph.
+  // Only the actual paragraph start may receive a first-line indent.
+  for (const bool vertical : {false, true}) {
+    for (const bool indent : {false, true}) {
+      for (const bool hyphenation : {false, true}) {
+        BlockStyle style;
+        style.alignment = CssTextAlign::Left;
+        ParsedText paragraph(hyphenation, style, indent);
+        for (int i = 0; i < 30; ++i) paragraph.addWord("字", EpdFontFamily::REGULAR);
+        std::vector<int> starts;
+        std::vector<std::string> firstWords;
+        const auto collect = [&](std::unique_ptr<TextBlock> block) {
+          starts.push_back(vertical ? block->getWordYpos().front() : block->getWordXpos().front());
+          firstWords.push_back(block->getWords().front());
+          return true;
+        };
+        if (vertical)
+          paragraph.layoutVerticalColumns(renderer, 1, 100, collect, false);
+        else
+          paragraph.layoutAndExtractLines(renderer, 1, 100, collect, false);
+        const size_t continuation = starts.size();
+        assert(continuation > 0 && !paragraph.isEmpty());
+        for (int i = 0; i < 20; ++i) paragraph.addWord("字", EpdFontFamily::REGULAR);
+        if (vertical)
+          paragraph.layoutVerticalColumns(renderer, 1, 100, collect);
+        else
+          paragraph.layoutAndExtractLines(renderer, 1, 100, collect);
+        assert(!paragraph.layoutFailed() && paragraph.isEmpty() && starts.size() > continuation);
+        assert(starts[0] == (indent ? 20 : 0));
+        assert(starts[continuation] == 0);
+        if (!vertical && !indent) {
+          assert(firstWords[0] ==
+                 "\xe2\x80\x83"
+                 "字");
+          assert(firstWords[continuation] == "字");
+        }
+      }
+    }
+  }
+  {
+    // A partial pass with no complete line must leave the real first line indented.
+    BlockStyle style;
+    style.alignment = CssTextAlign::Left;
+    ParsedText paragraph(false, style, true);
+    for (int i = 0; i < 3; ++i) paragraph.addWord("字", EpdFontFamily::REGULAR);
+    int emitted = 0;
+    paragraph.layoutAndExtractLines(
+        renderer, 1, 100,
+        [&](std::unique_ptr<TextBlock>) {
+          ++emitted;
+          return true;
+        },
+        false);
+    assert(emitted == 0);
+    for (int i = 0; i < 3; ++i) paragraph.addWord("字", EpdFontFamily::REGULAR);
+    paragraph.layoutAndExtractLines(renderer, 1, 100, [&](std::unique_ptr<TextBlock> line) {
+      if (emitted++ == 0) assert(line->getWordXpos().front() == 20);
+      return true;
+    });
+    assert(!paragraph.layoutFailed() && paragraph.isEmpty() && emitted > 0);
+  }
   for (bool vertical : {false, true}) {
     ESP = {};
     auto p = sample();

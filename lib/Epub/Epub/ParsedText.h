@@ -44,6 +44,8 @@ class ParsedText {
   bool firstLineIndent;
   bool hyphenationEnabled;
   uint8_t tateChuYokoMaxDigits;
+  bool firstLineConsumed = false;
+  bool fallbackIndentApplied = false;
   bool layoutFailed_ = false;
   bool hasHeapForToken();
   bool admitLayout(size_t bytes, const char* stage);
