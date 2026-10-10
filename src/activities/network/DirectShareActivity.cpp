@@ -12,6 +12,7 @@
 #include <cstdio>
 
 #include "WifiSelectionActivity.h"
+#include "components/ActionListDivider.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
@@ -685,17 +686,17 @@ void DirectShareActivity::render(RenderLock&&) {
                  receiving ? tr(STR_DIRECT_RECEIVE) : tr(STR_DIRECT_SEND));
   if (state == State::Peers) {
     text(0, peers.empty() ? tr(STR_DIRECT_NO_PEERS) : tr(STR_DIRECT_PICK_PEER));
+    const Rect listRect{layout.content.x, top + line, layout.content.width,
+                        layout.content.height - top - 2 * line - metrics.buttonHintsHeight};
     GUI.drawList(
-        renderer,
-        Rect{layout.content.x, top + line, layout.content.width,
-             layout.content.height - top - 2 * line - metrics.buttonHintsHeight},
-        peers.size() + 1, cursor,
+        renderer, listRect, peers.size() + 1, cursor,
         [this](int i) {
           return static_cast<size_t>(i) == peers.size() ? std::string(tr(STR_DIRECT_SEARCH)) : peers[i].name;
         },
         [this](int i) {
           return static_cast<size_t>(i) == peers.size() ? std::string("") : std::string(peers[i].ip.toString().c_str());
         });
+    drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, peers.size(), cursor);
   } else if (state == State::Confirm) {
     text(0, std::string(tr(STR_SHARE_SELECTED)) + ": " +
                 std::to_string(retryingTransfer ? transfer.count(TransferResult::Pending) : books.size()));
@@ -743,11 +744,10 @@ void DirectShareActivity::render(RenderLock&&) {
     text(0, std::string(tr(STR_DIRECT_RESULTS)) + " / " + tr(STR_DIRECT_SENT_SHORT) + ": " +
                 std::to_string(transfer.count(TransferResult::Sent)) + " / " + std::to_string(books.size()));
     const int listTop = top + line;
+    const Rect listRect{layout.content.x, listTop, layout.content.width,
+                        layout.content.y + layout.content.height - listTop - metrics.buttonHintsHeight - line};
     GUI.drawList(
-        renderer,
-        Rect{layout.content.x, listTop, layout.content.width,
-             layout.content.y + layout.content.height - listTop - metrics.buttonHintsHeight - line},
-        books.size() + (transfer.canRetry() ? 1 : 0), resultCursor,
+        renderer, listRect, books.size() + (transfer.canRetry() ? 1 : 0), resultCursor,
         [this](int i) {
           return i < static_cast<int>(books.size()) ? books[i].title : std::string(tr(STR_DIRECT_RETRY_FAILED));
         },
@@ -756,6 +756,8 @@ void DirectShareActivity::render(RenderLock&&) {
           return transfer.results()[i] == TransferResult::NotSent ? std::string(tr(STR_DIRECT_NOT_SENT))
                                                                   : transferNotes[i];
         });
+    if (transfer.canRetry())
+      drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, books.size(), resultCursor);
   } else if (state == State::Message) {
     text(0, message);
     if (!receiptId.empty()) {

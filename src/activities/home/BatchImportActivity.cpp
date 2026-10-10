@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "components/UITheme.h"
+#include "components/ActionListDivider.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
 #include "sync/ReceivedSnapshotImport.h"
@@ -181,8 +182,9 @@ void BatchImportActivity::render(RenderLock&&) {
   GUI.drawHeader(renderer, Rect{layout.content.x, headerY, layout.content.width, metrics.headerHeight},
                  tr(STR_IMPORT_TITLE));
   if (screen == Screen::Select) {
+    const Rect listRect{layout.content.x, top, layout.content.width, bottom - top - line};
     GUI.drawList(
-        renderer, Rect{layout.content.x, top, layout.content.width, bottom - top - line}, rows.size() + 1, cursor,
+        renderer, listRect, rows.size() + 1, cursor,
         [this](int i) {
           return i < static_cast<int>(rows.size())
                      ? std::string(selection[rows[i]] ? "[選択] " : "[  ] ") + books[rows[i]].title
@@ -191,6 +193,7 @@ void BatchImportActivity::render(RenderLock&&) {
         [this](int i) {
           return i < static_cast<int>(rows.size()) ? std::string("　") + tr(STR_RECEIVED_MATCH) : std::string();
         });
+    drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, rows.size(), cursor);
     text(bottom, std::to_string(std::count(selection.begin(), selection.end(), 1)) + " " + tr(STR_SHARE_SELECTED));
   } else if (screen == Screen::Review) {
     const int perPage = reviewRowsPerPage();
@@ -227,8 +230,9 @@ void BatchImportActivity::render(RenderLock&&) {
     }
     text(top, std::string(tr(STR_SHARE_SUCCESS)) + ": " + std::to_string(success) + " / " + tr(STR_SHARE_FAILED) +
                   ": " + std::to_string(failed) + " / " + tr(STR_SHARE_CANCELLED) + ": " + std::to_string(cancelled));
+    const Rect listRect{layout.content.x, top + line, layout.content.width, bottom - top - line * 2};
     GUI.drawList(
-        renderer, Rect{layout.content.x, top + line, layout.content.width, bottom - top - line * 2},
+        renderer, listRect,
         batch.results().size() + (batch.canRetry() ? 1 : 0), cursor,
         [this](int i) {
           return i < static_cast<int>(batch.results().size()) ? books[batch.results()[i].index].title
@@ -239,6 +243,8 @@ void BatchImportActivity::render(RenderLock&&) {
                      ? std::string("　") + resultText(batch.results()[i].outcome)
                      : std::string();
         });
+    if (batch.canRetry())
+      drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, batch.results().size(), cursor);
     if (batch.blocked()) text(bottom, tr(STR_IMPORT_RESTART));
   }
   auto labels = mappedInput.mapLabels(

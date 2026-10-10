@@ -8,6 +8,7 @@
 
 #include "ReceivedReviewActivity.h"
 #include "activities/network/DirectShareActivity.h"
+#include "components/ActionListDivider.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
@@ -341,12 +342,13 @@ void ShareCandidatesActivity::render(RenderLock&&) {
     centered(top, actionMessage.empty() ? std::to_string(std::count(selection.begin(), selection.end(), 1)) + " / " +
                                               std::to_string(scanner.books().size()) + " " + tr(STR_SHARE_SELECTED)
                                         : actionMessage);
-    const int footerLines = 3;
+    const int footerLines = 2;
     const int listTop = top + line;
     const int height = bottom - listTop - line * footerLines;
     if (height >= metrics.listWithSubtitleRowHeight) {
+      const Rect listRect{layout.content.x, listTop, layout.content.width, height};
       GUI.drawList(
-          renderer, Rect{layout.content.x, listTop, layout.content.width, height},
+          renderer, listRect,
           static_cast<int>(scanner.books().size() + 4 + (!excludedIds.empty() ? 1 : 0) +
                            (scanner.canSearchMissing() ? 1 : 0)),
           static_cast<int>(selected),
@@ -378,11 +380,12 @@ void ShareCandidatesActivity::render(RenderLock&&) {
             return std::string("　") + unitSummary(book) +
                    (book.historyRank == UINT16_MAX ? " / " + std::string(tr(STR_SHARE_ORDER_UNKNOWN)) : "");
           });
+      drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, scanner.books().size(), selected);
     }
-    centered(bottom - line * 3, exclusionsLoaded ? tr(STR_SHARE_SELECT_HELP) : tr(STR_SHARE_EXCLUSIONS_LOAD_FAILED));
-    centered(bottom - line * 2, std::string(tr(STR_SHARE_MISSING)) + ": " + std::to_string(scanner.missingBooks));
-    centered(bottom - line, std::string(tr(STR_SHARE_NEEDS_CHECK)) + ": " + std::to_string(scanner.warnings) + " / " +
-                                tr(STR_SHARE_LEGACY) + ": " + std::to_string(scanner.legacyCount));
+    centered(bottom - line * 2, exclusionsLoaded ? tr(STR_SHARE_SELECT_HELP) : tr(STR_SHARE_EXCLUSIONS_LOAD_FAILED));
+    centered(bottom - line, std::string(tr(STR_SHARE_MISSING_SHORT)) + std::to_string(scanner.missingBooks) + " / " +
+                                tr(STR_SHARE_NEEDS_CHECK_SHORT) + std::to_string(scanner.warnings) + " / " +
+                                tr(STR_SHARE_LEGACY_SHORT) + std::to_string(scanner.legacyCount));
   }
   const auto labels =
       mappedInput.mapLabels(tr(STR_BACK),

@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "BatchImportActivity.h"
+#include "components/ActionListDivider.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
@@ -126,8 +127,9 @@ void ReceivedReviewActivity::render(RenderLock&&) {
     text(top, std::string(tr(STR_RECEIVED_MATCH)) + ": " + std::to_string(scanner.count(ReceivedStatus::Matched)) +
                   " / " + tr(STR_RECEIVED_MISSING) + ": " + std::to_string(scanner.count(ReceivedStatus::Missing)) +
                   " / " + tr(STR_RECEIVED_ERROR) + ": " + std::to_string(scanner.count(ReceivedStatus::Error)));
+    const Rect listRect{layout.content.x, top + line, layout.content.width, bottom - top - line * 2};
     GUI.drawList(
-        renderer, Rect{layout.content.x, top + line, layout.content.width, bottom - top - line * 2},
+        renderer, listRect,
         scanner.books().size() + (scanner.count(ReceivedStatus::Matched) ? 1 : 0), cursor,
         [this](int i) {
           return i < static_cast<int>(scanner.books().size()) ? scanner.books()[i].title
@@ -137,6 +139,8 @@ void ReceivedReviewActivity::render(RenderLock&&) {
           return i < static_cast<int>(scanner.books().size()) ? std::string("　") + status(scanner.books()[i])
                                                               : std::string();
         });
+    if (scanner.count(ReceivedStatus::Matched))
+      drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, scanner.books().size(), cursor);
     text(bottom, scanner.warnings ? tr(STR_RECEIVED_INCOMPLETE) : tr(STR_DIRECT_NO_IMPORT));
   }
   auto labels =
