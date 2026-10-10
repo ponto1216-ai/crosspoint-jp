@@ -747,8 +747,7 @@ void DirectShareActivity::render(RenderLock&&) {
     GUI.drawList(
         renderer, listRect, books.size() + (transfer.canRetry() ? 1 : 0), resultCursor,
         [this](int i) {
-          return i < static_cast<int>(books.size()) ? books[i].title
-                                                    : std::string("　") + tr(STR_DIRECT_RETRY_FAILED);
+          return i < static_cast<int>(books.size()) ? books[i].title : std::string("　") + tr(STR_DIRECT_RETRY_FAILED);
         },
         [this](int i) {
           if (i == static_cast<int>(books.size())) return std::string();

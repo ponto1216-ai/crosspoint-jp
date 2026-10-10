@@ -274,11 +274,10 @@ void ShareCandidatesActivity::render(RenderLock&&) {
     const int progressTop = (renderer.getScreenHeight() - renderer.getLineHeight(UI_10_FONT_ID)) / 2;
     centered(progressTop, fullSearchCompleted ? tr(STR_SHARE_SEARCH_SD_PROGRESS) : tr(STR_SHARE_SEARCHING));
     const int barY = progressTop + renderer.getLineHeight(UI_10_FONT_ID) + metrics.verticalSpacing;
-    drawIndeterminateProgress(
-        renderer,
-        Rect{layout.content.x + metrics.contentSidePadding, barY,
-             layout.content.width - metrics.contentSidePadding * 2, metrics.progressBarHeight},
-        progressFrame);
+    drawIndeterminateProgress(renderer,
+                              Rect{layout.content.x + metrics.contentSidePadding, barY,
+                                   layout.content.width - metrics.contentSidePadding * 2, metrics.progressBarHeight},
+                              progressFrame);
     centered(barY + metrics.progressBarHeight + 15, std::to_string(scanner.checkedFiles) + " EPUB");
   } else if (review || generating) {
     centered(top + line, generating ? tr(STR_SHARE_GENERATING) : tr(STR_SHARE_EXPORT_CONFIRM));

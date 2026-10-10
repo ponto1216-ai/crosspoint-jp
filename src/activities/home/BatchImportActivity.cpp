@@ -125,7 +125,8 @@ void BatchImportActivity::loop() {
   if (screen == Screen::Select) {
     // Keep short taps made while the E-Ink render task holds the lock.
     const auto queueInput = [this](SelectionInput input) {
-      if (pendingSelectionCount < pendingSelectionInputs.size()) pendingSelectionInputs[pendingSelectionCount++] = input;
+      if (pendingSelectionCount < pendingSelectionInputs.size())
+        pendingSelectionInputs[pendingSelectionCount++] = input;
     };
     for (const auto button : ButtonNavigator::getNextButtons())
       if (mappedInput.wasReleased(button)) queueInput(SelectionInput::Next);
@@ -259,8 +260,7 @@ void BatchImportActivity::render(RenderLock&&) {
                   ": " + std::to_string(failed) + " / " + tr(STR_SHARE_CANCELLED) + ": " + std::to_string(cancelled));
     const Rect listRect{layout.content.x, top + line, layout.content.width, bottom - top - line * 2};
     GUI.drawList(
-        renderer, listRect,
-        batch.results().size() + (batch.canRetry() ? 1 : 0), cursor,
+        renderer, listRect, batch.results().size() + (batch.canRetry() ? 1 : 0), cursor,
         [this](int i) {
           return i < static_cast<int>(batch.results().size()) ? books[batch.results()[i].index].title
                                                               : std::string("　") + tr(STR_IMPORT_RETRY);

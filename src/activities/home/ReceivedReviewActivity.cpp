@@ -14,7 +14,7 @@ using namespace yomuka::sync;
 namespace {
 constexpr unsigned long ProgressRenderIntervalMs = 3000;
 constexpr unsigned long SdSearchRenderIntervalMs = 5000;
-}
+}  // namespace
 const char* ReceivedReviewActivity::status(const ReceivedBook& book) const {
   if (book.status == ReceivedStatus::Matched) return tr(STR_RECEIVED_MATCH);
   if (book.status == ReceivedStatus::Missing) return tr(STR_RECEIVED_MISSING);
@@ -120,11 +120,10 @@ void ReceivedReviewActivity::render(RenderLock&&) {
     const int progressTop = (renderer.getScreenHeight() - renderer.getLineHeight(UI_10_FONT_ID)) / 2;
     text(progressTop, scanner.searchingSd() ? tr(STR_RECEIVED_SEARCH_SD_PROGRESS) : tr(STR_RECEIVED_CHECKING));
     const int barY = progressTop + renderer.getLineHeight(UI_10_FONT_ID) + metrics.verticalSpacing;
-    drawIndeterminateProgress(
-        renderer,
-        Rect{layout.content.x + metrics.contentSidePadding, barY,
-             layout.content.width - metrics.contentSidePadding * 2, metrics.progressBarHeight},
-        progressFrame);
+    drawIndeterminateProgress(renderer,
+                              Rect{layout.content.x + metrics.contentSidePadding, barY,
+                                   layout.content.width - metrics.contentSidePadding * 2, metrics.progressBarHeight},
+                              progressFrame);
     text(barY + metrics.progressBarHeight + 15, std::to_string(scanner.checkedFiles) + " EPUB");
     text(barY + metrics.progressBarHeight + 15 + line, tr(STR_SHARE_CANCEL_HINT));
   } else if (scanner.books().empty()) {
@@ -140,8 +139,7 @@ void ReceivedReviewActivity::render(RenderLock&&) {
                   " / " + tr(STR_RECEIVED_ERROR) + ": " + std::to_string(scanner.count(ReceivedStatus::Error)));
     const Rect listRect{layout.content.x, top + line, layout.content.width, bottom - top - line * 2};
     GUI.drawList(
-        renderer, listRect,
-        scanner.books().size() + (scanner.count(ReceivedStatus::Matched) ? 1 : 0), cursor,
+        renderer, listRect, scanner.books().size() + (scanner.count(ReceivedStatus::Matched) ? 1 : 0), cursor,
         [this](int i) {
           return i < static_cast<int>(scanner.books().size()) ? scanner.books()[i].title
                                                               : std::string("　") + tr(STR_IMPORT_SELECT);
