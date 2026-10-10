@@ -1,4 +1,6 @@
 #pragma once
+#include <array>
+
 #include "activities/Activity.h"
 #include "sync/BatchImport.h"
 #include "util/ButtonNavigator.h"
@@ -17,6 +19,9 @@ class BatchImportActivity final : public Activity {
   void prepareReview();
   yomuka::sync::BatchImport batch;
   ButtonNavigator navigator;
+  enum class SelectionInput : uint8_t { Next, Previous, Confirm };
+  std::array<SelectionInput, 16> pendingSelectionInputs{};
+  size_t pendingSelectionCount = 0;
   size_t cursor = 0;
   bool ignoreConfirm = true, ignoreBack = true, retrying = false;
   const char* resultText(const yomuka::sync::ImportOutcome&) const;

@@ -122,6 +122,41 @@ void BatchImportActivity::loop() {
       finish();
     return;
   }
+  if (screen == Screen::Select) {
+    // Keep short taps made while the E-Ink render task holds the lock.
+    const auto queueInput = [this](SelectionInput input) {
+      if (pendingSelectionCount < pendingSelectionInputs.size()) pendingSelectionInputs[pendingSelectionCount++] = input;
+    };
+    for (const auto button : ButtonNavigator::getNextButtons())
+      if (mappedInput.wasReleased(button)) queueInput(SelectionInput::Next);
+    for (const auto button : ButtonNavigator::getPreviousButtons())
+      if (mappedInput.wasReleased(button)) queueInput(SelectionInput::Previous);
+    if (!skipConfirm && mappedInput.wasReleased(MappedInputManager::Button::Confirm))
+      queueInput(SelectionInput::Confirm);
+
+    RenderLock lock(RenderLock::TryLock::Now);
+    if (!lock.ownsLock()) return;
+    if (!pendingSelectionCount) return;
+    for (size_t i = 0; i < pendingSelectionCount && screen == Screen::Select; ++i) {
+      switch (pendingSelectionInputs[i]) {
+        case SelectionInput::Next:
+          cursor = ButtonNavigator::nextIndex(cursor, rows.size() + 1);
+          break;
+        case SelectionInput::Previous:
+          cursor = ButtonNavigator::previousIndex(cursor, rows.size() + 1);
+          break;
+        case SelectionInput::Confirm:
+          if (cursor < rows.size())
+            selection[rows[cursor]] ^= 1;
+          else if (std::count(selection.begin(), selection.end(), 1))
+            beginReview(false);
+          break;
+      }
+    }
+    pendingSelectionCount = 0;
+    requestUpdate();
+    return;
+  }
   RenderLock lock;
   const size_t count = screen == Screen::Review    ? finalReviewPage(reviewLines.size(), reviewRowsPerPage()) + 1
                        : screen == Screen::Select  ? rows.size() + 1
@@ -136,13 +171,7 @@ void BatchImportActivity::loop() {
     requestUpdate();
   });
   if (skipConfirm || !mappedInput.wasReleased(MappedInputManager::Button::Confirm)) return;
-  if (screen == Screen::Select) {
-    if (cursor < rows.size())
-      selection[rows[cursor]] ^= 1;
-    else if (std::count(selection.begin(), selection.end(), 1)) {
-      beginReview(false);
-    }
-  } else if (screen == Screen::Review) {
+  if (screen == Screen::Review) {
     if (cursor == static_cast<size_t>(finalReviewPage(reviewLines.size(), reviewRowsPerPage()))) {
       if (reviewIndex + 1 < reviewBooks.size()) {
         ++reviewIndex;

@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <array>
+#include <initializer_list>
 #include <iostream>
 
 #include "sync/BatchImport.h"
@@ -20,10 +22,25 @@ struct MappedInputManager {
 };
 using B = MappedInputManager::Button;
 struct RenderLock {
+  enum class TryLock { Now };
+  static bool busy;
+  bool locked = true;
+  RenderLock() = default;
+  explicit RenderLock(TryLock) : locked(!busy) {}
+  bool ownsLock() const { return locked; }
   ~RenderLock() {}
 };
+bool RenderLock::busy = false;
 struct ButtonNavigator {
   MappedInputManager& i;
+  static std::initializer_list<B> getNextButtons() {
+    static const std::initializer_list<B> buttons{B::Right};
+    return buttons;
+  }
+  static std::initializer_list<B> getPreviousButtons() {
+    static const std::initializer_list<B> buttons{B::Left};
+    return buttons;
+  }
   template <class F>
   void onNextRelease(F f) {
     if (i.wasReleased(B::Right)) f();
@@ -80,6 +97,9 @@ struct BatchImportActivity {
 
   BatchImport batch;
   ButtonNavigator navigator;
+  enum class SelectionInput : uint8_t { Next, Previous, Confirm };
+  std::array<SelectionInput, 16> pendingSelectionInputs{};
+  size_t pendingSelectionCount = 0;
   MappedInputManager& mappedInput;
   int renderer = 0;
   size_t cursor = 0;
@@ -99,6 +119,18 @@ struct BatchImportActivity {
 };
 // ACTUAL_LOOP
 int main() {
+  MappedInputManager laggedInput;
+  BatchImportActivity lagged(laggedInput);
+  lagged.loop();
+  RenderLock::busy = true;
+  laggedInput.released = B::Right;
+  lagged.loop();
+  CHECK(lagged.cursor == 0 && lagged.pendingSelectionCount == 1);
+  laggedInput.released = B::None;
+  lagged.loop();
+  RenderLock::busy = false;
+  lagged.loop();
+  CHECK(lagged.cursor == 1 && lagged.pendingSelectionCount == 0);
   MappedInputManager i;
   BatchImportActivity a(i);
   a.loop();
