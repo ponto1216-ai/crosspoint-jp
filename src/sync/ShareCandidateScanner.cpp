@@ -69,6 +69,13 @@ bool fileName(FsFile& file, std::string& output) {
   return !output.empty();
 }
 }  // namespace
+bool ShareCandidateScanner::excluded(uint64_t id) const {
+  return std::find(excludedIds.begin(), excludedIds.end(), id) != excludedIds.end();
+}
+size_t ShareCandidateScanner::searchableCount() const {
+  return std::count_if(catalog.books().begin(), catalog.books().end(),
+                       [this](const ShareCandidate& item) { return !item.resolved() && !excluded(item.bookId); });
+}
 void ShareCandidateScanner::aggregate(const char* path, Phase source) {
   if (!Storage.exists(path)) {
     // Do not repair interrupted writes during discovery, or call them an empty dataset.
@@ -133,7 +140,7 @@ void ShareCandidateScanner::checkEpub(const std::string& path, uint64_t expected
     return;
   }
   // A same-path replacement is never resolved as the old book.
-  catalog.resolve(id, path, id == expectedId ? 0 : 1);
+  if (!excluded(id)) catalog.resolve(id, path, id == expectedId ? 0 : 1);
 }
 bool ShareCandidateScanner::step() {
   if (done()) return true;
@@ -181,8 +188,8 @@ bool ShareCandidateScanner::step() {
         // Copy before resolve() can replace a locator in the same vector.
         const auto id = catalog.books()[knownIndex].bookId;
         const auto path = catalog.books()[knownIndex++].path;
-        checkEpub(path, id);
-      } else if (searchMissing && catalog.unresolvedCount()) {
+        if (!excluded(id)) checkEpub(path, id);
+      } else if (searchMissing && searchableCount()) {
         auto root = Storage.open("/");
         if (root && root.isDirectory())
           directories.push_back({std::move(root), ""});
@@ -228,12 +235,30 @@ bool ShareCandidateScanner::step() {
   return done();
 }
 void ShareCandidateScanner::complete() {
-  missingBooks = catalog.missingCount();
-  unresolvedBooks = catalog.unresolvedCount();
+  for (const auto& item : catalog.books()) {
+    if (item.resolved()) continue;
+    unresolvedRecords.push_back({item.bookId, item.deletionOnly()});
+    if (searchMissing || excluded(item.bookId)) missingCandidates.push_back(item);
+  }
+  setExclusions(excludedIds);
   catalog.finish();
   warnings += std::count_if(catalog.books().begin(), catalog.books().end(),
                             [](const ShareCandidate& book) { return book.errors != 0; });
   phase = Phase::Done;
 }
-void ShareCandidateScanner::restart(bool fullSearch) { *this = ShareCandidateScanner(fullSearch); }
+void ShareCandidateScanner::restart(bool fullSearch) {
+  auto next = ShareCandidateScanner(fullSearch);
+  next.setExclusions(excludedIds);
+  *this = std::move(next);
+}
+void ShareCandidateScanner::setExclusions(std::vector<uint64_t> ids) {
+  excludedIds = std::move(ids);
+  unresolvedBooks = 0;
+  missingBooks = 0;
+  for (const auto& item : unresolvedRecords) {
+    if (excluded(item.bookId)) continue;
+    ++unresolvedBooks;
+    if (!item.deletionOnly) ++missingBooks;
+  }
+}
 }  // namespace yomuka::sync

@@ -4,22 +4,31 @@
 #include <I18n.h>
 
 #include <algorithm>
+#include <cstdio>
 
 #include "ReceivedReviewActivity.h"
 #include "activities/network/DirectShareActivity.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
+#include "sync/ShareSearchExclusions.h"
 
 using namespace yomuka::sync;
 namespace {
 constexpr uint8_t Units[] = {SavedPosition, SavedBookmarks, SavedSettings, SavedHistory};
 constexpr StrId UnitLabels[] = {StrId::STR_SHARE_POSITION, StrId::STR_SHARE_BOOKMARKS, StrId::STR_SHARE_SETTINGS,
                                 StrId::STR_SHARE_HISTORY};
+constexpr unsigned long ProgressRenderIntervalMs = 3000;
 }  // namespace
 void ShareCandidatesActivity::onEnter() {
   Activity::onEnter();
+  exclusionsLoaded = ShareSearchExclusions::load(excludedIds);
+  if (exclusionsLoaded)
+    scanner.setExclusions(excludedIds);
+  else
+    LOG_ERR("SHARE", "Could not load search exclusions");
   startedAt = millis();
+  lastProgressRender = startedAt;
   requestUpdate();
 }
 void ShareCandidatesActivity::loop() {
@@ -41,6 +50,12 @@ void ShareCandidatesActivity::loop() {
       results = true;
       selected = 0;
       requestUpdate();
+    } else if (managingMissing) {
+      RenderLock lock;
+      managingMissing = false;
+      selected = 0;
+      actionMessage.clear();
+      requestUpdate();
     } else if (detail || review || results) {
       RenderLock lock;
       if (results) selected = 0;
@@ -60,16 +75,21 @@ void ShareCandidatesActivity::loop() {
     HalPowerManager::Lock power;
     const bool complete = scanner.step();
     const unsigned long now = millis();
-    if (complete || now - lastProgressRender >= 1000) {
+    if (complete || now - lastProgressRender >= ProgressRenderIntervalMs) {
       lastProgressRender = now;
       requestUpdate();
     }
     if (complete) {
       selection.assign(scanner.books().size(), 0);
-      LOG_INF("SHARE", "Discovery: books=%u missing=%u legacy=%u warnings=%u EPUBs=%u ms=%lu heap=%u",
+      if (fullSearchCompleted && scanner.missingBooks && exclusionsLoaded) {
+        managingMissing = true;
+        selected = 0;
+      }
+      LOG_INF("SHARE", "Discovery: books=%u missing=%u ignored=%u legacy=%u warnings=%u EPUBs=%u ms=%lu heap=%u",
               static_cast<unsigned>(scanner.books().size()), static_cast<unsigned>(scanner.missingBooks),
-              static_cast<unsigned>(scanner.legacyCount), static_cast<unsigned>(scanner.warnings),
-              static_cast<unsigned>(scanner.checkedFiles), now - startedAt, ESP.getFreeHeap());
+              static_cast<unsigned>(excludedIds.size()), static_cast<unsigned>(scanner.legacyCount),
+              static_cast<unsigned>(scanner.warnings), static_cast<unsigned>(scanner.checkedFiles), now - startedAt,
+              ESP.getFreeHeap());
     }
     return;
   }
@@ -107,7 +127,27 @@ void ShareCandidatesActivity::loop() {
       consumeConfirmRelease = false;
       return;
     }
-    if (review) {
+    if (managingMissing) {
+      const auto indices = managedIndices();
+      if (selected < indices.size() && exclusionsLoaded) {
+        const auto id = scanner.unresolvedCandidates()[indices[selected]].bookId;
+        auto updated = excludedIds;
+        const auto it = std::find(updated.begin(), updated.end(), id);
+        if (it == updated.end())
+          updated.push_back(id);
+        else
+          updated.erase(it);
+        if (ShareSearchExclusions::save(updated)) {
+          excludedIds = std::move(updated);
+          scanner.setExclusions(excludedIds);
+          const auto next = managedIndices();
+          if (selected >= next.size() && !next.empty()) selected = next.size() - 1;
+          actionMessage.clear();
+        } else {
+          actionMessage = tr(STR_SHARE_EXCLUSIONS_SAVE_FAILED);
+        }
+      }
+    } else if (review) {
       batch.start(selection);
       review = false;
       generating = true;
@@ -139,21 +179,28 @@ void ShareCandidatesActivity::loop() {
       } else if (selected == selection.size() + 3) {
         startActivityForResult(std::make_unique<ReceivedReviewActivity>(renderer, mappedInput),
                                [this](const ActivityResult&) { ignoreOpeningConfirm = true; });
-      } else if (selected == selection.size() + 4 && scanner.canSearchMissing()) {
+      } else if (selected == selection.size() + 4 && !excludedIds.empty()) {
+        managingMissing = true;
+        selected = 0;
+        actionMessage.clear();
+      } else if (selected == selection.size() + 4 + (!excludedIds.empty() ? 1 : 0) && scanner.canSearchMissing()) {
         scanner.restart(true);
+        fullSearchCompleted = true;
         selection.clear();
         selected = 0;
         actionMessage.clear();
         startedAt = millis();
-        lastProgressRender = 0;
+        lastProgressRender = startedAt;
       }
     }
     requestUpdate();
     return;
   }
   if (detail || review) return;
-  const int count = static_cast<int>(results ? batch.results().size()
-                                             : scanner.books().size() + 4 + (scanner.canSearchMissing() ? 1 : 0));
+  const int count = static_cast<int>(managingMissing ? managedIndices().size()
+                                     : results       ? batch.results().size()
+                                                     : scanner.books().size() + 4 + (!excludedIds.empty() ? 1 : 0) +
+                                                     (scanner.canSearchMissing() ? 1 : 0));
   navigator.onNextRelease([this, count] {
     RenderLock lock;
     selected = ButtonNavigator::nextIndex(static_cast<int>(selected), count);
@@ -177,6 +224,14 @@ void ShareCandidatesActivity::loop() {
     selected = ButtonNavigator::previousPageIndex(static_cast<int>(selected), count, pageItems);
     requestUpdate();
   });
+}
+std::vector<size_t> ShareCandidatesActivity::managedIndices() const {
+  std::vector<size_t> indices;
+  const auto& candidates = scanner.unresolvedCandidates();
+  for (size_t i = 0; i < candidates.size(); ++i)
+    if (!candidates[i].deletionOnly() && (fullSearchCompleted || scanner.isExcluded(candidates[i].bookId)))
+      indices.push_back(i);
+  return indices;
 }
 std::string ShareCandidatesActivity::unitSummary(const ShareCandidate& book) const {
   std::string text;
@@ -204,7 +259,9 @@ void ShareCandidatesActivity::render(RenderLock&&) {
     const auto clipped = renderer.truncatedText(UI_10_FONT_ID, text.c_str(), layout.content.width - 20);
     renderer.drawCenteredTextOffset(UI_10_FONT_ID, y, clipped.c_str(), true, centerOffset);
   };
-  const auto header = std::string(tr(STR_SHARE_BOOKS)) + " (" + std::to_string(scanner.books().size()) + ")";
+  const auto header = managingMissing
+                          ? std::string(tr(STR_SHARE_MISSING))
+                          : std::string(tr(STR_SHARE_BOOKS)) + " (" + std::to_string(scanner.books().size()) + ")";
   GUI.drawHeader(renderer, Rect{layout.content.x, headerY, layout.content.width, metrics.headerHeight}, header.c_str());
   const int top = headerY + metrics.headerHeight + metrics.verticalSpacing;
   const int line = renderer.getLineHeight(UI_10_FONT_ID) + 8;
@@ -220,6 +277,30 @@ void ShareCandidatesActivity::render(RenderLock&&) {
     centered(top + line * 4, tr(STR_SHARE_REPLACE_NOTICE));
     centered(top + line * 5, tr(STR_SHARE_LOCAL_ONLY));
     if (generating) centered(top + line * 6, tr(STR_SHARE_CANCEL_HINT));
+  } else if (managingMissing) {
+    const auto indices = managedIndices();
+    centered(top, actionMessage.empty()
+                      ? std::string(tr(STR_SHARE_MISSING)) + ": " + std::to_string(scanner.missingBooks) + " / " +
+                            tr(STR_SHARE_EXCLUDED) + ": " + std::to_string(excludedIds.size())
+                      : actionMessage);
+    GUI.drawList(
+        renderer, Rect{layout.content.x, top + line, layout.content.width, bottom - top - line * 4},
+        static_cast<int>(indices.size()), static_cast<int>(selected),
+        [this, &indices](int i) {
+          const auto& item = scanner.unresolvedCandidates()[indices[i]];
+          if (!item.title.empty()) return item.title;
+          if (!item.path.empty()) return item.path;
+          char key[17];
+          snprintf(key, sizeof(key), "%016llx", static_cast<unsigned long long>(item.bookId));
+          return std::string(key);
+        },
+        [this, &indices](int i) {
+          const bool ignored = scanner.isExcluded(scanner.unresolvedCandidates()[indices[i]].bookId);
+          return std::string("　") +
+                 I18n::getInstance().get(ignored ? StrId::STR_SHARE_IGNORED : StrId::STR_SHARE_WILL_SEARCH);
+        });
+    centered(bottom - line * 2, tr(STR_SHARE_EXCLUSION_HELP));
+    centered(bottom - line, tr(STR_SHARE_EXCLUSION_LOCAL));
   } else if (results) {
     size_t saved = 0, failed = 0, cancelled = 0;
     for (const auto& entry : batch.results()) {
@@ -266,14 +347,18 @@ void ShareCandidatesActivity::render(RenderLock&&) {
     if (height >= metrics.listWithSubtitleRowHeight) {
       GUI.drawList(
           renderer, Rect{layout.content.x, listTop, layout.content.width, height},
-          static_cast<int>(scanner.books().size() + 4 + (scanner.canSearchMissing() ? 1 : 0)),
+          static_cast<int>(scanner.books().size() + 4 + (!excludedIds.empty() ? 1 : 0) +
+                           (scanner.canSearchMissing() ? 1 : 0)),
           static_cast<int>(selected),
           [this](int index) {
             if (static_cast<size_t>(index) == scanner.books().size()) return std::string(tr(STR_SHARE_EXPORT));
             if (static_cast<size_t>(index) == scanner.books().size() + 1) return std::string(tr(STR_DIRECT_SEND));
             if (static_cast<size_t>(index) == scanner.books().size() + 2) return std::string(tr(STR_DIRECT_RECEIVE));
             if (static_cast<size_t>(index) == scanner.books().size() + 3) return std::string(tr(STR_RECEIVED_TITLE));
-            if (static_cast<size_t>(index) == scanner.books().size() + 4) return std::string(tr(STR_SHARE_SEARCH_SD));
+            if (static_cast<size_t>(index) == scanner.books().size() + 4 && !excludedIds.empty())
+              return std::string(tr(STR_SHARE_REVIEW_EXCLUDED));
+            if (static_cast<size_t>(index) == scanner.books().size() + 4 + (!excludedIds.empty() ? 1 : 0))
+              return std::string(tr(STR_SHARE_SEARCH_SD));
             return std::string(selection[index] ? "[x] " : "[ ] ") + scanner.books()[index].title;
           },
           [this](int index) {
@@ -285,14 +370,16 @@ void ShareCandidatesActivity::render(RenderLock&&) {
               return std::string("　") + tr(STR_DIRECT_SEND_DESC);
             if (static_cast<size_t>(index) == scanner.books().size() + 2)
               return std::string("　") + tr(STR_DIRECT_RECEIVE_DESC);
-            if (static_cast<size_t>(index) == scanner.books().size() + 4)
+            if (static_cast<size_t>(index) == scanner.books().size() + 4 && !excludedIds.empty())
+              return std::string("　") + tr(STR_SHARE_REVIEW_EXCLUDED_DESC);
+            if (static_cast<size_t>(index) == scanner.books().size() + 4 + (!excludedIds.empty() ? 1 : 0))
               return std::string("　") + tr(STR_SHARE_SEARCH_SD_DESC);
             const auto& book = scanner.books()[index];
             return std::string("　") + unitSummary(book) +
                    (book.historyRank == UINT16_MAX ? " / " + std::string(tr(STR_SHARE_ORDER_UNKNOWN)) : "");
           });
     }
-    centered(bottom - line * 3, tr(STR_SHARE_SELECT_HELP));
+    centered(bottom - line * 3, exclusionsLoaded ? tr(STR_SHARE_SELECT_HELP) : tr(STR_SHARE_EXCLUSIONS_LOAD_FAILED));
     centered(bottom - line * 2, std::string(tr(STR_SHARE_MISSING)) + ": " + std::to_string(scanner.missingBooks));
     centered(bottom - line, std::string(tr(STR_SHARE_NEEDS_CHECK)) + ": " + std::to_string(scanner.warnings) + " / " +
                                 tr(STR_SHARE_LEGACY) + ": " + std::to_string(scanner.legacyCount));

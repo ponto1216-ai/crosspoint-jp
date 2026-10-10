@@ -17,6 +17,7 @@ struct ShareCandidate {
   uint16_t historyRank = std::numeric_limits<uint16_t>::max();
   std::string path, title;
   bool resolved() const { return locationPriority != 255; }
+  bool deletionOnly() const { return units == SavedHistory && emptyUnits == SavedHistory && errors == 0; }
 };
 
 // Pure discovery/ordering rules. No filesystem operations or implicit migration.

@@ -10,6 +10,9 @@
 #include "components/UiLayout.h"
 #include "fontIds.h"
 using namespace yomuka::sync;
+namespace {
+constexpr unsigned long ProgressRenderIntervalMs = 3000;
+}
 const char* ReceivedReviewActivity::status(const ReceivedBook& book) const {
   if (book.status == ReceivedStatus::Matched) return tr(STR_RECEIVED_MATCH);
   if (book.status == ReceivedStatus::Missing) return tr(STR_RECEIVED_MISSING);
@@ -59,7 +62,7 @@ void ReceivedReviewActivity::loop() {
       mappedInput.update();
       return !skipBack && mappedInput.isPressed(MappedInputManager::Button::Back);
     });
-    if (scanner.done() || millis() - lastUpdate > 1000) {
+    if (scanner.done() || millis() - lastUpdate >= ProgressRenderIntervalMs) {
       lastUpdate = millis();
       requestUpdate();
     }

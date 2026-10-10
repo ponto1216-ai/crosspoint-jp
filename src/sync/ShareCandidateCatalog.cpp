@@ -118,12 +118,8 @@ void ShareCandidateCatalog::resolve(uint64_t id, const std::string& path, uint8_
   }
 }
 size_t ShareCandidateCatalog::missingCount() const {
-  return std::count_if(entries.begin(), entries.end(), [](const ShareCandidate& item) {
-    // A history deletion tombstone remains available for sharing, but by
-    // itself should not make an absent EPUB count as a missing book.
-    const bool deletionOnly = item.units == SavedHistory && item.emptyUnits == SavedHistory && item.errors == 0;
-    return !item.resolved() && !deletionOnly;
-  });
+  return std::count_if(entries.begin(), entries.end(),
+                       [](const ShareCandidate& item) { return !item.resolved() && !item.deletionOnly(); });
 }
 size_t ShareCandidateCatalog::unresolvedCount() const {
   return std::count_if(entries.begin(), entries.end(), [](const ShareCandidate& item) { return !item.resolved(); });

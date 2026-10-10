@@ -10,6 +10,7 @@ parser.add_argument('--compiler', default='g++')
 parser.add_argument('--zig', action='store_true')
 args = parser.parse_args()
 sources = ['src/sync/ShareCandidateCatalog.cpp', 'src/sync/ShareCandidateScanner.cpp',
+           'src/sync/ShareSearchExclusions.cpp',
            'src/sync/StorageIo.cpp', 'src/sync/SyncProgress.cpp', 'src/sync/BookmarkStorage.cpp', 'src/sync/ProgressStorage.cpp',
            'src/BookReaderSettings.cpp', 'src/ReadingHistoryStore.cpp', 'src/util/BookDataPath.cpp',
            'test/share_candidates/test_share_candidates.cpp']

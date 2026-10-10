@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "sync/ShareCandidateScanner.h"
+#include "sync/ShareSearchExclusions.h"
 #include "util/BookDataPath.h"
 
 using namespace yomuka::sync;
@@ -106,6 +107,18 @@ int main() {
   CHECK(quick.checkedFiles == 2);
   CHECK(quick.missingBooks == 6 && quick.unresolvedBooks == 7);
   CHECK(Storage.snapshot() == before);
+  ShareCandidateScanner excludedQuick(false);
+  excludedQuick.setExclusions({2, 3});
+  CHECK(finish(excludedQuick));
+  CHECK(excludedQuick.missingBooks == 5 && excludedQuick.unresolvedBooks == 5);
+  CHECK(excludedQuick.unresolvedCandidates().size() == 2);
+  excludedQuick.restart(true);
+  CHECK(finish(excludedQuick));
+  CHECK(!find(excludedQuick, 2) && !find(excludedQuick, 3));
+  CHECK(excludedQuick.missingBooks == 1);
+  excludedQuick.setExclusions({});
+  CHECK(excludedQuick.missingBooks == 2 && excludedQuick.unresolvedBooks == 3);
+  CHECK(Storage.snapshot() == before);
   quick.restart(true);
   CHECK(finish(quick));
   CHECK(!quick.canSearchMissing());
@@ -153,6 +166,12 @@ int main() {
   ShareCandidateScanner largeQuick(false);
   CHECK(finish(largeQuick) && largeQuick.canSearchMissing());
   CHECK(largeQuick.checkedFiles == 0 && largeQuick.missingBooks == 500);
+  std::vector<uint64_t> allIgnored;
+  for (uint64_t bookId = 1; bookId <= 500; ++bookId) allIgnored.push_back(bookId);
+  largeQuick.setExclusions(allIgnored);
+  CHECK(!largeQuick.canSearchMissing() && largeQuick.missingBooks == 0);
+  largeQuick.restart(false);
+  CHECK(finish(largeQuick) && !largeQuick.canSearchMissing() && largeQuick.checkedFiles == 0);
   CHECK(Storage.snapshot() == largeBefore);
   {
     ShareCandidateScanner cancelled;
@@ -238,6 +257,13 @@ int main() {
   CHECK(!ShareCandidateCatalog::parseBookId("0000000000000000", id) && id == 123);
   CHECK(!ShareCandidateCatalog::parseBookId("000000000000000G", id));
   CHECK(!ShareCandidateCatalog::parseBookId("1", id));
+  Storage = FakeStorage{};
+  std::vector<uint64_t> ignored = {2, 3};
+  CHECK(ShareSearchExclusions::save(ignored));
+  std::vector<uint64_t> restored;
+  CHECK(ShareSearchExclusions::load(restored) && restored == ignored);
+  Storage.put("/.crosspoint/share-search-exclusions.json", "bad json");
+  CHECK(!ShareSearchExclusions::load(restored) && restored == ignored);
   std::cout << "PASS: " << checks
-            << " checks (500 books, ordering, relocation, tombstones, corrupt data and no writes)\n";
+            << " checks (500 books, ordering, relocation, exclusions, corrupt data and no scan writes)\n";
 }

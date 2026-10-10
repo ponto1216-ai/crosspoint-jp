@@ -24,6 +24,7 @@ cpp = r'''
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <iostream>
@@ -50,7 +51,9 @@ struct Renderer {int getLineHeight(int){return 21;}};
 struct UiLayout {bool landscape=false; static UiLayout from(Renderer&){return {};}};
 struct UITheme {static int getNumberOfItemsPerPage(Renderer&,bool,bool,bool,bool,int){return 5;}};
 constexpr int UI_10_FONT_ID=1;
-unsigned long millis(){return 100;}
+constexpr unsigned long ProgressRenderIntervalMs=3000;
+unsigned long fakeNow=100;
+unsigned long millis(){return fakeNow;}
 struct ButtonNavigator {
  MappedInputManager& input;
  static int nextIndex(int i,int n){return (i+1)%n;}
@@ -64,14 +67,20 @@ struct ButtonNavigator {
  template<class F> void onNextContinuous(F){}
  template<class F> void onPreviousContinuous(F){}
 };
+struct Candidate {uint64_t bookId=0; bool deletionOnly()const{return false;}};
 struct Scanner {
  bool complete=true, needsSearch=false, restarted=false; unsigned steps=0;
- std::vector<int> values={1,2};
+ size_t missingBooks=0;
+ std::vector<Candidate> values={{1},{2}}, missing;
+ std::vector<uint64_t> ignored;
  bool done()const{return complete;}
  bool step(){++steps;return complete;}
  bool canSearchMissing()const{return complete && needsSearch;}
  void restart(bool fullSearch){restarted=fullSearch;complete=false;needsSearch=false;}
- const std::vector<int>& books()const{return values;}
+ void setExclusions(const std::vector<uint64_t>& ids){ignored=ids;}
+ bool isExcluded(uint64_t id)const{return std::find(ignored.begin(),ignored.end(),id)!=ignored.end();}
+ const std::vector<Candidate>& books()const{return values;}
+ const std::vector<Candidate>& unresolvedCandidates()const{return missing;}
 };
 int READING_HISTORY=0;
 struct Batch {
@@ -79,15 +88,17 @@ struct Batch {
  void start(const std::vector<uint8_t>& selection){entries.clear();cursor=0;for(auto value:selection)if(value)entries.push_back(value);}
  void cancel(){cursor=entries.size();}
  bool done(){return cursor==entries.size();}
- void step(const std::vector<int>&,int,const std::function<bool()>& cancel){if(cancel())cursor=entries.size();else ++cursor;}
+ void step(const std::vector<Candidate>&,int,const std::function<bool()>& cancel){if(cancel())cursor=entries.size();else ++cursor;}
  const std::vector<int>& results(){return entries;}
 };
 constexpr int STR_DIRECT_ONE_BOOK=1;
+constexpr int STR_SHARE_EXCLUSIONS_SAVE_FAILED=2;
 const char* tr(int){return "one book";}
-namespace yomuka::sync { using ShareCandidate = int; }
+namespace yomuka::sync { using ShareCandidate = Candidate; }
+struct ShareSearchExclusions {static bool save(const std::vector<uint64_t>&){return true;}};
 struct DirectShareActivity {
  bool receiving; size_t count;
- DirectShareActivity(Renderer&,MappedInputManager&,bool receive,const std::vector<int>& books={}):receiving(receive),count(books.size()){}
+ DirectShareActivity(Renderer&,MappedInputManager&,bool receive,const std::vector<Candidate>& books={}):receiving(receive),count(books.size()){}
 };
 struct ReceivedReviewActivity { ReceivedReviewActivity(Renderer&,MappedInputManager&,std::vector<std::string> = {}){} };
 struct ShareCandidatesActivity {
@@ -95,6 +106,8 @@ struct ShareCandidatesActivity {
  Scanner scanner; size_t selected=0;
  bool detail=false,ignoreOpeningConfirm=true,returnToMenu;
  bool consumeConfirmRelease=false,review=false,generating=false,results=false;
+ bool managingMissing=false,fullSearchCompleted=false,exclusionsLoaded=true;
+ std::vector<uint64_t> excludedIds;
  bool consumeBackRelease=false;
  std::string actionMessage;
  int directMode=-1; size_t directCount=0; bool reviewOpened=false; std::function<void(const ActivityResult&)> receivedCallback;
@@ -106,6 +119,7 @@ struct ShareCandidatesActivity {
  ShareCandidatesActivity(Renderer& r,MappedInputManager& i,bool parent=false)
  :renderer(r),mappedInput(i),navigator{i},returnToMenu(parent){}
  void requestUpdate(){++updates;} void onGoHome(){wentHome=true;} void finish(){finished=true;}
+ std::vector<size_t> managedIndices() const;
  void loop();
 };
 ''' + mode_enum + '\n' + menu_count + r'''
@@ -163,12 +177,40 @@ int main(){
  child.selected=5;child.loop();assert(child.reviewOpened);
  child.selection={0,0}; child.selected=3; child.directMode=-1; child.loop(); assert(child.directMode==-1 && !child.actionMessage.empty());
  child.scanner.values.clear(); child.selection.clear(); child.selected=2; child.loop(); assert(child.directMode==1);
- child.scanner.values={1,2}; child.selection={0,0}; child.scanner.needsSearch=true;
+ child.scanner.values={{1},{2}}; child.selection={0,0}; child.scanner.needsSearch=true;
  child.selected=6; input.released=B::Confirm; child.loop();
  assert(child.scanner.restarted && !child.scanner.complete && child.selection.empty() && child.selected==0);
  input.released=B::Back;
  child.loop(); assert(child.finished && !child.wentHome);
  assert(menu.selectedIndex==3); // parent chooser selection remains on sharing
+ ShareCandidatesActivity exclusions(renderer,input,true);
+ exclusions.ignoreOpeningConfirm=false;
+ exclusions.fullSearchCompleted=true;
+ exclusions.managingMissing=true;
+ exclusions.scanner.missing={{7}};
+ exclusions.scanner.missingBooks=1;
+ exclusions.selected=0;
+ input.released=B::Confirm;
+ exclusions.loop();
+ assert(exclusions.scanner.isExcluded(7) && exclusions.excludedIds.size()==1);
+ input.released=B::Back;
+ exclusions.loop();
+ assert(!exclusions.managingMissing && !exclusions.finished);
+ exclusions.selected=6;
+ input.released=B::Confirm;
+ exclusions.loop();
+ assert(exclusions.managingMissing);
+ exclusions.selected=0;
+ exclusions.loop();
+ assert(!exclusions.scanner.isExcluded(7) && exclusions.excludedIds.empty());
+ ShareCandidatesActivity cadence(renderer,input,true);
+ cadence.scanner.complete=false;
+ cadence.lastProgressRender=100;
+ input.released=B::None;
+ fakeNow=3099; cadence.loop(); assert(cadence.updates==0);
+ fakeNow=3100; cadence.loop(); assert(cadence.updates==1);
+ fakeNow=3200; cadence.loop(); assert(cadence.updates==1);
+ input.released=B::Back;
  ShareCandidatesActivity direct(renderer,input); direct.loop(); assert(direct.wentHome && !direct.finished);
  ShareCandidatesActivity searching(renderer,input,true); searching.scanner.complete=false;
  searching.loop(); assert(searching.finished && searching.scanner.steps==0);
@@ -187,4 +229,4 @@ with tempfile.TemporaryDirectory(prefix='yomuka-share-menu-') as directory:
     subprocess.run(command + ['-std=c++20', '-Wall', '-Wextra', '-Werror', '-Wno-unused-variable',
                              str(source), '-o', str(binary)], check=True, timeout=180)
     subprocess.run([str(binary)], check=True, timeout=30)
-print('PASS: original network choices, sharing child, opening release, back navigation and four-item wrap')
+print('PASS: sharing routes, back navigation, missing-book exclusion and 3-second progress cadence')

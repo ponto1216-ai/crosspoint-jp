@@ -4,6 +4,7 @@ from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--compiler',default='g++');p.add_argument('--zig',action='store_true');args=p.parse_args()
 s=(root/'src/activities/home/ReceivedReviewActivity.cpp').read_text(encoding='utf-8')
+interval=s[s.index('constexpr unsigned long ProgressRenderIntervalMs'):s.index('\n}',s.index('constexpr unsigned long ProgressRenderIntervalMs'))]
 loop=s[s.index('void ReceivedReviewActivity::loop()'):s.index('void ReceivedReviewActivity::render(')]
 cpp=r'''
 #include <algorithm>
@@ -22,7 +23,9 @@ using B=MappedInputManager::Button;
 enum class ReceivedStatus{Matched};
 struct ActivityResult{};
 struct BatchImportActivity {BatchImportActivity(int&,MappedInputManager&,const std::vector<int>&){}};
-struct RenderLock{~RenderLock(){}};struct HalPowerManager{struct Lock{~Lock(){}};};unsigned long millis(){return 2000;}
+struct RenderLock{~RenderLock(){}};struct HalPowerManager{struct Lock{~Lock(){}};};
+unsigned long testNow=2000;unsigned long millis(){return testNow;}
+'''+interval+r'''
 struct Scanner {
  bool complete=false,cancelled=false;int steps=0;std::vector<int> entries{0,1,2};
  bool done(){return complete;} const auto& books(){return entries;}
@@ -45,12 +48,20 @@ struct ReceivedReviewActivity {
  size_t cursor=0,detailCursor=0;unsigned long lastUpdate=0;
  bool detail=false,ignoreConfirm=true,ignoreBack=true,finished=false;
  explicit ReceivedReviewActivity(MappedInputManager& i):mappedInput(i),navigator{i}{}
- void finish(){finished=true;}void requestUpdate(){}
+ int updates=0;
+ void finish(){finished=true;}void requestUpdate(){++updates;}
  std::vector<std::string> details(int){return {"title","id","position","notice"};}
  void loop();
 };
 '''+loop+r'''
 int main(){
+ MappedInputManager timerInput;ReceivedReviewActivity timer(timerInput);
+ timer.loop();CHECK(timer.updates==0);
+ testNow=2999;timer.loop();CHECK(timer.updates==0);
+ testNow=3000;timer.loop();CHECK(timer.updates==1);
+ testNow=5999;timer.loop();CHECK(timer.updates==1);
+ testNow=6000;timer.loop();CHECK(timer.updates==2);
+ timer.scanner.complete=true;testNow=6001;
  MappedInputManager i;ReceivedReviewActivity opening(i);
  i.held=B::Back;opening.loop();CHECK(!opening.scanner.cancelled && !opening.finished);
  i.held=B::None;i.released=B::Back;opening.loop();CHECK(!opening.finished && !opening.scanner.cancelled);
@@ -64,7 +75,7 @@ int main(){
  i.released=B::None;list.loop();i.released=B::Back;list.loop();CHECK(list.finished);
  MappedInputManager j;ReceivedReviewActivity empty(j);empty.scanner.complete=true;empty.scanner.entries.clear();empty.loop();j.released=B::Confirm;empty.loop();CHECK(!empty.detail);
  list.finished=false;list.cursor=3;i.released=B::Confirm;list.loop();CHECK(list.openedImport && !list.detail);
- std::cout<<"PASS: opening Back release ignored, scanning cancel, list navigation, detail, one Back returns once, empty inbox\n";
+ std::cout<<"PASS: 3s scan progress, opening Back release ignored, scanning cancel, list navigation, detail, one Back returns once, empty inbox\n";
 }
 '''
 with tempfile.TemporaryDirectory(prefix='yomuka-review-ui-') as d:
