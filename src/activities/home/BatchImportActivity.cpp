@@ -6,7 +6,6 @@
 #include <algorithm>
 
 #include "components/UITheme.h"
-#include "components/ActionListDivider.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
 #include "sync/ReceivedSnapshotImport.h"
@@ -188,12 +187,11 @@ void BatchImportActivity::render(RenderLock&&) {
         [this](int i) {
           return i < static_cast<int>(rows.size())
                      ? std::string(selection[rows[i]] ? "[選択] " : "[  ] ") + books[rows[i]].title
-                     : std::string(tr(STR_IMPORT_REVIEW));
+                     : std::string("　") + tr(STR_IMPORT_REVIEW);
         },
         [this](int i) {
           return i < static_cast<int>(rows.size()) ? std::string("　") + tr(STR_RECEIVED_MATCH) : std::string();
         });
-    drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, rows.size(), cursor);
     text(bottom, std::to_string(std::count(selection.begin(), selection.end(), 1)) + " " + tr(STR_SHARE_SELECTED));
   } else if (screen == Screen::Review) {
     const int perPage = reviewRowsPerPage();
@@ -236,15 +234,13 @@ void BatchImportActivity::render(RenderLock&&) {
         batch.results().size() + (batch.canRetry() ? 1 : 0), cursor,
         [this](int i) {
           return i < static_cast<int>(batch.results().size()) ? books[batch.results()[i].index].title
-                                                              : std::string(tr(STR_IMPORT_RETRY));
+                                                              : std::string("　") + tr(STR_IMPORT_RETRY);
         },
         [this](int i) {
           return i < static_cast<int>(batch.results().size())
                      ? std::string("　") + resultText(batch.results()[i].outcome)
                      : std::string();
         });
-    if (batch.canRetry())
-      drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, batch.results().size(), cursor);
     if (batch.blocked()) text(bottom, tr(STR_IMPORT_RESTART));
   }
   auto labels = mappedInput.mapLabels(

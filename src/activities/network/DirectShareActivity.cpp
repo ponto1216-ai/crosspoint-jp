@@ -12,7 +12,6 @@
 #include <cstdio>
 
 #include "WifiSelectionActivity.h"
-#include "components/ActionListDivider.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
@@ -691,12 +690,11 @@ void DirectShareActivity::render(RenderLock&&) {
     GUI.drawList(
         renderer, listRect, peers.size() + 1, cursor,
         [this](int i) {
-          return static_cast<size_t>(i) == peers.size() ? std::string(tr(STR_DIRECT_SEARCH)) : peers[i].name;
+          return static_cast<size_t>(i) == peers.size() ? std::string("　") + tr(STR_DIRECT_SEARCH) : peers[i].name;
         },
         [this](int i) {
           return static_cast<size_t>(i) == peers.size() ? std::string("") : std::string(peers[i].ip.toString().c_str());
         });
-    drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, peers.size(), cursor);
   } else if (state == State::Confirm) {
     text(0, std::string(tr(STR_SHARE_SELECTED)) + ": " +
                 std::to_string(retryingTransfer ? transfer.count(TransferResult::Pending) : books.size()));
@@ -749,15 +747,14 @@ void DirectShareActivity::render(RenderLock&&) {
     GUI.drawList(
         renderer, listRect, books.size() + (transfer.canRetry() ? 1 : 0), resultCursor,
         [this](int i) {
-          return i < static_cast<int>(books.size()) ? books[i].title : std::string(tr(STR_DIRECT_RETRY_FAILED));
+          return i < static_cast<int>(books.size()) ? books[i].title
+                                                    : std::string("　") + tr(STR_DIRECT_RETRY_FAILED);
         },
         [this](int i) {
           if (i == static_cast<int>(books.size())) return std::string();
           return transfer.results()[i] == TransferResult::NotSent ? std::string(tr(STR_DIRECT_NOT_SENT))
                                                                   : transferNotes[i];
         });
-    if (transfer.canRetry())
-      drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, books.size(), resultCursor);
   } else if (state == State::Message) {
     text(0, message);
     if (!receiptId.empty()) {

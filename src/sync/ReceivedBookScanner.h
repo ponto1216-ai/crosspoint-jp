@@ -41,6 +41,7 @@ class ReceivedBookScanner {
   size_t warnings = 0, checkedFiles = 0;
   bool step(const std::function<bool()>& cancel = {});
   bool done() const { return phase == Phase::Done; }
+  bool searchingSd() const { return phase == Phase::Search; }
   const std::vector<ReceivedBook>& books() const { return entries; }
   size_t count(ReceivedStatus status) const;
 };

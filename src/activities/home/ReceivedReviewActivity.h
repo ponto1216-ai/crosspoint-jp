@@ -8,6 +8,7 @@ class ReceivedReviewActivity final : public Activity {
   size_t cursor = 0;
   bool detail = false, ignoreConfirm = true, ignoreBack = true;
   unsigned long lastUpdate = 0;
+  unsigned progressFrame = 0;
   const char* status(const yomuka::sync::ReceivedBook& book) const;
   std::vector<std::string> details(const yomuka::sync::ReceivedBook& book) const;
   size_t detailCursor = 0;

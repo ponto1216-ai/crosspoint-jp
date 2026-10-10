@@ -27,8 +27,9 @@ struct RenderLock{~RenderLock(){}};struct HalPowerManager{struct Lock{~Lock(){}}
 unsigned long testNow=2000;unsigned long millis(){return testNow;}
 '''+interval+r'''
 struct Scanner {
- bool complete=false,cancelled=false;int steps=0;std::vector<int> entries{0,1,2};
+ bool complete=false,cancelled=false,search=false;int steps=0;std::vector<int> entries{0,1,2};
  bool done(){return complete;} const auto& books(){return entries;}
+ bool searchingSd(){return search;}
  size_t count(ReceivedStatus){return entries.empty()?0:1;}
  template<class F>void step(F f){++steps;cancelled=f();if(cancelled)complete=true;}
 };
@@ -45,7 +46,7 @@ struct ReceivedReviewActivity {
  MappedInputManager& mappedInput;Scanner scanner;Navigator navigator;
  int renderer=0; bool openedImport=false;
  template<class F>void startActivityForResult(std::unique_ptr<BatchImportActivity>, F){openedImport=true;}
- size_t cursor=0,detailCursor=0;unsigned long lastUpdate=0;
+ size_t cursor=0,detailCursor=0;unsigned long lastUpdate=0;unsigned progressFrame=0;
  bool detail=false,ignoreConfirm=true,ignoreBack=true,finished=false;
  explicit ReceivedReviewActivity(MappedInputManager& i):mappedInput(i),navigator{i}{}
  int updates=0;
@@ -61,6 +62,9 @@ int main(){
  testNow=3000;timer.loop();CHECK(timer.updates==1);
  testNow=5999;timer.loop();CHECK(timer.updates==1);
  testNow=6000;timer.loop();CHECK(timer.updates==2);
+ ReceivedReviewActivity sdTimer(timerInput);sdTimer.scanner.search=true;sdTimer.lastUpdate=6000;
+ testNow=10999;sdTimer.loop();CHECK(sdTimer.updates==0);
+ testNow=11000;sdTimer.loop();CHECK(sdTimer.updates==1 && sdTimer.progressFrame==1);
  timer.scanner.complete=true;testNow=6001;
  MappedInputManager i;ReceivedReviewActivity opening(i);
  i.held=B::Back;opening.loop();CHECK(!opening.scanner.cancelled && !opening.finished);
@@ -75,7 +79,7 @@ int main(){
  i.released=B::None;list.loop();i.released=B::Back;list.loop();CHECK(list.finished);
  MappedInputManager j;ReceivedReviewActivity empty(j);empty.scanner.complete=true;empty.scanner.entries.clear();empty.loop();j.released=B::Confirm;empty.loop();CHECK(!empty.detail);
  list.finished=false;list.cursor=3;i.released=B::Confirm;list.loop();CHECK(list.openedImport && !list.detail);
- std::cout<<"PASS: 3s scan progress, opening Back release ignored, scanning cancel, list navigation, detail, one Back returns once, empty inbox\n";
+ std::cout<<"PASS: 3s/5s scan progress, opening Back release ignored, scanning cancel, list navigation, detail, one Back returns once, empty inbox\n";
 }
 '''
 with tempfile.TemporaryDirectory(prefix='yomuka-review-ui-') as d:

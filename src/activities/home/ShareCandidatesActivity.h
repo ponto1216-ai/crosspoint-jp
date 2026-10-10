@@ -20,6 +20,7 @@ class ShareCandidatesActivity final : public Activity {
   yomuka::sync::BatchSnapshot batch;
   const bool returnToMenu;
   unsigned long lastProgressRender = 0, startedAt = 0;
+  unsigned progressFrame = 0;
   std::string unitSummary(const yomuka::sync::ShareCandidate& book) const;
   std::vector<size_t> managedIndices() const;
   std::string actionMessage;

@@ -8,7 +8,7 @@
 
 #include "ReceivedReviewActivity.h"
 #include "activities/network/DirectShareActivity.h"
-#include "components/ActionListDivider.h"
+#include "components/IndeterminateProgress.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
@@ -20,6 +20,7 @@ constexpr uint8_t Units[] = {SavedPosition, SavedBookmarks, SavedSettings, Saved
 constexpr StrId UnitLabels[] = {StrId::STR_SHARE_POSITION, StrId::STR_SHARE_BOOKMARKS, StrId::STR_SHARE_SETTINGS,
                                 StrId::STR_SHARE_HISTORY};
 constexpr unsigned long ProgressRenderIntervalMs = 3000;
+constexpr unsigned long FullSearchRenderIntervalMs = 5000;
 }  // namespace
 void ShareCandidatesActivity::onEnter() {
   Activity::onEnter();
@@ -76,8 +77,10 @@ void ShareCandidatesActivity::loop() {
     HalPowerManager::Lock power;
     const bool complete = scanner.step();
     const unsigned long now = millis();
-    if (complete || now - lastProgressRender >= ProgressRenderIntervalMs) {
+    const unsigned long interval = fullSearchCompleted ? FullSearchRenderIntervalMs : ProgressRenderIntervalMs;
+    if (complete || now - lastProgressRender >= interval) {
       lastProgressRender = now;
+      if (!complete) ++progressFrame;
       requestUpdate();
     }
     if (complete) {
@@ -192,6 +195,7 @@ void ShareCandidatesActivity::loop() {
         actionMessage.clear();
         startedAt = millis();
         lastProgressRender = startedAt;
+        progressFrame = 0;
       }
     }
     requestUpdate();
@@ -267,8 +271,15 @@ void ShareCandidatesActivity::render(RenderLock&&) {
   const int top = headerY + metrics.headerHeight + metrics.verticalSpacing;
   const int line = renderer.getLineHeight(UI_10_FONT_ID) + 8;
   if (!scanner.done()) {
-    centered(top + line, tr(STR_SHARE_SEARCHING));
-    centered(top + line * 2, std::to_string(scanner.checkedFiles) + " EPUB");
+    const int progressTop = (renderer.getScreenHeight() - renderer.getLineHeight(UI_10_FONT_ID)) / 2;
+    centered(progressTop, fullSearchCompleted ? tr(STR_SHARE_SEARCH_SD_PROGRESS) : tr(STR_SHARE_SEARCHING));
+    const int barY = progressTop + renderer.getLineHeight(UI_10_FONT_ID) + metrics.verticalSpacing;
+    drawIndeterminateProgress(
+        renderer,
+        Rect{layout.content.x + metrics.contentSidePadding, barY,
+             layout.content.width - metrics.contentSidePadding * 2, metrics.progressBarHeight},
+        progressFrame);
+    centered(barY + metrics.progressBarHeight + 15, std::to_string(scanner.checkedFiles) + " EPUB");
   } else if (review || generating) {
     centered(top + line, generating ? tr(STR_SHARE_GENERATING) : tr(STR_SHARE_EXPORT_CONFIRM));
     const auto count = static_cast<size_t>(std::count(selection.begin(), selection.end(), 1));
@@ -353,14 +364,17 @@ void ShareCandidatesActivity::render(RenderLock&&) {
                            (scanner.canSearchMissing() ? 1 : 0)),
           static_cast<int>(selected),
           [this](int index) {
-            if (static_cast<size_t>(index) == scanner.books().size()) return std::string(tr(STR_SHARE_EXPORT));
-            if (static_cast<size_t>(index) == scanner.books().size() + 1) return std::string(tr(STR_DIRECT_SEND));
-            if (static_cast<size_t>(index) == scanner.books().size() + 2) return std::string(tr(STR_DIRECT_RECEIVE));
-            if (static_cast<size_t>(index) == scanner.books().size() + 3) return std::string(tr(STR_RECEIVED_TITLE));
+            if (static_cast<size_t>(index) == scanner.books().size()) return std::string("　") + tr(STR_SHARE_EXPORT);
+            if (static_cast<size_t>(index) == scanner.books().size() + 1)
+              return std::string("　") + tr(STR_DIRECT_SEND);
+            if (static_cast<size_t>(index) == scanner.books().size() + 2)
+              return std::string("　") + tr(STR_DIRECT_RECEIVE);
+            if (static_cast<size_t>(index) == scanner.books().size() + 3)
+              return std::string("　") + tr(STR_RECEIVED_TITLE);
             if (static_cast<size_t>(index) == scanner.books().size() + 4 && !excludedIds.empty())
-              return std::string(tr(STR_SHARE_REVIEW_EXCLUDED));
+              return std::string("　") + tr(STR_SHARE_REVIEW_EXCLUDED);
             if (static_cast<size_t>(index) == scanner.books().size() + 4 + (!excludedIds.empty() ? 1 : 0))
-              return std::string(tr(STR_SHARE_SEARCH_SD));
+              return std::string("　") + tr(STR_SHARE_SEARCH_SD);
             return std::string(selection[index] ? "[x] " : "[ ] ") + scanner.books()[index].title;
           },
           [this](int index) {
@@ -380,12 +394,16 @@ void ShareCandidatesActivity::render(RenderLock&&) {
             return std::string("　") + unitSummary(book) +
                    (book.historyRank == UINT16_MAX ? " / " + std::string(tr(STR_SHARE_ORDER_UNKNOWN)) : "");
           });
-      drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, scanner.books().size(), selected);
     }
-    centered(bottom - line * 2, exclusionsLoaded ? tr(STR_SHARE_SELECT_HELP) : tr(STR_SHARE_EXCLUSIONS_LOAD_FAILED));
-    centered(bottom - line, std::string(tr(STR_SHARE_MISSING_SHORT)) + std::to_string(scanner.missingBooks) + " / " +
-                                tr(STR_SHARE_NEEDS_CHECK_SHORT) + std::to_string(scanner.warnings) + " / " +
-                                tr(STR_SHARE_LEGACY_SHORT) + std::to_string(scanner.legacyCount));
+    renderer.drawLine(layout.content.x, bottom - line * footerLines, layout.content.x + layout.content.width - 1,
+                      bottom - line * footerLines, 2, true);
+    constexpr int footerTextOffset = 3;
+    centered(bottom - line * 2 + footerTextOffset,
+             exclusionsLoaded ? tr(STR_SHARE_SELECT_HELP) : tr(STR_SHARE_EXCLUSIONS_LOAD_FAILED));
+    centered(bottom - line + footerTextOffset,
+             std::string(tr(STR_SHARE_MISSING_SHORT)) + std::to_string(scanner.missingBooks) + " / " +
+                 tr(STR_SHARE_NEEDS_CHECK_SHORT) + std::to_string(scanner.warnings) + " / " +
+                 tr(STR_SHARE_LEGACY_SHORT) + std::to_string(scanner.legacyCount));
   }
   const auto labels =
       mappedInput.mapLabels(tr(STR_BACK),

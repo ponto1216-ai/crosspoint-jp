@@ -6,13 +6,14 @@
 #include <cstdio>
 
 #include "BatchImportActivity.h"
-#include "components/ActionListDivider.h"
+#include "components/IndeterminateProgress.h"
 #include "components/UITheme.h"
 #include "components/UiLayout.h"
 #include "fontIds.h"
 using namespace yomuka::sync;
 namespace {
 constexpr unsigned long ProgressRenderIntervalMs = 3000;
+constexpr unsigned long SdSearchRenderIntervalMs = 5000;
 }
 const char* ReceivedReviewActivity::status(const ReceivedBook& book) const {
   if (book.status == ReceivedStatus::Matched) return tr(STR_RECEIVED_MATCH);
@@ -63,8 +64,11 @@ void ReceivedReviewActivity::loop() {
       mappedInput.update();
       return !skipBack && mappedInput.isPressed(MappedInputManager::Button::Back);
     });
-    if (scanner.done() || millis() - lastUpdate >= ProgressRenderIntervalMs) {
-      lastUpdate = millis();
+    const auto now = millis();
+    const auto interval = scanner.searchingSd() ? SdSearchRenderIntervalMs : ProgressRenderIntervalMs;
+    if (scanner.done() || now - lastUpdate >= interval) {
+      lastUpdate = now;
+      if (!scanner.done()) ++progressFrame;
       requestUpdate();
     }
     return;
@@ -113,9 +117,16 @@ void ReceivedReviewActivity::render(RenderLock&&) {
                  tr(STR_RECEIVED_TITLE));
   const int bottom = layout.content.y + layout.content.height - metrics.buttonHintsHeight - line;
   if (!scanner.done()) {
-    text(top, tr(STR_RECEIVED_CHECKING));
-    text(top + line, std::to_string(scanner.checkedFiles));
-    text(top + line * 3, tr(STR_SHARE_CANCEL_HINT));
+    const int progressTop = (renderer.getScreenHeight() - renderer.getLineHeight(UI_10_FONT_ID)) / 2;
+    text(progressTop, scanner.searchingSd() ? tr(STR_RECEIVED_SEARCH_SD_PROGRESS) : tr(STR_RECEIVED_CHECKING));
+    const int barY = progressTop + renderer.getLineHeight(UI_10_FONT_ID) + metrics.verticalSpacing;
+    drawIndeterminateProgress(
+        renderer,
+        Rect{layout.content.x + metrics.contentSidePadding, barY,
+             layout.content.width - metrics.contentSidePadding * 2, metrics.progressBarHeight},
+        progressFrame);
+    text(barY + metrics.progressBarHeight + 15, std::to_string(scanner.checkedFiles) + " EPUB");
+    text(barY + metrics.progressBarHeight + 15 + line, tr(STR_SHARE_CANCEL_HINT));
   } else if (scanner.books().empty()) {
     text(top, tr(STR_RECEIVED_EMPTY));
     if (scanner.warnings) text(top + line, tr(STR_RECEIVED_INCOMPLETE));
@@ -133,14 +144,12 @@ void ReceivedReviewActivity::render(RenderLock&&) {
         scanner.books().size() + (scanner.count(ReceivedStatus::Matched) ? 1 : 0), cursor,
         [this](int i) {
           return i < static_cast<int>(scanner.books().size()) ? scanner.books()[i].title
-                                                              : std::string(tr(STR_IMPORT_SELECT));
+                                                              : std::string("　") + tr(STR_IMPORT_SELECT);
         },
         [this](int i) {
           return i < static_cast<int>(scanner.books().size()) ? std::string("　") + status(scanner.books()[i])
                                                               : std::string();
         });
-    if (scanner.count(ReceivedStatus::Matched))
-      drawActionListDivider(renderer, listRect, metrics.listWithSubtitleRowHeight, scanner.books().size(), cursor);
     text(bottom, scanner.warnings ? tr(STR_RECEIVED_INCOMPLETE) : tr(STR_DIRECT_NO_IMPORT));
   }
   auto labels =

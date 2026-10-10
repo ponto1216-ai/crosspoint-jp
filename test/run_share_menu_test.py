@@ -52,6 +52,7 @@ struct UiLayout {bool landscape=false; static UiLayout from(Renderer&){return {}
 struct UITheme {static int getNumberOfItemsPerPage(Renderer&,bool,bool,bool,bool,int){return 5;}};
 constexpr int UI_10_FONT_ID=1;
 constexpr unsigned long ProgressRenderIntervalMs=3000;
+constexpr unsigned long FullSearchRenderIntervalMs=5000;
 unsigned long fakeNow=100;
 unsigned long millis(){return fakeNow;}
 struct ButtonNavigator {
@@ -116,6 +117,7 @@ struct ShareCandidatesActivity {
  std::vector<uint8_t> selection={0,0}; Batch batch;
  bool wentHome=false,finished=false; unsigned updates=0;
  unsigned long startedAt=0,lastProgressRender=0;
+ unsigned progressFrame=0;
  ShareCandidatesActivity(Renderer& r,MappedInputManager& i,bool parent=false)
  :renderer(r),mappedInput(i),navigator{i},returnToMenu(parent){}
  void requestUpdate(){++updates;} void onGoHome(){wentHome=true;} void finish(){finished=true;}
@@ -210,6 +212,13 @@ int main(){
  fakeNow=3099; cadence.loop(); assert(cadence.updates==0);
  fakeNow=3100; cadence.loop(); assert(cadence.updates==1);
  fakeNow=3200; cadence.loop(); assert(cadence.updates==1);
+ ShareCandidatesActivity fullCadence(renderer,input,true);
+ fullCadence.scanner.complete=false;
+ fullCadence.fullSearchCompleted=true;
+ fullCadence.lastProgressRender=3200;
+ fakeNow=8199; fullCadence.loop(); assert(fullCadence.updates==0);
+ fakeNow=8200; fullCadence.loop(); assert(fullCadence.updates==1 && fullCadence.progressFrame==1);
+ fakeNow=8300; fullCadence.loop(); assert(fullCadence.updates==1);
  input.released=B::Back;
  ShareCandidatesActivity direct(renderer,input); direct.loop(); assert(direct.wentHome && !direct.finished);
  ShareCandidatesActivity searching(renderer,input,true); searching.scanner.complete=false;
@@ -229,4 +238,4 @@ with tempfile.TemporaryDirectory(prefix='yomuka-share-menu-') as directory:
     subprocess.run(command + ['-std=c++20', '-Wall', '-Wextra', '-Werror', '-Wno-unused-variable',
                              str(source), '-o', str(binary)], check=True, timeout=180)
     subprocess.run([str(binary)], check=True, timeout=30)
-print('PASS: sharing routes, back navigation, missing-book exclusion and 3-second progress cadence')
+print('PASS: sharing routes, back navigation, missing-book exclusion and 3s/5s progress cadence')
