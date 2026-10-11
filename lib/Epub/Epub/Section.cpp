@@ -244,7 +244,10 @@ bool collectSectionFontCodepoints(const std::string& htmlPath, std::string& uniq
 // 135: Resolve missing SD-font space metrics in the actual style before layout.
 // 137: Rebuild vertical columns for line-end 、/。 spacing (replaces cell sharing).
 // 138: Keep the first-line indent on the paragraph start after a partial flush.
-constexpr uint8_t SECTION_FILE_VERSION = 138;
+// 139: Reserve a full vertical cell for narrow-font ellipses.
+// 140: Allow safe one-pixel cell-gap tightening for line-end small kana.
+// 141: Parse Japanese ellipses as individual vertical glyph cells.
+constexpr uint8_t SECTION_FILE_VERSION = 141;
 // Minimum free heap required before attempting to build section pages.
 // Section building involves heavy allocations (Page, TextBlock, PageLine, etc.)
 // and on ESP32 without C++ exceptions, allocation failure calls abort().

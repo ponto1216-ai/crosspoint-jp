@@ -182,7 +182,11 @@ inline constexpr bool isJapaneseVerticalQuote(const uint32_t cp) {
 // this decision shared by parsing and drawing prevents Tr punctuation from
 // being parsed as a cell and later rendered as a generic sideways run.
 inline bool isVerticalGlyphCell(const uint32_t cp) {
-  return isUprightInVertical(cp) || isTransformedRotatedInVertical(cp) || isJapaneseVerticalQuote(cp);
+  // Japanese ellipses use the font's vertical substitute and one cell per
+  // codepoint. UAX #50 classifies them as R, which otherwise groups "……" into
+  // a sideways run and applies the Latin-run downward drawing offset.
+  return cp == 0x2025 || cp == 0x2026 || isUprightInVertical(cp) || isTransformedRotatedInVertical(cp) ||
+         isJapaneseVerticalQuote(cp);
 }
 
 // Should this codepoint use the OpenType 'vert' substitute glyph?

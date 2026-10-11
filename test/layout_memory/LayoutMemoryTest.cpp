@@ -360,6 +360,24 @@ int main() {
     assert(!ellipsis.layoutFailed() && ellipsis.isEmpty());
     assertKinsokuBoundary(blocks);
   }
+  // Narrow horizontal ellipses still consume full vertical cells.
+  {
+    GfxRenderer narrowRenderer;
+    narrowRenderer.narrowEllipsis = true;
+    BlockStyle style;
+    style.textIndentDefined = true;
+    ParsedText ellipsis(false, style);
+    for (const char* word : {"あ", "…", "…", "い", "う"}) ellipsis.addWord(word, EpdFontFamily::REGULAR);
+    std::vector<std::unique_ptr<TextBlock>> columns;
+    ellipsis.layoutVerticalColumns(narrowRenderer, 1, 80, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!ellipsis.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().size() == 4 && columns[1]->getWords().front() == "う");
+    for (size_t i = 0; i < columns[0]->getWords().size(); ++i)
+      assert(columns[0]->getWordYpos()[i] == static_cast<int>(i * 20));
+  }
   // A long plain column can save one pixel per gap to retain a final 、 or 。
   // in its own cell. A short full column still uses the old kinsoku break.
   for (const char* mark : {"、", "。"}) {
@@ -394,6 +412,39 @@ int main() {
     assert(!fullColumn.layoutFailed() && columns.size() == 2);
     assert(columns[0]->getWords().size() == 2 && columns[1]->getWords()[1] == mark);
     assert(columns[1]->getWordYpos()[1] > columns[1]->getWordYpos()[0]);
+  }
+  // Small kana follow the same bounded gap adjustment only in plain columns.
+  for (const char* mark : {"ぁ", "ぃ", "ぅ", "ぇ", "ぉ", "っ", "ゃ", "ゅ", "ょ"}) {
+    ESP = {};
+    BlockStyle style;
+    style.textIndentDefined = true;
+    ParsedText smallKana(false, style);
+    for (int i = 0; i < 20; ++i) smallKana.addWord("あ", EpdFontFamily::REGULAR);
+    smallKana.addWord(mark, EpdFontFamily::REGULAR);
+    smallKana.addWord("え", EpdFontFamily::REGULAR);
+    std::vector<std::unique_ptr<TextBlock>> columns;
+    smallKana.layoutVerticalColumns(renderer, 1, 400, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!smallKana.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().size() == 21 && columns[0]->getWords().back() == mark);
+    assert(columns[1]->getWords().front() == "え");
+    assert(columns[0]->getWordYpos()[20] == 380);
+    for (size_t i = 1; i < columns[0]->getWords().size(); ++i)
+      assert(columns[0]->getWordYpos()[i] > columns[0]->getWordYpos()[i - 1]);
+
+    ParsedText shortColumn(false, style);
+    for (const char* word : {"あ", "い", "う"}) shortColumn.addWord(word, EpdFontFamily::REGULAR);
+    shortColumn.addWord(mark, EpdFontFamily::REGULAR);
+    shortColumn.addWord("え", EpdFontFamily::REGULAR);
+    columns.clear();
+    shortColumn.layoutVerticalColumns(renderer, 1, 60, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!shortColumn.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().size() == 2 && columns[1]->getWords()[1] == mark);
   }
   ESP = {};
   assert(!LayoutMemory::admit(std::numeric_limits<size_t>::max(), "overflow"));

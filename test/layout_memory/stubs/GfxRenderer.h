@@ -14,6 +14,7 @@ class GfxRenderer {
   }
   bool sd = false;
   bool exhaustPrewarm = false;
+  bool narrowEllipsis = false;
   bool isSdCardFont(int) const { return sd; }
   void ensureSdCardFontReady(int, const char*, uint8_t) const {
     if (exhaustPrewarm) ESP.free = ESP.largest = 512;
@@ -25,7 +26,11 @@ class GfxRenderer {
     auto* p = reinterpret_cast<const unsigned char*>(text);
     int width = 0;
     while (const uint32_t cp = utf8NextCodepoint(&p)) {
-      width += cp == 0x00AD || cp == 0x200B ? 0 : cp == ' ' ? 5 : cp < 128 ? 10 : 20;
+      width += cp == 0x00AD || cp == 0x200B     ? 0
+               : cp == ' '                      ? 5
+               : narrowEllipsis && cp == 0x2026 ? 10
+               : cp < 128                       ? 10
+                                                : 20;
     }
     return width;
   }

@@ -758,6 +758,9 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
     const bool isJapaneseVerticalQuote =
         vb == VerticalTextUtils::VerticalBehavior::Upright && VerticalTextUtils::isJapaneseVerticalQuote(wordCp);
 
+    const bool isVerticalEllipsis = vb == VerticalTextUtils::VerticalBehavior::Upright &&
+                                    (wordCp == 0x2025 || wordCp == 0x2026) && words[i].size() == 3;
+
     const bool isInlineImage = words[i] == INLINE_IMAGE_MARKER && imgIdx < inlineImages.size();
 
     uint16_t baseHeight;
@@ -777,11 +780,12 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       baseHeight = wordCp == 0xFF70 ? renderer.getTextAdvanceX(scriptAwareFontId(fontId, wordStyles[i]),
                                                                words[i].c_str(), glyphStyle(wordStyles[i]))
                                     : static_cast<uint16_t>(cjkCharAdvance);
-    } else if (isUprightEnclosedAlphanumeric || isJapaneseVerticalQuote) {
+    } else if (isUprightEnclosedAlphanumeric || isJapaneseVerticalQuote || isVerticalEllipsis) {
       // Circled digits are visually narrow in many fonts, but Japanese
       // vertical composition gives every one a normal character cell. Curly
       // quotation marks likewise need a full cell despite narrow Latin-font
-      // advance metrics.
+      // advance metrics. Ellipses also occupy a full vertical cell even when
+      // the font reports a narrow horizontal advance.
       baseHeight = static_cast<uint16_t>(cjkCharAdvance);
     } else
       switch (vb) {
@@ -886,15 +890,15 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
   };
 
   // If an entire column of plain upright text is only a few pixels too long
-  // for a final 、 or 。, recover those pixels by tightening its cell gaps by
+  // for a final 、, 。, or small kana, recover those pixels by tightening its cell gaps by
   // at most one pixel each. This keeps the mark in its own cell and avoids
   // both a short kinsoku column and the dakuten-like overlap of cell sharing.
-  auto punctuationCompression = [&](size_t index, size_t columnStart, int y, uint16_t fitHeight) -> int {
+  auto kinsokuCellCompression = [&](size_t index, size_t columnStart, int y, uint16_t fitHeight) -> int {
     if (index <= columnStart || y > columnHeight || y + fitHeight <= columnHeight) return 0;
     const int deficit = y + fitHeight - columnHeight;
     if (deficit > static_cast<int>(index - columnStart)) return 0;
     const uint32_t cp = firstCodepoint(words[index]);
-    if ((cp != 0x3001 && cp != 0x3002) || words[index].size() != 3) return 0;
+    if ((cp != 0x3001 && cp != 0x3002 && !VerticalTextUtils::isSmallKana(cp)) || words[index].size() != 3) return 0;
     for (size_t j = columnStart; j <= index; ++j) {
       if (words[j].size() != 3 || !VerticalTextUtils::isUprightInVertical(firstCodepoint(words[j])) ||
           (j < wordVerticalBehaviors.size() &&
@@ -936,7 +940,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
           sidewaysTailGuard += (std::clamp(renderer.getLineHeight(wordFontId) / 5, 4, 8) + 1) / 2 + 1;
         }
       }
-      if (punctuationCompression(i, columnStart, currentY, fitHeight) > 0) {
+      if (kinsokuCellCompression(i, columnStart, currentY, fitHeight) > 0) {
         // The second pass distributes the deficit across this column. Force
         // the following word into the next column.
         currentY = columnHeight;
@@ -1003,7 +1007,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
     const size_t finalWord = end - 1;
     const uint16_t finalFitHeight = hasAnyRuby ? rubyFitHeights[finalWord] : wordHeights[finalWord];
     const int compression =
-        punctuationCompression(finalWord, start, uncompressedEnd - wordHeights[finalWord], finalFitHeight);
+        kinsokuCellCompression(finalWord, start, uncompressedEnd - wordHeights[finalWord], finalFitHeight);
     const size_t gaps = finalWord - start;
     for (size_t j = start; j < end; j++) {
       const int shift = compression > 0 ? static_cast<int>((j - start) * compression / gaps) : 0;

@@ -28,6 +28,9 @@ int main() {
   assert(VerticalTextUtils::isVerticalGlyphCell(0x301D));  // 〝 (Tr)
   assert(VerticalTextUtils::isVerticalGlyphCell(0x201C));  // “ (R, Japanese quote exception)
   assert(VerticalTextUtils::isVerticalGlyphCell(0x201D));  // ” (R, Japanese quote exception)
+  assert(VerticalTextUtils::getUaxVerticalOrientation(0x2026) == UaxVerticalOrientation::Rotated);
+  assert(VerticalTextUtils::isVerticalGlyphCell(0x2025));  // ‥ uses one vertical glyph cell
+  assert(VerticalTextUtils::isVerticalGlyphCell(0x2026));  // … uses one vertical glyph cell
   assert(!VerticalTextUtils::isVerticalGlyphCell('A'));    // ordinary R text remains sideways
 
   const auto* openingQuote = VerticalTextUtils::getVerticalPunctuationOffset(0x201C);
