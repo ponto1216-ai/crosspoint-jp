@@ -378,6 +378,79 @@ int main() {
     for (size_t i = 0; i < columns[0]->getWords().size(); ++i)
       assert(columns[0]->getWordYpos()[i] == static_cast<int>(i * 20));
   }
+  // Ellipses, full-height long marks, and a closing bracket must keep their
+  // positions when a paragraph is laid out in separate memory-safe batches.
+  {
+    GfxRenderer narrowRenderer;
+    narrowRenderer.narrowEllipsis = true;
+    BlockStyle style;
+    style.textIndentDefined = true;
+    constexpr const char* text[] = {"あ", "い", "…", "…", "」", "う", "ー", "え", "―",
+                                    "―", "「", "お", "か", "‥", "‥", "き", "く"};
+    auto collect = [](std::vector<std::vector<std::string>>& words, std::vector<std::vector<int16_t>>& positions) {
+      return [&](std::unique_ptr<TextBlock> column) {
+        const auto& ys = column->getWordYpos();
+        for (size_t i = 1; i < ys.size(); ++i) assert(ys[i] > ys[i - 1]);
+        assert(ys.back() + 20 <= 80);
+        words.push_back(column->getWords());
+        positions.push_back(ys);
+        return true;
+      };
+    };
+    ParsedText whole(false, style);
+    for (const char* word : text) whole.addWord(word, EpdFontFamily::REGULAR);
+    std::vector<std::vector<std::string>> wholeWords;
+    std::vector<std::vector<int16_t>> wholePositions;
+    whole.layoutVerticalColumns(narrowRenderer, 1, 80, collect(wholeWords, wholePositions));
+    assert(!whole.layoutFailed() && whole.isEmpty());
+    assertKinsokuBoundary(wholeWords);
+
+    ParsedText batched(false, style);
+    for (size_t i = 0; i < 9; ++i) batched.addWord(text[i], EpdFontFamily::REGULAR);
+    std::vector<std::vector<std::string>> batchedWords;
+    std::vector<std::vector<int16_t>> batchedPositions;
+    batched.layoutVerticalColumns(narrowRenderer, 1, 80, collect(batchedWords, batchedPositions), false);
+    assert(!batched.layoutFailed() && !batched.isEmpty() && !batchedWords.empty());
+    for (size_t i = 9; i < std::size(text); ++i) batched.addWord(text[i], EpdFontFamily::REGULAR);
+    batched.layoutVerticalColumns(narrowRenderer, 1, 80, collect(batchedWords, batchedPositions));
+    assert(!batched.layoutFailed() && batched.isEmpty());
+    assert(batchedWords == wholeWords && batchedPositions == wholePositions);
+  }
+  // A sideways pair of horizontal bars needs a small gap before the next
+  // upright glyph; a single bar keeps its existing advance.
+  for (const char* bars : {"―", "――"}) {
+    BlockStyle style;
+    style.textIndentDefined = true;
+    ParsedText dash(false, style);
+    dash.addWord(bars, EpdFontFamily::REGULAR, VerticalTextUtils::VerticalBehavior::Sideways);
+    dash.addWord("の", EpdFontFamily::REGULAR);
+    std::vector<std::unique_ptr<TextBlock>> columns;
+    dash.layoutVerticalColumns(renderer, 1, 120, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!dash.layoutFailed() && columns.size() == 1);
+    assert(columns[0]->getWordYpos()[1] == (std::string(bars) == "――" ? 45 : 20));
+  }
+  // The added gap may send the following glyph to the next column, while
+  // keeping the two-bar token intact and inside the current column.
+  {
+    BlockStyle style;
+    style.textIndentDefined = true;
+    ParsedText dash(false, style);
+    dash.addWord("あ", EpdFontFamily::REGULAR);
+    dash.addWord("――", EpdFontFamily::REGULAR, VerticalTextUtils::VerticalBehavior::Sideways);
+    dash.addWord("の", EpdFontFamily::REGULAR);
+    std::vector<std::unique_ptr<TextBlock>> columns;
+    dash.layoutVerticalColumns(renderer, 1, 80, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!dash.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().size() == 2 && columns[0]->getWords()[1] == "――");
+    assert(columns[0]->getWordYpos()[1] == 20);
+    assert(columns[1]->getWords().size() == 1 && columns[1]->getWords()[0] == "の");
+  }
   // A long plain column can save one pixel per gap to retain a final 、 or 。
   // in its own cell. A short full column still uses the old kinsoku break.
   for (const char* mark : {"、", "。"}) {

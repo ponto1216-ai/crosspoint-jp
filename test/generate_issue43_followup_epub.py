@@ -3,7 +3,7 @@
 
 from html import escape
 from pathlib import Path
-from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
+from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
 
 DEST = Path(__file__).resolve().parent / "epubs" / "yomuka_issue43_followup.epub"
@@ -51,12 +51,19 @@ nav = '''<?xml version="1.0" encoding="utf-8"?>
 <li><a href="ellipsis.xhtml">省略記号</a></li>
 </ol></nav></body></html>'''
 
+
+def write_entry(epub, name, content, compression):
+    info = ZipInfo(name, date_time=(2026, 10, 11, 0, 0, 0))
+    info.compress_type = compression
+    epub.writestr(info, content)
+
+
 with ZipFile(DEST, "w") as epub:
-    epub.writestr("mimetype", "application/epub+zip", compress_type=ZIP_STORED)
-    epub.writestr("META-INF/container.xml", container, compress_type=ZIP_DEFLATED)
-    epub.writestr("OEBPS/content.opf", package.encode("utf-8"), compress_type=ZIP_DEFLATED)
-    epub.writestr("OEBPS/nav.xhtml", nav.encode("utf-8"), compress_type=ZIP_DEFLATED)
-    epub.writestr("OEBPS/punctuation.xhtml", chapter("句点と小書き仮名", punctuation), compress_type=ZIP_DEFLATED)
-    epub.writestr("OEBPS/ellipsis.xhtml", chapter("省略記号", ellipsis), compress_type=ZIP_DEFLATED)
+    write_entry(epub, "mimetype", "application/epub+zip", ZIP_STORED)
+    write_entry(epub, "META-INF/container.xml", container, ZIP_DEFLATED)
+    write_entry(epub, "OEBPS/content.opf", package.encode("utf-8"), ZIP_DEFLATED)
+    write_entry(epub, "OEBPS/nav.xhtml", nav.encode("utf-8"), ZIP_DEFLATED)
+    write_entry(epub, "OEBPS/punctuation.xhtml", chapter("句点と小書き仮名", punctuation), ZIP_DEFLATED)
+    write_entry(epub, "OEBPS/ellipsis.xhtml", chapter("省略記号", ellipsis), ZIP_DEFLATED)
 
 print(DEST)

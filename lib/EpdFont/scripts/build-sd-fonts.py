@@ -134,6 +134,8 @@ def build_family(family: dict, output_base: Path) -> tuple[str, bool, str]:
     if family.get("codepoints_from_styles", False) and "codepoints_file" in family:
         return name, False, "codepoints_from_styles cannot be combined with codepoints_file"
 
+    glyph_aliases = family.get("glyph_aliases", {})
+
     generated_codepoints_file = None
     if family.get("codepoints_from_styles", False):
         # Some Japanese display fonts cover only a curated subset of CJK.  A
@@ -150,6 +152,7 @@ def build_family(family: dict, output_base: Path) -> tuple[str, bool, str]:
                     codepoints.update(table.cmap.keys())
             finally:
                 font.close()
+        codepoints.update(int(target, 16) for target in glyph_aliases)
         if family.get("include_controls", False):
             # EPUB layout uses C0 controls and U+200B for structural whitespace
             # (including empty paragraphs). They have no source-font glyph, but
@@ -188,6 +191,9 @@ def build_family(family: dict, output_base: Path) -> tuple[str, bool, str]:
 
     if family.get("force_autohint", False):
         cmd.append("--force-autohint")
+
+    for target, source in glyph_aliases.items():
+        cmd.extend(["--glyph-alias", f"{target}:{source}"])
 
     if "codepoints_file" in family:
         cp_file = SCRIPT_DIR / family["codepoints_file"]

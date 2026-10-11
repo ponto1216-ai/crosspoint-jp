@@ -841,6 +841,16 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       continue;
     wordHeights[i - 1] -= punctuationPairTightening;
   }
+  // Consecutive horizontal bars are parsed as one sideways run. Its rotated
+  // ink reaches the next upright cell, so leave a small optical gap after it.
+  const int dashPairGap = std::max(1, cjkCharAdvance / 4);
+  for (size_t i = 1; i < words.size(); ++i) {
+    if (words[i - 1] == "――" && i < wordVerticalBehaviors.size() &&
+        wordVerticalBehaviors[i] == VerticalTextUtils::VerticalBehavior::Upright &&
+        wordHeights[i - 1] <= UINT16_MAX - dashPairGap) {
+      wordHeights[i - 1] += dashPairGap;
+    }
+  }
   // ルビを含めた「列に収まるか判定用」の高さ。
   // 本文のY送りには使わない。
   std::vector<uint16_t> rubyFitHeights;

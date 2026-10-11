@@ -28,7 +28,7 @@ class GfxRenderer {
     while (const uint32_t cp = utf8NextCodepoint(&p)) {
       width += cp == 0x00AD || cp == 0x200B     ? 0
                : cp == ' '                      ? 5
-               : narrowEllipsis && cp == 0x2026 ? 10
+               : narrowEllipsis && (cp == 0x2025 || cp == 0x2026) ? 10
                : cp < 128                       ? 10
                                                 : 20;
     }

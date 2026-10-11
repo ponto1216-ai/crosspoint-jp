@@ -252,7 +252,7 @@ bool collectSectionFontCodepoints(const std::string& htmlPath, std::string& uniq
 // 144: Increase punctuation-pair tightening to half an em.
 // 145: Increase punctuation-pair tightening to three quarters of an em.
 // 146: Set punctuation-pair tightening to five eighths of an em.
-constexpr uint8_t SECTION_FILE_VERSION = 146;
+constexpr uint8_t SECTION_FILE_VERSION = 147;
 // Minimum free heap required before attempting to build section pages.
 // Section building involves heavy allocations (Page, TextBlock, PageLine, etc.)
 // and on ESP32 without C++ exceptions, allocation failure calls abort().
