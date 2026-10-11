@@ -247,7 +247,12 @@ bool collectSectionFontCodepoints(const std::string& htmlPath, std::string& uniq
 // 139: Reserve a full vertical cell for narrow-font ellipses.
 // 140: Allow safe one-pixel cell-gap tightening for line-end small kana.
 // 141: Parse Japanese ellipses as individual vertical glyph cells.
-constexpr uint8_t SECTION_FILE_VERSION = 141;
+// 142: Allow bounded cell-gap tightening for a line-end closing quote.
+// 143: Tighten the advance between 。 and adjacent corner brackets.
+// 144: Increase punctuation-pair tightening to half an em.
+// 145: Increase punctuation-pair tightening to three quarters of an em.
+// 146: Set punctuation-pair tightening to five eighths of an em.
+constexpr uint8_t SECTION_FILE_VERSION = 146;
 // Minimum free heap required before attempting to build section pages.
 // Section building involves heavy allocations (Page, TextBlock, PageLine, etc.)
 // and on ESP32 without C++ exceptions, allocation failure calls abort().

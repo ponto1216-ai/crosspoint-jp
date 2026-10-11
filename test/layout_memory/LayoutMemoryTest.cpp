@@ -446,6 +446,110 @@ int main() {
     assert(!shortColumn.layoutFailed() && columns.size() == 2);
     assert(columns[0]->getWords().size() == 2 && columns[1]->getWords()[1] == mark);
   }
+  // A closing quote may use the same bounded gap adjustment while keeping
+  // its own cell. If the deficit is too large, pull back instead of hanging.
+  {
+    ESP = {};
+    BlockStyle style;
+    style.textIndentDefined = true;
+    ParsedText closingQuote(false, style);
+    for (int i = 0; i < 20; ++i) closingQuote.addWord("あ", EpdFontFamily::REGULAR);
+    closingQuote.addWord("」", EpdFontFamily::REGULAR);
+    closingQuote.addWord("え", EpdFontFamily::REGULAR);
+    std::vector<std::unique_ptr<TextBlock>> columns;
+    closingQuote.layoutVerticalColumns(renderer, 1, 400, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!closingQuote.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().size() == 21 && columns[0]->getWords().back() == "」");
+    assert(columns[0]->getWordYpos()[20] == 380 && columns[1]->getWords().front() == "え");
+
+    // The punctuation pair is tightened without sharing a glyph cell.
+    for (const char* bracket : {"」", "「"}) {
+      ParsedText punctuationPair(false, style);
+      punctuationPair.addWord("あ", EpdFontFamily::REGULAR);
+      punctuationPair.addWord("。", EpdFontFamily::REGULAR);
+      punctuationPair.addWord(bracket, EpdFontFamily::REGULAR);
+      punctuationPair.addWord("い", EpdFontFamily::REGULAR);
+      columns.clear();
+      punctuationPair.layoutVerticalColumns(renderer, 1, 400, [&](std::unique_ptr<TextBlock> column) {
+        columns.push_back(std::move(column));
+        return true;
+      });
+      assert(!punctuationPair.layoutFailed() && columns.size() == 1);
+      const auto& ys = columns[0]->getWordYpos();
+      assert(ys.size() == 4 && ys[2] > ys[1] && ys[2] - ys[1] < ys[1] - ys[0]);
+      const int bodyAdvance = renderer.getTextAdvanceX(1, "あ", EpdFontFamily::REGULAR);
+      assert(ys[1] - ys[0] - (ys[2] - ys[1]) == std::max(1, bodyAdvance * 5 / 8));
+      assert(ys[3] - ys[2] == ys[1] - ys[0]);
+    }
+    ParsedText styledPair(false, style);
+    styledPair.addWord("あ", EpdFontFamily::REGULAR);
+    styledPair.addWord("。", EpdFontFamily::REGULAR);
+    styledPair.addWord("」", EpdFontFamily::BOLD);
+    columns.clear();
+    styledPair.layoutVerticalColumns(renderer, 1, 400, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!styledPair.layoutFailed() && columns.size() == 1);
+    assert(columns[0]->getWordYpos()[2] - columns[0]->getWordYpos()[1] ==
+           columns[0]->getWordYpos()[1] - columns[0]->getWordYpos()[0]);
+
+    ParsedText quotedSentence(false, style);
+    quotedSentence.addWord("「", EpdFontFamily::REGULAR);
+    for (int i = 0; i < 19; ++i) quotedSentence.addWord("あ", EpdFontFamily::REGULAR);
+    quotedSentence.addWord("」", EpdFontFamily::REGULAR);
+    quotedSentence.addWord("え", EpdFontFamily::REGULAR);
+    columns.clear();
+    quotedSentence.layoutVerticalColumns(renderer, 1, 400, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!quotedSentence.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().front() == "「" && columns[0]->getWords().back() == "」");
+    assert(columns[0]->getWordYpos()[20] == 380 && columns[1]->getWords().front() == "え");
+
+    ParsedText shortColumn(false, style);
+    for (const char* word : {"あ", "い", "う"}) shortColumn.addWord(word, EpdFontFamily::REGULAR);
+    shortColumn.addWord("」", EpdFontFamily::REGULAR);
+    shortColumn.addWord("え", EpdFontFamily::REGULAR);
+    columns.clear();
+    shortColumn.layoutVerticalColumns(renderer, 1, 60, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!shortColumn.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().size() == 2 && columns[1]->getWords()[1] == "」");
+
+    ParsedText periodThenQuote(false, style);
+    for (int i = 0; i < 19; ++i) periodThenQuote.addWord("あ", EpdFontFamily::REGULAR);
+    periodThenQuote.addWord("。", EpdFontFamily::REGULAR);
+    periodThenQuote.addWord("」", EpdFontFamily::REGULAR);
+    periodThenQuote.addWord("え", EpdFontFamily::REGULAR);
+    columns.clear();
+    periodThenQuote.layoutVerticalColumns(renderer, 1, 400, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!periodThenQuote.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().size() == 21 && columns[1]->getWords().size() == 1);
+    assert(columns[0]->getWords()[19] == "。" && columns[0]->getWords()[20] == "」");
+    assert(columns[1]->getWords().front() == "え");
+
+    ParsedText mixedStyle(false, style);
+    for (int i = 0; i < 20; ++i) mixedStyle.addWord("あ", EpdFontFamily::REGULAR);
+    mixedStyle.addWord("」", EpdFontFamily::BOLD);
+    mixedStyle.addWord("え", EpdFontFamily::REGULAR);
+    columns.clear();
+    mixedStyle.layoutVerticalColumns(renderer, 1, 400, [&](std::unique_ptr<TextBlock> column) {
+      columns.push_back(std::move(column));
+      return true;
+    });
+    assert(!mixedStyle.layoutFailed() && columns.size() == 2);
+    assert(columns[0]->getWords().size() == 19 && columns[1]->getWords()[1] == "」");
+  }
   ESP = {};
   assert(!LayoutMemory::admit(std::numeric_limits<size_t>::max(), "overflow"));
   assert(LayoutMemory::multiply(std::numeric_limits<size_t>::max(), 2) == std::numeric_limits<size_t>::max());

@@ -824,6 +824,23 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
 
     wordHeights.push_back(finalHeight);
   }
+  // In a plain vertical punctuation pair, the full cells of 。 and a corner
+  // bracket leave an overly wide visible gap. Shorten only the advance after
+  // 。; keep both glyphs in separate cells and retain three eighths of an em.
+  const int punctuationPairTightening = std::max(1, cjkCharAdvance * 5 / 8);
+  for (size_t i = 1; i < words.size(); ++i) {
+    if (words[i - 1] != "。" || (words[i] != "」" && words[i] != "「") || wordStyles[i - 1] != wordStyles[i] ||
+        wordHeights[i - 1] <= punctuationPairTightening || (i < wordSpaceBefore.size() && wordSpaceBefore[i]) ||
+        (i - 1 < wordVerticalBehaviors.size() &&
+         wordVerticalBehaviors[i - 1] != VerticalTextUtils::VerticalBehavior::Upright) ||
+        (i < wordVerticalBehaviors.size() &&
+         wordVerticalBehaviors[i] != VerticalTextUtils::VerticalBehavior::Upright) ||
+        (i - 1 < rubyTexts.size() && !rubyTexts[i - 1].empty()) || (i < rubyTexts.size() && !rubyTexts[i].empty()) ||
+        (i - 1 < emphasis.size() && emphasis[i - 1] != TextEmphasis::None) ||
+        (i < emphasis.size() && emphasis[i] != TextEmphasis::None))
+      continue;
+    wordHeights[i - 1] -= punctuationPairTightening;
+  }
   // ルビを含めた「列に収まるか判定用」の高さ。
   // 本文のY送りには使わない。
   std::vector<uint16_t> rubyFitHeights;
@@ -890,7 +907,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
   };
 
   // If an entire column of plain upright text is only a few pixels too long
-  // for a final 、, 。, or small kana, recover those pixels by tightening its cell gaps by
+  // for a final 、, 。, small kana, or 」, recover those pixels by tightening its cell gaps by
   // at most one pixel each. This keeps the mark in its own cell and avoids
   // both a short kinsoku column and the dakuten-like overlap of cell sharing.
   auto kinsokuCellCompression = [&](size_t index, size_t columnStart, int y, uint16_t fitHeight) -> int {
@@ -898,9 +915,17 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
     const int deficit = y + fitHeight - columnHeight;
     if (deficit > static_cast<int>(index - columnStart)) return 0;
     const uint32_t cp = firstCodepoint(words[index]);
-    if ((cp != 0x3001 && cp != 0x3002 && !VerticalTextUtils::isSmallKana(cp)) || words[index].size() != 3) return 0;
+    const bool closingQuote = cp == 0x300D;
+    if ((cp != 0x3001 && cp != 0x3002 && !VerticalTextUtils::isSmallKana(cp) && !closingQuote) ||
+        words[index].size() != 3)
+      return 0;
     for (size_t j = columnStart; j <= index; ++j) {
-      if (words[j].size() != 3 || !VerticalTextUtils::isUprightInVertical(firstCodepoint(words[j])) ||
+      const uint32_t columnCp = firstCodepoint(words[j]);
+      // A quoted sentence may contain its opening 「 in the same column.
+      // Both brackets have dedicated vertical cells; retain the plain-text
+      // safety gate for every other non-upright character.
+      const bool quoteCell = closingQuote && (columnCp == 0x300C || columnCp == 0x300D);
+      if (words[j].size() != 3 || (!VerticalTextUtils::isUprightInVertical(columnCp) && !quoteCell) ||
           (j < wordVerticalBehaviors.size() &&
            wordVerticalBehaviors[j] != VerticalTextUtils::VerticalBehavior::Upright) ||
           wordStyles[j] != wordStyles[index] || (j < rubyTexts.size() && !rubyTexts[j].empty()) ||
