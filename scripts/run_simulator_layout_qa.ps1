@@ -54,7 +54,7 @@ printf '%s' '$SettingsJson' > '$LinuxSd/.crosspoint/settings.json'
 cd '$LinuxProject'
 DISPLAY='$Gateway`:0.0' SDL_VIDEODRIVER=x11 LIBGL_ALWAYS_SOFTWARE=1 CROSSPOINT_SIM_SD='$LinuxSd' CROSSPOINT_SIM_LANGUAGE='$Language' CROSSPOINT_SIM_SETTINGS_CATEGORY='$Category' CROSSPOINT_SIM_INPUT_SCRIPT='2400:QUIT' CROSSPOINT_SIM_SCREENSHOTS='1200:$WarmupScreenshot;1900:$LinuxScreenshot' .pio/build/$Environment/program
 "@
-                & wsl.exe -d $Distro -- bash -lc $Command
+                & wsl.exe -d $Distro -- bash -lc ($Command -replace "`r", "")
                 if ($LASTEXITCODE -ne 0) { throw "Layout capture failed: $Name" }
             }
         }

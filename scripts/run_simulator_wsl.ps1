@@ -27,7 +27,7 @@ cd '$LinuxProject'
 "@
 
 Write-Host "Building the Yomuka $Device simulator..."
-& wsl.exe -d $Distro -- bash -lc $SyncAndBuild
+& wsl.exe -d $Distro -- bash -lc ($SyncAndBuild -replace "`r", "")
 if ($LASTEXITCODE -ne 0) {
     throw "The simulator build failed."
 }

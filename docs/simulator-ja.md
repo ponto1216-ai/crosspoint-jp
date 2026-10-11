@@ -44,7 +44,7 @@ PowerShellで次を実行すると、X3/X4、日本語/英語、縦・上下逆�
 .\scripts\run_simulator_layout_qa.ps1
 ```
 
-結果は `simulator-output/layout` に保存され、`index.html` で全画面を一覧できます。本文の組版や文字の微妙な位置は、テストEPUBを使って手動確認します。
+結果は `simulator-output/layout` に保存され、`index.html` で全画面を一覧できます。本文の組版や文字の微妙な位置は、以下の本文撮影と実機で確認します。
 
 ## スクリーンショットの差分確認
 
@@ -54,7 +54,20 @@ PowerShellで次を実行すると、X3/X4、日本語/英語、縦・上下逆�
 py -3 scripts/compare_simulator_screenshots.py <基準画像フォルダー> <今回の画像フォルダー> simulator-output/comparison
 ```
 
-画像名と枚数が一致しない場合、寸法が違う場合、または1画素でも異なる場合は失敗として終了し、`simulator-output/comparison/index.html` に結果を保存します。異なる画素は赤で示します。画面比較だけでは正しい組版か判断できないため、縦書きの「…」「、。」「」」や小書き仮名は実機画面でも確認してください。本文ページの自動操作と基準画像の整備は今後の課題です。
+画像名と枚数が一致しない場合、寸法が違う場合、または1画素でも異なる場合は失敗として終了し、指定した出力フォルダーの `index.html` に結果を保存します。異なる画素は赤で示します。画面比較だけでは正しい組版か判断できないため、縦書きの「…」「、。」「」」や小書き仮名は実機画面でも確認してください。
+
+### 縦書き本文を自動撮影する
+
+検証用EPUBだけを入れた新しい仮想SDカードで起動し、本文の最初のページを撮影します。変換済み `.cpfont` が入ったフォント家族のフォルダーを指定してください。フォント、縦書き設定、本文の読み込みをログで確認できない場合は失敗します。
+
+```powershell
+.\scripts\run_simulator_reader_qa.ps1 -Device X3 -FontDirectory "H:\.fonts\BIZUDMincho" -FontFamily BIZUDMincho
+.\scripts\run_simulator_reader_qa.ps1 -Device X4 -Epub test/epubs/yomuka_vertical_small_kana_check.epub -FontDirectory "H:\.fonts\BIZUDMincho" -FontFamily BIZUDMincho
+```
+
+結果は `simulator-output/reader-qa` の実行ごとのフォルダーに `page1.bmp` と `run.log` として保存されます。確認済みの `page1.bmp` を別の基準フォルダーに手動で保存したら、同じ条件で `-Baseline <基準フォルダー>` を指定して差分も確認できます。基準画像は自動で更新しません。画面内の文字欠けや約物の位置を目視確認してから基準画像を採用してください。
+
+このシミュレータは保存処理と診断APIの代替実装を使い、共有通信、SDカード障害、燃料計、実機の空きメモリを再現しません。本文画像の比較に限定し、X3/X4実機での表示確認を省略しないでください。
 
 ## EPUBを入れる場所
 
