@@ -98,6 +98,17 @@ def read_cpfont_styles(filepath: Path) -> list[str]:
         return styles
 
 
+def read_cpfont_content_revision(filepath: Path) -> int:
+    """Read the optional payload revision from the v5 header (zero for legacy files)."""
+    with open(filepath, "rb") as f:
+        header = f.read(GLOBAL_HEADER_SIZE)
+    if len(header) != GLOBAL_HEADER_SIZE or header[:8] != CPFONT_MAGIC:
+        return 0
+    if struct.unpack_from("<H", header, 8)[0] != 5:
+        return 0
+    return struct.unpack_from("<I", header, 13)[0]
+
+
 def parse_filename(filename: str) -> tuple[str, str] | None:
     """Parse '<FamilyName>_<size>.cpfont' into (family, size_str).
 
@@ -160,13 +171,15 @@ def build_manifest(
 
         file_entries = []
         for filepath in sorted(files, key=lambda p: p.name):
-            file_entries.append(
-                {
-                    "name": filepath.name,
-                    "size": filepath.stat().st_size,
-                    "sha256": hashlib.sha256(filepath.read_bytes()).hexdigest(),
-                }
-            )
+            entry = {
+                "name": filepath.name,
+                "size": filepath.stat().st_size,
+                "sha256": hashlib.sha256(filepath.read_bytes()).hexdigest(),
+            }
+            revision = read_cpfont_content_revision(filepath)
+            if revision:
+                entry["contentRevision"] = revision
+            file_entries.append(entry)
 
         manifest_families.append(
             {

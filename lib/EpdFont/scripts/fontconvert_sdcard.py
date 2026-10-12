@@ -28,9 +28,19 @@ import sys
 import os
 import math
 import argparse
+import zlib
 from collections import namedtuple
 
 from fontTools.ttLib import TTFont
+
+
+def compute_content_revision(packed_sections):
+    """Return a nonzero revision for all bytes that affect a font file."""
+    revision = 0
+    for style_id in sorted(packed_sections):
+        for section in packed_sections[style_id]:
+            revision = zlib.crc32(section, revision)
+    return revision or 1
 
 # --- Unicode interval presets ---
 
@@ -946,7 +956,12 @@ def generate_cpfont_multistyle(style_fonts, size, intervals, output_path,
 
     # Build global header
     # V5 header: magic(8) + version(2) + flags(2) + styleCount(1) + reserved(19) = 32
-    header = struct.pack("<8sHHB19s", MAGIC, VERSION, flags, style_count, bytes(19))
+    # The reader hashes the header when deriving its layout-cache font ID.
+    # Include a digest of the payload so same-size glyph/advance edits also
+    # invalidate cached page layout without reading the whole font on device.
+    content_revision = compute_content_revision(packed_sections)
+    header = struct.pack("<8sHHBI15s", MAGIC, VERSION, flags, style_count,
+                         content_revision, bytes(15))
     assert len(header) == HEADER_SIZE
 
     # Build style TOC entries (v5: reserved 4 bytes replaced with vertSectionOffset)

@@ -10,6 +10,7 @@ class ReaderTestViewActivity final : public Activity {
   bool rubyAdjustActive = false;
   bool rubyAdjustChanged = false;
   bool ignoreOpeningConfirmRelease = true;
+  uint8_t samplePage = 0;
   uint64_t bookFingerprint = 0;
   int8_t initialVertical = -1;
 

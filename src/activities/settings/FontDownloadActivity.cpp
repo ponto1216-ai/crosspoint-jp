@@ -10,6 +10,7 @@
 #include <WiFi.h>
 
 #include <cstdint>
+#include <cstring>
 
 #include "MappedInputManager.h"
 #include "SdCardFontGlobals.h"
@@ -36,6 +37,16 @@ constexpr unsigned long FONT_DOWNLOAD_STREAM_IDLE_TIMEOUT_MS = 90000;
 // write can keep the render task busy for the entire download. Two progress
 // updates per file still provide useful feedback without throttling reception.
 constexpr int FONT_DOWNLOAD_PROGRESS_STEP_PERCENT = 50;
+
+uint32_t installedContentRevision(FsFile& file) {
+  uint8_t header[17];
+  if (file.read(header, sizeof(header)) != sizeof(header) || memcmp(header, "CPFONT\0\0", 8) != 0 || header[8] != 5 ||
+      header[9] != 0) {
+    return 0;
+  }
+  return static_cast<uint32_t>(header[13]) | (static_cast<uint32_t>(header[14]) << 8) |
+         (static_cast<uint32_t>(header[15]) << 16) | (static_cast<uint32_t>(header[16]) << 24);
+}
 
 bool isRetryableFontDownloadFailure(const HttpDownloader::DownloadError result) {
   if (result != HttpDownloader::HTTP_ERROR) return false;
@@ -203,6 +214,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
       ManifestFile file;
       snprintf(file.name, sizeof(file.name), "%s", fileObj["name"] | "");
       file.size = fileObj["size"] | 0u;
+      file.contentRevision = fileObj["contentRevision"] | 0u;
       snprintf(file.sha256, sizeof(file.sha256), "%s", fileObj["sha256"] | "");
       family.totalSize += file.size;
       allFiles_.push_back(file);
@@ -216,10 +228,8 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     const auto* installedFamily = sdFontSystem.registry().findFamily(family.name);
     family.installed = installedFamily != nullptr;
 
-    // Detect updates from file sizes only.  Hashing every installed CJK font
-    // here would read hundreds of megabytes from the SD card before the list
-    // can be shown (especially noticeable on X3).  The actual download path
-    // still validates the SHA-256 before replacing any installed file.
+    // Read only the small header for versioned fonts. Full-file hashing here
+    // would read hundreds of megabytes before the list can be displayed.
     if (family.installed) {
       for (uint8_t i = 0; i < family.fileCount; i++) {
         const auto& file = allFiles_[family.fileStart + i];
@@ -228,8 +238,9 @@ bool FontDownloadActivity::fetchAndParseManifest() {
         FsFile f;
         if (Storage.openFileForRead("FONT", path, f)) {
           size_t actual = f.fileSize();
+          uint32_t revision = file.contentRevision && actual == file.size ? installedContentRevision(f) : 0;
           f.close();
-          if (actual != file.size) {
+          if (actual != file.size || (file.contentRevision && revision != file.contentRevision)) {
             family.hasUpdate = true;
             break;
           }

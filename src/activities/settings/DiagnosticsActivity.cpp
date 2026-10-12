@@ -489,7 +489,7 @@ void DiagnosticsActivity::render(RenderLock&&) {
 
   renderer.clearScreen();
   GUI.drawHeader(renderer, Rect{layout.content.x, metrics.topPadding, layout.content.width, metrics.headerHeight},
-                 tr(STR_DIAGNOSTICS));
+                 hasActiveBook ? tr(STR_READER_DIAGNOSTICS) : tr(STR_DIAGNOSTICS));
   int y = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
   const char* pageTitle = page == Page::Overview ? tr(STR_DIAGNOSTICS_OVERVIEW)
                           : page == Page::Logs   ? tr(STR_DIAGNOSTICS_RECENT_LOGS)

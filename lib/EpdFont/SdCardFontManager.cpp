@@ -14,7 +14,8 @@ SdCardFontManager::~SdCardFontManager() {
 
 // FNV-1a continuation: seeds with contentHash, then hashes family name + point size.
 // Produces a deterministic ID that is stable across load/unload cycles and reboots,
-// and changes when font content changes (different header/TOC = different contentHash).
+// and changes when the header/TOC changes. Generated v5 fonts also carry a
+// payload revision in the header, covering same-size glyph and metric edits.
 int SdCardFontManager::computeFontId(uint32_t contentHash, const char* familyName, uint8_t pointSize) {
   static constexpr uint32_t FNV_PRIME = 16777619u;
   uint32_t hash = contentHash;

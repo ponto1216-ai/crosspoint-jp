@@ -42,6 +42,7 @@ class FontDownloadActivity : public Activity {
   struct ManifestFile {
     char name[40] = {0};
     uint32_t size = 0;
+    uint32_t contentRevision = 0;
     char sha256[65] = {0};
   };
 

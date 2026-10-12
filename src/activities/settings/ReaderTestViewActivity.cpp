@@ -45,6 +45,42 @@ ParsedText makeSampleLine(const DirectionSettings& settings, const size_t sample
       {"八", "", false, "はルビなし本文です。"},
       {"九", "", false, "『春夏秋冬』です。"},
   };
+  if (sampleIndex >= 13) {
+    static constexpr const char* kJapanese[] = {
+        "今日はきゃ、きゅ、きょを読みます。小さなっも続きます。",
+        "句読点が行末に来るとき、次の行との間隔を確かめます。",
+        "……と――が続く。「はい。」と答えた。",
+    };
+    ParsedText parsed(settings.hyphenationEnabled != 0, BlockStyle{}, settings.firstLineIndent != 0,
+                      settings.tateChuYokoMaxDigits);
+    const char* cursor = kJapanese[(sampleIndex - 13) % 3];
+    while (*cursor) {
+      const unsigned char c = static_cast<unsigned char>(*cursor);
+      const size_t bytes = c < 0x80 ? 1 : (c < 0xE0 ? 2 : (c < 0xF0 ? 3 : 4));
+      parsed.addWord(std::string(cursor, bytes), EpdFontFamily::REGULAR);
+      cursor += bytes;
+    }
+    return parsed;
+  }
+  if (sampleIndex >= 9) {
+    static constexpr const char* kEnglish[] = {
+        "The quick brown fox jumps over the lazy dog.",
+        "Reading together makes small moments memorable.",
+        "Words, punctuation, and spacing should be easy to read.",
+        "A well-set page keeps the next line in view.",
+    };
+    ParsedText parsed(settings.hyphenationEnabled != 0, BlockStyle{}, settings.firstLineIndent != 0,
+                      settings.tateChuYokoMaxDigits);
+    const char* cursor = kEnglish[(sampleIndex - 9) % 4];
+    while (*cursor) {
+      const char* end = cursor;
+      while (*end && *end != ' ') ++end;
+      if (*end == ' ') ++end;
+      parsed.addWord(std::string(cursor, static_cast<size_t>(end - cursor)), EpdFontFamily::REGULAR);
+      cursor = end;
+    }
+    return parsed;
+  }
   const auto& line = kLines[sampleIndex % (sizeof(kLines) / sizeof(kLines[0]))];
   ParsedText parsed(settings.hyphenationEnabled != 0, BlockStyle{}, settings.firstLineIndent != 0,
                     settings.tateChuYokoMaxDigits);
@@ -123,6 +159,13 @@ ParsedText makeSampleLine(const DirectionSettings& settings, const size_t sample
 
 int rubyOffset(const uint8_t stored) { return static_cast<int>(std::min<uint8_t>(stored, 80)) - 16; }
 
+constexpr uint8_t kSamplePages[][5] = {
+    {0, 3, 4, 6, 8},       // Ruby, emphasis, bold, and a longer paragraph.
+    {13, 14, 1, 6, 255},   // Small kana, punctuation, and wrapping.
+    {15, 2, 8, 255, 255},  // Dashes, ellipses, quotes, and emphasis.
+    {9, 10, 11, 12, 255},  // Horizontal English text.
+};
+
 int resolveRubyFont(const DirectionSettings& settings, const int bodyFontId) {
   if (!settings.rubyEnabled) return 0;
   constexpr uint8_t kRubyFontSize = 5;  // 8pt, matching EpubReaderActivity.
@@ -139,6 +182,7 @@ int resolveRubyFont(const DirectionSettings& settings, const int bodyFontId) {
 void ReaderTestViewActivity::onEnter() {
   Activity::onEnter();
   vertical = initialVertical >= 0 ? initialVertical != 0 : SETTINGS.writingMode == CrossPointSettings::WM_VERTICAL;
+  samplePage = 0;
   // SettingsActivity opens this screen with Confirm. Do not treat that
   // button release as a request to enter ruby adjustment.
   ignoreOpeningConfirmRelease = true;
@@ -175,6 +219,16 @@ void ReaderTestViewActivity::loop() {
   }
   if (mappedInput.wasReleased(MappedInputManager::Button::Right) && !vertical) {
     vertical = true;
+    if (samplePage == 3) samplePage = 0;
+    requestUpdate();
+  }
+  const uint8_t pageCount = vertical ? 3 : 4;
+  if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
+    samplePage = (samplePage + pageCount - 1) % pageCount;
+    requestUpdate();
+  }
+  if (mappedInput.wasReleased(MappedInputManager::Button::Down)) {
+    samplePage = (samplePage + 1) % pageCount;
     requestUpdate();
   }
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
@@ -255,15 +309,18 @@ void ReaderTestViewActivity::render(RenderLock&&) {
       availableWidth -= sideHintGutter;
     }
   }
-  char headerValue[24] = {};
+  char headerValue[32] = {};
   if (rubyAdjustActive) {
     const auto& settings = SETTINGS.getDirectionSettings(vertical);
     snprintf(headerValue, sizeof(headerValue), "X:%+d Y:%+d", rubyOffset(settings.rubyOffsetX),
              rubyOffset(settings.rubyOffsetY));
   }
+  if (!rubyAdjustActive) {
+    snprintf(headerValue, sizeof(headerValue), "%s %u/%u", vertical ? tr(STR_WM_VERTICAL) : tr(STR_WM_HORIZONTAL),
+             samplePage + 1, vertical ? 3 : 4);
+  }
   GUI.drawHeader(renderer, Rect{contentX, contentY + metrics.topPadding, availableWidth, metrics.headerHeight},
-                 tr(STR_READER_TEST_VIEW),
-                 rubyAdjustActive ? headerValue : (vertical ? tr(STR_WM_VERTICAL) : tr(STR_WM_HORIZONTAL)));
+                 tr(STR_READER_TEST_VIEW), headerValue);
 
   const int top = contentY + metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
   const int bottom = contentY + availableHeight -
@@ -313,7 +370,8 @@ void ReaderTestViewActivity::render(RenderLock&&) {
       const int columnSpacing = columnWidth / 4;
       int nextColumnX = left + contentWidth - columnWidth;
       bool firstColumn = true;
-      for (size_t sampleIndex = 0; sampleIndex < 9 && nextColumnX >= left; ++sampleIndex) {
+      for (const uint8_t sampleIndex : kSamplePages[samplePage]) {
+        if (sampleIndex == 255 || nextColumnX < left) break;
         ParsedText sample = makeSampleLine(direction, sampleIndex);
         std::vector<std::unique_ptr<TextBlock>> columns;
         sample.layoutVerticalColumns(renderer, fontId, static_cast<uint16_t>(contentHeight),
@@ -345,7 +403,8 @@ void ReaderTestViewActivity::render(RenderLock&&) {
       const int lineAdvance = std::max(1, static_cast<int>(bodyLineHeight * SETTINGS.getReaderLineCompression(false)));
       const int paragraphGap = (lineAdvance * static_cast<int>(direction.extraParagraphSpacing)) / 6;
       int y = top;
-      for (size_t sampleIndex = 0; sampleIndex < 9; ++sampleIndex) {
+      for (const uint8_t sampleIndex : kSamplePages[samplePage]) {
+        if (sampleIndex == 255) break;
         ParsedText sample = makeSampleLine(direction, sampleIndex);
         std::vector<std::unique_ptr<TextBlock>> lines;
         sample.layoutAndExtractLines(renderer, fontId, static_cast<uint16_t>(contentWidth),
@@ -368,7 +427,7 @@ void ReaderTestViewActivity::render(RenderLock&&) {
         if (y + bodyLineHeight > bottom) break;
         // Match ChapterHtmlSlimParser::makePages(), which applies the reader
         // setting after each paragraph rather than after every wrapped line.
-        if (sampleIndex + 1 < 9) y += paragraphGap;
+        y += paragraphGap;
       }
     }
   }
@@ -379,6 +438,8 @@ void ReaderTestViewActivity::render(RenderLock&&) {
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   if (rubyAdjustActive) {
     GUI.drawSideButtonHints(renderer, tr(STR_RUBY_Y_MINUS), tr(STR_RUBY_Y_PLUS));
+  } else {
+    GUI.drawSideButtonHints(renderer, tr(STR_PREVIOUS), tr(STR_NEXT));
   }
   renderer.displayBuffer();
 }

@@ -41,10 +41,10 @@ std::vector<EpubReaderMenuActivity::MenuItem> EpubReaderMenuActivity::buildMenuI
     case MenuMode::Root:
       items = {{MenuAction::OPEN_READING_POSITION, StrId::STR_READING_POSITION},
                {MenuAction::OPEN_DISPLAY_LAYOUT, StrId::STR_BOOK_DISPLAY_SETTINGS},
-               {MenuAction::OPEN_READING_BEHAVIOR, StrId::STR_READING_BEHAVIOR},
-               {MenuAction::OPEN_BOOK_MANAGEMENT, StrId::STR_BOOK_CACHE},
-               {MenuAction::OPEN_TOOLS, StrId::STR_READER_TOOLS},
                {MenuAction::READER_SETTINGS, StrId::STR_READER_SETTINGS},
+               {MenuAction::OPEN_READING_BEHAVIOR, StrId::STR_READING_BEHAVIOR},
+               {MenuAction::OPEN_TOOLS, StrId::STR_READER_TOOLS},
+               {MenuAction::OPEN_BOOK_MANAGEMENT, StrId::STR_BOOK_CACHE},
                {MenuAction::GO_HOME, StrId::STR_GO_HOME_BUTTON}};
       break;
     case MenuMode::ReadingPosition:
@@ -70,6 +70,7 @@ std::vector<EpubReaderMenuActivity::MenuItem> EpubReaderMenuActivity::buildMenuI
         items.push_back({MenuAction::GENERATE_CACHE, label});
       }
       items.push_back({MenuAction::DELETE_CACHE, StrId::STR_DELETE_CACHE});
+      items.push_back({MenuAction::DIAGNOSTICS, StrId::STR_READER_DIAGNOSTICS});
       break;
     case MenuMode::ReadingBehavior:
       items = {{MenuAction::AUTO_PAGE_TURN, StrId::STR_AUTO_TURN_PAGES_PER_MIN},
@@ -78,7 +79,6 @@ std::vector<EpubReaderMenuActivity::MenuItem> EpubReaderMenuActivity::buildMenuI
     case MenuMode::Tools:
       items = {{MenuAction::SCREENSHOT, StrId::STR_SCREENSHOT_BUTTON},
                {MenuAction::DISPLAY_QR, StrId::STR_DISPLAY_QR},
-               {MenuAction::DIAGNOSTICS, StrId::STR_DIAGNOSTICS},
                {MenuAction::SD_SYNC, StrId::STR_READING_METER_SYNC_TIME}};
       break;
   }
