@@ -48,7 +48,9 @@ bool writeWord(uint8_t reg, uint16_t value) {
 bool readWord(uint8_t reg, uint16_t& value) { return readBatteryWord(reg, value); }
 #include "Bq27220Capacity.h"
 
-void logBatterySample(unsigned long pollMs, int oldSoc, uint16_t soc, bool jump) {
+void logBatterySample(unsigned long pollMs, int oldSoc, int soc, bool jump, uint16_t operationStatus, bool operationOk,
+                      unsigned long operationMs, unsigned long oldSocMs,
+                      const Bq27220Observation::Result& observation) {
   uint16_t voltage = 0, current = 0, remaining = 0, full = 0;
   // Sequential reads in the same poll, not an atomic gauge snapshot. Failure
   // of one diagnostic register must not discard the other measurements or SOC.
@@ -56,22 +58,35 @@ void logBatterySample(unsigned long pollMs, int oldSoc, uint16_t soc, bool jump)
   const bool currentOk = readBatteryWord(BQ27220_CUR_REG, current);
   const bool remainingOk = readBatteryWord(BQ27220_REMAINING_CAPACITY_REG, remaining);
   const bool fullOk = readBatteryWord(BQ27220_FULL_CHARGE_CAPACITY_REG, full);
-  uint16_t design = 0, batteryStatus = 0, operationStatus = 0;
+  uint16_t design = 0, batteryStatus = 0;
   const bool designOk = readBatteryWord(BQ27220_DESIGN_CAPACITY_REG, design);
   const bool batteryOk = readBatteryWord(BQ27220_BATTERY_STATUS_REG, batteryStatus);
-  const bool operationOk = readBatteryWord(BQ27220_OPERATION_STATUS_REG, operationStatus);
+  const unsigned long readMs = millis() - pollMs;
+  // Finish all reads before serial output; logging must not stretch the sample.
+  const int oldEdv2 =
+      Bq27220Observation::flag(observation.previousStatus, Bq27220Observation::EDV2, observation.previousStatus >= 0);
+  const int edv2 = Bq27220Observation::flag(operationStatus, Bq27220Observation::EDV2, operationOk);
+  LOG_INF("BAT",
+          "X3 GAUGE_OBS poll_ms=%lu op_ms=%lu prev_ms=%lu prev_op=%d op=%d edv2=%d->%d missed=%u "
+          "soc_ok=%u old_soc_ms=%lu reasons=0x%X",
+          pollMs, operationMs, static_cast<unsigned long>(observation.previousMs), observation.previousStatus,
+          operationOk ? static_cast<int>(operationStatus) : -1, oldEdv2, edv2, observation.missed, soc >= 0, oldSocMs,
+          observation.reasons | (jump ? 0x10 : 0));
+  // OperationStatus was already sampled next to SOC, including on SOC failure.
+  char batteryText[8] = "unknown", operationText[8] = "unknown";
+  if (batteryOk) snprintf(batteryText, sizeof(batteryText), "0x%04X", batteryStatus);
+  if (operationOk) snprintf(operationText, sizeof(operationText), "0x%04X", operationStatus);
   const unsigned gaugeValid = designOk | (batteryOk << 1) | (operationOk << 2);
-  LOG_INF("BAT", "X3 GAUGE_STATE poll_ms=%lu design_mAh=%d battery_status=0x%04X operation_status=0x%04X valid=0x%X",
-          pollMs, designOk ? static_cast<int>(design) : -1, batteryStatus, operationStatus, gaugeValid);
+  LOG_INF("BAT", "X3 GAUGE_STATE poll_ms=%lu design_mAh=%d battery_status=%s operation_status=%s valid=0x%X", pollMs,
+          designOk ? static_cast<int>(design) : -1, batteryText, operationText, gaugeValid);
   const unsigned valid = voltageOk | (currentOk << 1) | (remainingOk << 2) | (fullOk << 3);
   // Use a value outside signed 16-bit range for an unavailable current.
   const int signedCurrent = currentOk ? (current >= 0x8000 ? static_cast<int>(current) - 0x10000 : current) : -32769;
   LOG_INF("BAT",
-          "X3 %s poll_ms=%lu old_soc=%d soc=%u voltage_mV=%d current_mA=%d remaining_mAh=%d full_mAh=%d "
+          "X3 %s poll_ms=%lu old_soc=%d soc=%d voltage_mV=%d current_mA=%d remaining_mAh=%d full_mAh=%d "
           "valid=0x%X read_ms=%lu",
-          jump ? "SOC_JUMP" : "SAMPLE", pollMs, oldSoc, static_cast<unsigned>(soc),
-          voltageOk ? static_cast<int>(voltage) : -1, signedCurrent, remainingOk ? static_cast<int>(remaining) : -1,
-          fullOk ? static_cast<int>(full) : -1, valid, millis() - pollMs);
+          jump ? "SOC_JUMP" : "SAMPLE", pollMs, oldSoc, soc, voltageOk ? static_cast<int>(voltage) : -1, signedCurrent,
+          remainingOk ? static_cast<int>(remaining) : -1, fullOk ? static_cast<int>(full) : -1, valid, readMs);
 }
 }  // namespace
 #endif
@@ -243,17 +258,28 @@ uint16_t HalPowerManager::getBatteryPercentage() const {
     }
 
     uint16_t soc = 0;
-    if (!readBatteryWord(BQ27220_SOC_REG, soc)) {
+    const bool socOk = readBatteryWord(BQ27220_SOC_REG, soc);
+    uint16_t operationStatus = 0;
+    const bool operationOk = readBatteryWord(BQ27220_OPERATION_STATUS_REG, operationStatus);
+    const unsigned long operationMs = millis();
+    const auto observation = _batteryObservation.observe(operationMs, operationStatus, operationOk, socOk);
+    const int delta = static_cast<int>(soc) - static_cast<int>(_batteryLastRawSoc);
+    const bool jump =
+        socOk && _batterySocValid && (delta >= BATTERY_SOC_JUMP_THRESHOLD || delta <= -BATTERY_SOC_JUMP_THRESHOLD);
+    // No timer/task or new polling source: one extra standard-word read per
+    // existing (on-demand, >= 1.5 s) poll. This is not an atomic snapshot.
+    if (jump || observation.reasons || X3_BATTERY_DIAGNOSTICS) {
+      logBatterySample(now, _batterySocValid ? static_cast<int>(_batteryLastRawSoc) : -1,
+                       socOk ? static_cast<int>(soc) : -1, jump, operationStatus, operationOk, operationMs,
+                       _batteryLastRawSocMs, observation);
+    }
+    if (!socOk) {
       LOG_DBG("BAT", "X3 SOC_READ_FAILED poll_ms=%lu cached_percent=%d", now, _batteryCachedPercent);
       _batteryLastPollMs = now;
       return _batteryCachedPercent;
     }
-    const int delta = static_cast<int>(soc) - static_cast<int>(_batteryLastRawSoc);
-    const bool jump = _batterySocValid && (delta >= BATTERY_SOC_JUMP_THRESHOLD || delta <= -BATTERY_SOC_JUMP_THRESHOLD);
-    if (jump || X3_BATTERY_DIAGNOSTICS) {
-      logBatterySample(now, _batterySocValid ? static_cast<int>(_batteryLastRawSoc) : -1, soc, jump);
-    }
     _batteryLastRawSoc = soc;
+    _batteryLastRawSocMs = now;
     _batterySocValid = true;
     _batteryCachedPercent = soc > 100 ? 100 : soc;
     _batteryLastPollMs = now;

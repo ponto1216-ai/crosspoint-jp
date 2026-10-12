@@ -44,20 +44,16 @@ int main() {
   assert(pm.getBatteryPercentage() == 84);
   const auto count = Wire.reads.size();
   assert(pm.getBatteryPercentage() == 84 && Wire.reads.size() == count);
-#if LOG_LEVEL < 2
-  assert(count == 1 && logs.empty());  // Initial value is not a jump from synthetic zero.
-#else
-  assert(count == 8 && logs.back().find("old_soc=-1 soc=84") != std::string::npos);
-#endif
+  assert(count == 8 && logs.size() == 3 && logs.back().find("old_soc=-1 soc=84") != std::string::npos);
+  assert(logs.front().find("edv2=-1->1") != std::string::npos);  // No synthetic edge at initialization.
   logs.clear();
   Wire.reads.clear();
   testMillis += 1500;
   Wire.values[0x2c] = 7;
   assert(pm.getBatteryPercentage() == 7);
-  assert((Wire.reads == std::vector<uint8_t>{0x2c, 0x08, 0x0c, 0x10, 0x12, 0x3c, 0x0a, 0x3a}));
-  assert(logs.size() == 2 && logs.back().find("SOC_JUMP") != std::string::npos);
-  assert(logs.front().find("design_mAh=3000 battery_status=0x0109 operation_status=0x042E valid=0x7") !=
-         std::string::npos);
+  assert((Wire.reads == std::vector<uint8_t>{0x2c, 0x3a, 0x08, 0x0c, 0x10, 0x12, 0x3c, 0x0a}));
+  assert(logs.size() == 3 && logs.back().find("SOC_JUMP") != std::string::npos);
+  assert(logs[1].find("design_mAh=3000 battery_status=0x0109 operation_status=0x042E valid=0x7") != std::string::npos);
   assert(
       logs.back().find("old_soc=84 soc=7 voltage_mV=3700 current_mA=-120 remaining_mAh=210 full_mAh=300 valid=0xF") !=
       std::string::npos);

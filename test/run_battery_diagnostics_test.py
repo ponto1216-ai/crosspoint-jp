@@ -22,6 +22,14 @@ for c3, level in [(1, 1), (1, 2), (0, 1)]:
     subprocess.run(command, check=True)
     subprocess.run([str(exe)], check=True)
 
+    edv_exe = out / f'edv2_c3_{c3}_level_{level}.exe'
+    edv_command = [str(edv_exe) if item == str(exe) else
+                   str(root / 'test/battery_diagnostics/Edv2DiagnosticsTest.cpp')
+                   if item == str(root / 'test/battery_diagnostics/BatteryDiagnosticsTest.cpp') else item
+                   for item in command]
+    subprocess.run(edv_command, check=True)
+    subprocess.run([str(edv_exe)], check=True)
+
 exe = out / 'capacity_test.exe'
 command = [args.compiler] + (['c++'] if args.zig else [])
 command += ['-std=c++20', '-O0', f'-I{root / "test/battery_diagnostics/stubs"}',

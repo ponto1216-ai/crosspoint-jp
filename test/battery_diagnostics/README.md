@@ -64,6 +64,27 @@ accepts one-byte register selections, so parameter writes are not supported.
 TI reference: https://www.ti.com/lit/ug/sluubd4a/sluubd4a.pdf, sections 2.7,
 2.21, 2.27, and 2.28. These are diagnostics, not a capacity correction.
 
+## v0.8.3 candidate: X3 EDV2 observation
+
+At each existing X3 SOC poll, one extra standard OperationStatus word is read.
+`GAUGE_OBS` is emitted on the first observation, an observed EDV2 or other
+watched-status change, a read-availability change, or a SOC jump. The regular
+release build does not log every unchanged poll. `poll_ms` and `op_ms` mark the
+sequential reads; `prev_ms` is the last valid OperationStatus observation.
+`edv2=-1` means unavailable, not clear. `missed` counts intervening failed
+status reads. `SOC_JUMP` retains the raw SOC and four measurement validity bits;
+`GAUGE_STATE` reports unavailable status words as `unknown`.
+
+The 2026-10-12 X3 field check saved a report during ordinary reading: gauge
+valid `0xFF`, Design/FullChargeCapacity 650 mAh, SOC 98%, and EDV2 clear.
+The recent log showed OperationStatus `0x00A6` to `0x00B6` (VDQ changed),
+`edv2=0->0`, and SOC `98->98`. The user also confirmed normal reading,
+sleep/wake, Web UI entry/exit, and diagnostic access on X3 and X4. This
+confirms the instrumented path works; it does not reproduce the earlier
+30%->7% event or establish why EDV2 was set then. The diagnostic report is a
+manual snapshot and the polling cadence cannot identify the exact edge time
+between samples. No forced discharge is required to collect a future event.
+
 ## v0.8.1 X3 capacity correction
 
 `run_battery_diagnostics_test.py` also runs the isolated production loader against

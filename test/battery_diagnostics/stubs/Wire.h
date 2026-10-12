@@ -8,6 +8,8 @@ struct TestWire {
                                      {0x12, 300}, {0x3c, 3000}, {0x0a, 0x0109}, {0x3a, 0x042e}};
   std::vector<uint8_t> reads;
   int failReg = -1, shortReg = -1, selected = 0, offset = 0, count = 0;
+  bool failAll = false;
+  unsigned long readDelayMs = 0;
   void begin(int, int, int) {}
   void setTimeOut(int) {}
   void beginTransmission(uint8_t addr) { assert(addr == 0x55); }
@@ -17,10 +19,11 @@ struct TestWire {
   }
   int endTransmission(bool stop) {
     assert(!stop);
-    return selected == failReg ? 1 : 0;
+    return failAll || selected == failReg ? 1 : 0;
   }
   void requestFrom(uint8_t addr, uint8_t n) {
     assert(addr == 0x55 && n == 2);
+    testMillis += readDelayMs;
     count = selected == shortReg ? 1 : 2;
     offset = 0;
   }

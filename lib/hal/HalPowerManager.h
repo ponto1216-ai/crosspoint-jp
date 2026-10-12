@@ -10,6 +10,9 @@
 #include <cassert>
 
 #include "HalGPIO.h"
+#if FREEINK_MCU_C3
+#include "Bq27220Observation.h"
+#endif
 
 class HalPowerManager;
 extern HalPowerManager powerManager;  // Singleton
@@ -27,6 +30,8 @@ class HalPowerManager {
 #if FREEINK_MCU_C3
   mutable bool _batterySocValid = false;
   mutable uint16_t _batteryLastRawSoc = 0;
+  mutable unsigned long _batteryLastRawSocMs = 0;
+  mutable Bq27220Observation::State _batteryObservation;
 #endif
 
   enum LockMode { None, NormalSpeed };
