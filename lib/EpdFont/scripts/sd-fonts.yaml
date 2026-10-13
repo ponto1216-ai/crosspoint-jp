@@ -273,8 +273,9 @@ families:
 
   - name: ZenMaruGothic
     description: "Rounded Japanese Gothic (optional; curated CJK coverage)"
-    # The source font lacks U+2015; use its U+2014 glyph only for this family.
-    glyph_aliases: {"2015": "2014"}
+    # The source font lacks U+2015 and U+FF5E. Use its corresponding
+    # U+2014 and U+301C glyphs only for this family.
+    glyph_aliases: {"2015": "2014", "FF5E": "301C"}
     intervals: builtin,latin-ext,greek,cyrillic,symbols,boxdrawing,enclosed,jp_number_symbols,jp-extra-zen,jp-reading-additions,cjk,jp-supplementary-common
     # Use only glyphs actually present in the configured Regular and Bold
     # sources. This avoids large runs of empty CJK placeholders.
