@@ -17,6 +17,68 @@ TextBlock block(std::string text, TextEmphasis mark, bool vertical = false) {
   return TextBlock({text}, {0}, {EpdFontFamily::REGULAR}, {}, {0}, vertical, {}, {}, {mark});
 }
 int ink(const GfxRenderer& r) { return std::count(r.pixels.begin(), r.pixels.end(), 0); }
+void sidewaysLatinLeadingRegression() {
+  TextBlock latin({"ABC"}, {0}, {EpdFontFamily::REGULAR}, {}, {25}, true);
+  TextBlock symbol({"@"}, {0}, {EpdFontFamily::REGULAR}, {}, {25}, true);
+  TextBlock japanese({"日"}, {0}, {EpdFontFamily::REGULAR}, {}, {25}, true);
+  GfxRenderer aligned;
+  aligned.sidewaysTextVerticalOffset = 10;
+  latin.render(aligned, 1, 100, 20);
+  GfxRenderer upright;
+  japanese.render(upright, 1, 100, 20);
+  assert(aligned.draws.size() == 1 && upright.draws.size() == 1);
+  assert(aligned.draws.front().y == upright.draws.front().y);
+  GfxRenderer punctuation;
+  punctuation.sidewaysTextVerticalOffset = 10;
+  symbol.render(punctuation, 1, 100, 20);
+  assert(punctuation.draws.size() == 1 && punctuation.draws.front().y == aligned.draws.front().y + 10);
+  GfxRenderer legacy;
+  legacy.sidewaysTextVerticalOffset = 10;
+  legacy.sidewaysFontPath = "OtherFont";
+  latin.render(legacy, 1, 100, 20);
+  assert(legacy.draws.front().y == aligned.draws.front().y + 10);
+  GfxRenderer biz;
+  biz.sidewaysFontPath = "BIZUDMincho";
+  biz.sidewaysTextVerticalOffset = 8;
+  symbol.render(biz, 1, 100, 20);
+  assert(biz.draws.size() == 1 && biz.draws.front().y == aligned.draws.front().y);
+  biz.draws.clear();
+  latin.render(biz, 1, 100, 20);
+  assert(biz.draws.front().y == aligned.draws.front().y + 8);
+}
+void tateChuYokoVerticalCenterRegression() {
+  TextBlock::smallFontId = 2;
+  const auto renderDigits = [](const char* digits, int maxDigits, int bodyHeight, int smallHeight) {
+    GfxRenderer renderer;
+    renderer.bodyHeight = bodyHeight;
+    renderer.rubyHeight = smallHeight;
+    TextBlock text({digits}, {0}, {EpdFontFamily::REGULAR}, {}, {0}, true, {}, {}, {}, maxDigits);
+    text.render(renderer, 1, 100, 80);
+    assert(renderer.draws.size() == 1);
+    return renderer.draws.front();
+  };
+  for (const auto [body, small] : {std::pair{42, 30}, std::pair{29, 17}}) {
+    const auto triple = renderDigits("125", 3, body, small);
+    const auto doubleDigit = renderDigits("12", 3, body, small);
+    assert(triple.font == 2 && doubleDigit.font == 1);
+    assert(triple.y == doubleDigit.y + (body - small) / 2);
+  }
+  assert(renderDigits("125", 2, 42, 30).font == 1);
+  TextBlock::smallFontId = 0;
+}
+void ellipsisDigitOrientationRegression() {
+  TextBlock sequence({"1―2—3–4", "…", "5", "‥", "6", "※"}, {0, 0, 0, 0, 0, 0},
+                     std::vector<EpdFontFamily::Style>(6, EpdFontFamily::REGULAR), {}, {0, 25, 50, 75, 100, 125},
+                     true);
+  GfxRenderer renderer;
+  sequence.render(renderer, 1, 100, 20);
+  assert(renderer.draws.size() == 6);
+  assert(renderer.draws[0].sideways && renderer.draws[2].sideways && renderer.draws[4].sideways);
+  TextBlock ordinary({"あ", "5"}, {0, 0}, {EpdFontFamily::REGULAR, EpdFontFamily::REGULAR}, {}, {0, 25}, true);
+  renderer.draws.clear();
+  ordinary.render(renderer, 1, 100, 20);
+  assert(renderer.draws.size() == 2 && !renderer.draws[1].sideways);
+}
 void rubySpanRegression() {
   using E = TextEmphasis;
   TextBlock::rubyFontId = 2;
@@ -80,6 +142,9 @@ void rubySpanRegression() {
   TextBlock::rubyFontId = 0;
 }
 int main(int argc, char** argv) {
+  sidewaysLatinLeadingRegression();
+  tateChuYokoVerticalCenterRegression();
+  ellipsisDigitOrientationRegression();
   rubySpanRegression();
   using E = TextEmphasis;
   E e = E::None;

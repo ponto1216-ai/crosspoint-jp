@@ -512,6 +512,15 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
   if (layoutFailed_ || words.empty()) return;
   if (!admitLayout(LayoutMemory::multiply(words.size(), 16), "vertical plan")) return;
 
+  // A single digit immediately after a vertical ellipsis is rotated like
+  // adjacent sideways text. Keep other isolated digits in TateChuYoko.
+  for (size_t i = 1; i < words.size() && i < wordVerticalBehaviors.size(); ++i) {
+    if (VerticalTextUtils::isSidewaysDigitAfterEllipsis(words[i - 1].c_str(), words[i].c_str()) &&
+        wordVerticalBehaviors[i] == VerticalTextUtils::VerticalBehavior::TateChuYoko) {
+      wordVerticalBehaviors[i] = VerticalTextUtils::VerticalBehavior::Sideways;
+    }
+  }
+
   // Ensure SD card font metrics are loaded
   if (renderer.isSdCardFont(fontId)) {
     size_t prewarmBytes = 3;  // U+4E00 reference below
@@ -590,6 +599,14 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
         }
       }
     }
+  }
+  if (cjkCharAdvance == 0 && !words.empty() &&
+      !VerticalTextUtils::startsWithAsciiLatinLetter(words.front().c_str())) {
+    // A paragraph made only of punctuation, digits, Greek, or fullwidth Latin
+    // still indents by one Japanese body cell. Noto and Zen have a taller
+    // line height than that cell, so line height over-indents these starts.
+    // Keep established ASCII Latin-run indentation unchanged.
+    cjkCharAdvance = renderer.getTextAdvanceX(fontId, "\xE4\xB8\x80", EpdFontFamily::REGULAR);  // U+4E00
   }
   if (cjkCharAdvance == 0) cjkCharAdvance = lineHeight;  // final fallback
 
@@ -826,6 +843,19 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
 
     wordHeights.push_back(finalHeight);
   }
+  // The ellipsis has a full body-cell advance while the following rotated
+  // digit has its natural width. Reduce only the ellipsis advance slightly.
+  const int ellipsisDigitTightening = renderer.getEllipsisDigitTightening(fontId, cjkCharAdvance);
+  for (size_t i = 1; i < words.size(); ++i) {
+    if (!VerticalTextUtils::isSidewaysDigitAfterEllipsis(words[i - 1].c_str(), words[i].c_str()) ||
+        wordStyles[i - 1] != wordStyles[i] || (i < wordSpaceBefore.size() && wordSpaceBefore[i]) ||
+        (i - 1 < rubyTexts.size() && !rubyTexts[i - 1].empty()) || (i < rubyTexts.size() && !rubyTexts[i].empty()) ||
+        (i - 1 < emphasis.size() && emphasis[i - 1] != TextEmphasis::None) ||
+        (i < emphasis.size() && emphasis[i] != TextEmphasis::None) ||
+        wordHeights[i - 1] <= ellipsisDigitTightening)
+      continue;
+    wordHeights[i - 1] -= ellipsisDigitTightening;
+  }
   // In a plain vertical punctuation pair, the full cells of 。 and a corner
   // bracket leave an overly wide visible gap. Shorten only the advance after
   // 。; keep both glyphs in separate cells and retain three eighths of an em.
@@ -960,10 +990,9 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       const uint16_t fitHeight = hasAnyRuby ? rubyFitHeights[i] : wordHeights[i];
       const auto behavior =
           i < wordVerticalBehaviors.size() ? wordVerticalBehaviors[i] : VerticalTextUtils::VerticalBehavior::Upright;
-      // Sideways text is shifted down by one third of the ascender when it is
-      // drawn. Its final glyph may also extend beyond its logical advance.
-      // Reserve both parts here; using only the shift allowed the visible ink
-      // of the last Latin glyph to enter the status bar or leave the screen.
+      // Keep the original maximum shift in this fit guard, even for fonts
+      // whose Latin ink now starts at the body cell's top. Cached column
+      // boundaries remain valid and the guard stays conservative.
       int sidewaysTailGuard = 0;
       if (behavior == VerticalTextUtils::VerticalBehavior::Sideways) {
         const int wordFontId = scriptAwareFontId(fontId, wordStyles[i]);

@@ -10,6 +10,9 @@
 #include <VerticalTextUtils.h>
 #include <expat.h>
 
+#include <algorithm>
+#include <cstring>
+
 #include "../../Epub.h"
 #include "../CancellableImageOutput.h"
 #include "../ChapterStageProbe.h"
@@ -1648,6 +1651,22 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
       self->nextWordContinues = true;
 
       i += 2;  // Skip the remaining two bytes (0x80 0xAF)
+      continue;
+    }
+
+    // UAX #50 isolates the dashes as vertical cells. Preserve an alternating
+    // numeric range as one word so both digits and dashes rotate together.
+    const size_t numericDashBytes =
+        self->verticalMode && (i == 0 || s[i - 1] < '0' || s[i - 1] > '9')
+            ? VerticalTextUtils::numericDashRunBytes(s + i, std::min<size_t>(len - i, MAX_WORD_SIZE - 1))
+            : 0;
+    if (numericDashBytes > 0) {
+      if (self->partWordBufferIndex > 0) self->flushPartWordBuffer();
+      self->flushPendingVerticalWhitespace();
+      std::memcpy(self->partWordBuffer, s + i, numericDashBytes);
+      self->partWordBufferIndex = numericDashBytes;
+      self->flushPartWordBuffer();
+      i += numericDashBytes;
       continue;
     }
 

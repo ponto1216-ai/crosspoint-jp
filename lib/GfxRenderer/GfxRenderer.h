@@ -227,6 +227,9 @@ class GfxRenderer {
   int getTextAdvanceX(int fontId, const char* text, EpdFontFamily::Style style) const;
   int getTextAdvanceYVertical(int fontId, const char* text, EpdFontFamily::Style style) const;
   int getFontAscenderSize(int fontId) const;
+  // Optical leading offset for Latin runs rotated into vertical body text.
+  int getSidewaysTextVerticalOffset(int fontId, const char* text) const;
+  int getEllipsisDigitTightening(int fontId, int cjkAdvance) const;
   int getLineHeight(int fontId) const;
   std::string truncatedText(int fontId, const char* text, int maxWidth,
                             EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;

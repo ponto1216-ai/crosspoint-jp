@@ -70,6 +70,62 @@ void assertKinsokuBoundary(const std::vector<std::vector<std::string>>& blocks) 
 
 int main() {
   GfxRenderer renderer;
+  {
+    GfxRenderer tallRenderer;
+    tallRenderer.tallLineHeight = true;
+    const auto firstPosition = [&](const char* text) {
+      BlockStyle style;
+      style.alignment = CssTextAlign::Left;
+      ParsedText paragraph(false, style, true);
+      paragraph.addWord(text, EpdFontFamily::REGULAR);
+      std::vector<int16_t> positions;
+      paragraph.layoutVerticalColumns(tallRenderer, 1, 400, [&](const auto& block) {
+        positions = block->getWordYpos();
+        return true;
+      });
+      assert(!paragraph.layoutFailed() && positions.size() == 1);
+      return positions.front();
+    };
+    assert(firstPosition("日") == 29);
+    assert(firstPosition("Ａ") == 29);
+    assert(firstPosition("ａ") == 29);
+    assert(firstPosition("：") == 29);
+    assert(firstPosition("；") == 29);
+    assert(firstPosition("5") == 29);
+    assert(firstPosition("α") == 29);
+    assert(firstPosition("ABC") == 42);  // Existing halfwidth-run layout is unchanged.
+  }
+  {
+    GfxRenderer tallRenderer;
+    tallRenderer.tallLineHeight = true;
+    ParsedText punctuation(false, BlockStyle(), false);
+    using Behavior = VerticalTextUtils::VerticalBehavior;
+    punctuation.addWord("…", EpdFontFamily::REGULAR, Behavior::Upright);
+    punctuation.addWord("5", EpdFontFamily::REGULAR, Behavior::TateChuYoko);
+    punctuation.addWord("‥", EpdFontFamily::REGULAR, Behavior::Upright);
+    punctuation.addWord("6", EpdFontFamily::REGULAR, Behavior::TateChuYoko);
+    std::vector<int16_t> positions;
+    punctuation.layoutVerticalColumns(tallRenderer, 1, 400, [&](const auto& block) {
+      positions = block->getWordYpos();
+      return true;
+    });
+    assert(!punctuation.layoutFailed());
+    assert((positions == std::vector<int16_t>{0, 22, 32, 54}));
+    GfxRenderer notoRenderer;
+    notoRenderer.tallLineHeight = true;
+    notoRenderer.fontPath = "NotoSerifJp_14.cpfont";
+    ParsedText noto(false, BlockStyle(), false);
+    noto.addWord("…", EpdFontFamily::REGULAR, Behavior::Upright);
+    noto.addWord("5", EpdFontFamily::REGULAR, Behavior::TateChuYoko);
+    noto.addWord("‥", EpdFontFamily::REGULAR, Behavior::Upright);
+    noto.addWord("6", EpdFontFamily::REGULAR, Behavior::TateChuYoko);
+    noto.layoutVerticalColumns(notoRenderer, 1, 400, [&](const auto& block) {
+      positions = block->getWordYpos();
+      return true;
+    });
+    assert(!noto.layoutFailed());
+    assert((positions == std::vector<int16_t>{0, 29, 39, 68}));
+  }
   // The first-column indent is a logical cell offset. Bracket ink and
   // decoration strokes can extend above the body glyph while keeping it.
   for (const auto& [firstWord, style] :

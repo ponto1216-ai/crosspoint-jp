@@ -2433,6 +2433,18 @@ void GfxRenderer::drawTextVertical(const int fontId, const int x, const int y, c
   }
 }
 
+int GfxRenderer::getSidewaysTextVerticalOffset(const int fontId, const char* text) const {
+  const auto it = sdCardFonts_.find(fontId);
+  const char* path = it != sdCardFonts_.end() && it->second != nullptr ? it->second->getFilePath() : nullptr;
+  return VerticalTextUtils::sidewaysTextVerticalOffset(path, text, getFontAscenderSize(fontId));
+}
+
+int GfxRenderer::getEllipsisDigitTightening(const int fontId, const int cjkAdvance) const {
+  const auto it = sdCardFonts_.find(fontId);
+  const char* path = it != sdCardFonts_.end() && it->second != nullptr ? it->second->getFilePath() : nullptr;
+  return VerticalTextUtils::ellipsisDigitTightening(path, cjkAdvance);
+}
+
 void GfxRenderer::drawTextSideways(const int fontId, const int x, const int y, const char* text, const bool black,
                                    const EpdFontFamily::Style style, const int columnWidth) const {
   if (text == nullptr || *text == '\0') return;

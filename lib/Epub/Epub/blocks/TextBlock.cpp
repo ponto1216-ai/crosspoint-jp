@@ -345,7 +345,11 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
         // mark from its base kana).
         renderer.drawTextVertical(wordFontId, uprightX, wy + scriptOffset, w, true, glyphStyle);
       } else {
-        const auto tateChuYokoKind = VerticalTextUtils::classifyTateChuYoko(w, tateChuYokoMaxDigits);
+        const bool sidewaysAfterEllipsis =
+            i > 0 && VerticalTextUtils::isSidewaysDigitAfterEllipsis(words[i - 1].c_str(), w);
+        const auto tateChuYokoKind = sidewaysAfterEllipsis
+                                         ? VerticalTextUtils::TateChuYokoKind::None
+                                         : VerticalTextUtils::classifyTateChuYoko(w, tateChuYokoMaxDigits);
         // Formula tokens contain one of the Unicode super/subscript digits.
         // Detect them from stored text so no per-word behavior array is needed
         // in the serialized page block.
@@ -446,10 +450,17 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
           renderer.getTextVisibleBoundsX(effectiveFontId, "\xEF\xBC\x90", &fullwidthDigitMinX, &fullwidthDigitMaxX,
                                          glyphStyle);  // U+FF10
           const int centerOffset = (fullwidthDigitMinX + fullwidthDigitMaxX - textMinX - textMaxX) / 2;
-          renderer.drawText(tateChuYokoFont, wx + centerOffset, wy + scriptOffset, w, true, glyphStyle);
+          // The smaller three-digit font otherwise starts at the body font's
+          // top edge, making its visible ink sit high in the vertical cell.
+          const int verticalCenterOffset =
+              tateChuYokoFont == wordFontId
+                  ? 0
+                  : std::max(0, (renderer.getLineHeight(wordFontId) - renderer.getLineHeight(tateChuYokoFont)) / 2);
+          renderer.drawText(tateChuYokoFont, wx + centerOffset, wy + scriptOffset + verticalCenterOffset, w, true,
+                            glyphStyle);
         } else {
           // Sideways: draw rotated 90° CW, centered in the column.
-          const int vertShift = renderer.getFontAscenderSize(wordFontId) / 3;
+          const int vertShift = renderer.getSidewaysTextVerticalOffset(wordFontId, w);
           renderer.drawTextSideways(wordFontId, wx + verticalBodyCenterOffset, wy + vertShift + scriptOffset, w, true,
                                     glyphStyle, columnWidth);
         }

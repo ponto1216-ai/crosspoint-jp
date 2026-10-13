@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
+#include <cstring>
 
 #include "VerticalOrientationData.h"
 
@@ -87,7 +89,7 @@ static constexpr PunctuationOffset VERTICAL_PUNCTUATION[] = {
     {0x2014, 0, 0, true},   // — em dash
     {0x2015, 0, 0, true},   // ― horizontal bar
     {0x2026, 0, 0, true},   // … ellipsis
-    {0x301C, -1, 0, true},  // 〜 wave dash: center the rotated fallback glyph
+    {0x301C, 0, 0, true},   // 〜 wave dash: rotated fallback already centers its visible ink
     {0xFF0D, 0, 0, true},   // － fullwidth hyphen-minus
     {0xFF5E, 0, 0, true},   // ～ fullwidth tilde
 };
@@ -149,6 +151,36 @@ inline TateChuYokoKind classifyTateChuYoko(const char* text, const uint8_t maxDi
   return TateChuYokoKind::None;
 }
 
+inline bool isSidewaysDigitAfterEllipsis(const char* previous, const char* current) {
+  return previous != nullptr && current != nullptr &&
+         (std::strcmp(previous, "…") == 0 || std::strcmp(previous, "‥") == 0) && current[0] >= '0' &&
+         current[0] <= '9' && current[1] == '\0';
+}
+
+// Keep an alternating single-digit/dash range in one rotated word. The
+// ordinary vertical-cell splitter would otherwise turn its digits into TCY.
+inline size_t numericDashRunBytes(const char* text, size_t available) {
+  if (text == nullptr || available < 5 || text[0] < '0' || text[0] > '9') return 0;
+  size_t end = 1;
+  while (end + 3 < available && static_cast<unsigned char>(text[end]) == 0xE2 &&
+         static_cast<unsigned char>(text[end + 1]) == 0x80 &&
+         (static_cast<unsigned char>(text[end + 2]) == 0x93 ||
+          static_cast<unsigned char>(text[end + 2]) == 0x94 ||
+          static_cast<unsigned char>(text[end + 2]) == 0x95) &&
+         text[end + 3] >= '0' && text[end + 3] <= '9') {
+    end += 4;
+  }
+  if (end == 1 || (end < available && text[end] >= '0' && text[end] <= '9')) return 0;
+  return end;
+}
+
+inline int ellipsisDigitTightening(const char* fontPath, int cjkAdvance) {
+  // Noto's rotated digit reaches farther above its advance origin. The
+  // quarter-cell reduction overlaps its ellipsis; keep the natural gap.
+  if (fontPath != nullptr && std::strstr(fontPath, "Noto") != nullptr) return 0;
+  return cjkAdvance / 4;
+}
+
 // A ruby annotation containing Latin letters is conventionally rotated as a
 // whole phrase in vertical Japanese text, rather than stacking its letters.
 inline bool isAsciiAlphabeticWord(const char* text) {
@@ -161,9 +193,34 @@ inline bool isAsciiAlphabeticWord(const char* text) {
   return false;
 }
 
+inline bool startsWithAsciiLatinLetter(const char* text) {
+  return text != nullptr && ((*text >= 'A' && *text <= 'Z') || (*text >= 'a' && *text <= 'z'));
+}
+
+inline bool startsWithAsciiPunctuation(const char* text) {
+  if (text == nullptr) return false;
+  const unsigned char cp = static_cast<unsigned char>(*text);
+  return (cp >= '!' && cp <= '/') || (cp >= ':' && cp <= '@') || (cp >= '[' && cp <= '`') ||
+         (cp >= '{' && cp <= '~');
+}
+
+inline int sidewaysTextVerticalOffset(const char* fontPath, const char* text, const int ascender) {
+  const int legacyOffset = ascender / 3;
+  if (fontPath == nullptr) return legacyOffset;
+  if (std::strstr(fontPath, "BIZUD") != nullptr && startsWithAsciiPunctuation(text)) return 0;
+  if ((std::strstr(fontPath, "Noto") != nullptr || std::strstr(fontPath, "ZenMaruGothic") != nullptr) &&
+      startsWithAsciiLatinLetter(text))
+    return 0;
+  return legacyOffset;
+}
+
 // Determine if a codepoint should be drawn upright in vertical text.
 // CJK ideographs, kana, CJK symbols, fullwidth forms, etc.
 inline bool isUprightInVertical(uint32_t cp) { return isUaxUprightInVertical(cp); }
+
+inline constexpr bool isFullwidthLatinLetter(const uint32_t cp) {
+  return (cp >= 0xFF21 && cp <= 0xFF3A) || (cp >= 0xFF41 && cp <= 0xFF5A);
+}
 
 // Tr characters require a vertical presentation when the font has one, but
 // still reserve a single Japanese cell when Yomuka falls back to rotation.

@@ -1,5 +1,6 @@
 #pragma once
 #include <Utf8.h>
+#include <VerticalTextUtils.h>
 
 #include <vector>
 
@@ -22,10 +23,16 @@ class GfxRenderer {
   struct Draw {
     int font, x, y;
     std::string text;
+    bool sideways = false;
   };
   std::vector<Draw> draws;
   int getScreenWidth() const { return W; }
   int getFontAscenderSize(int id) const { return getLineHeight(id); }
+  int sidewaysTextVerticalOffset = 0;
+  const char* sidewaysFontPath = "NotoSerifJp";
+  int getSidewaysTextVerticalOffset(int, const char* text) const {
+    return VerticalTextUtils::sidewaysTextVerticalOffset(sidewaysFontPath, text, sidewaysTextVerticalOffset * 3);
+  }
   int getTextAdvanceYVertical(int id, const char* text, EpdFontFamily::Style style) const {
     return getTextAdvanceX(id, text, style);
   }
@@ -43,7 +50,7 @@ class GfxRenderer {
     drawText(id, x, y, text, b, s);
   }
   void drawTextSideways(int id, int x, int y, const char* text, bool b, EpdFontFamily::Style s, int) {
-    drawText(id, x, y, text, b, s);
+    draws.push_back({id, x, y, text, true});
   }
   void drawLine(int, int, int, int, bool) {}
   int getTextAdvanceX(int, const char* text, EpdFontFamily::Style) const {

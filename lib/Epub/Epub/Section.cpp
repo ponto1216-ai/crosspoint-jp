@@ -257,7 +257,11 @@ bool collectSectionFontCodepoints(const std::string& htmlPath, std::string& uniq
 // 149: Halfwidth katakana occupy individual upright vertical cells rather
 // than a sideways run, changing cached column positions.
 // 150: Restart first-line indentation after an explicit empty paragraph.
-constexpr uint8_t SECTION_FILE_VERSION = 150;
+// 151: Use the CJK em for paragraphs beginning with fullwidth Latin letters.
+// 152: Use the same indent cell for other non-ASCII-Latin paragraph starts.
+// 153: Rotate digits after ellipses and tighten their spacing.
+// 154: Keep numeric dash runs sideways and preserve Noto ellipsis spacing.
+constexpr uint8_t SECTION_FILE_VERSION = 154;
 // Minimum free heap required before attempting to build section pages.
 // Section building involves heavy allocations (Page, TextBlock, PageLine, etc.)
 // and on ESP32 without C++ exceptions, allocation failure calls abort().
