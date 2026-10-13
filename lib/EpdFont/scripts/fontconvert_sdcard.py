@@ -67,6 +67,23 @@ INTERVAL_PRESETS = {
     # preset. Add further characters only when supported by the source font
     # and justified by actual reader content.
     "jp-supplementary-common": [(0x20B9F, 0x20B9F)],  # 𠮟
+    # Reading-oriented glyphs present in the Japanese source fonts but outside
+    # the broad CJK preset. Zen Maru Gothic lacks U+31F0..31FF; its
+    # codepoints_from_styles whitelist excludes that range automatically.
+    "jp-reading-additions": [
+        (0x31F0, 0x31FF),  # Ainu small katakana
+        (0x3231, 0x3232),  # ㈱ ㈲
+        (0x3299, 0x3299),  # ㊙
+        (0x32A4, 0x32A6),  # ㊤ ㊥ ㊦
+        (0x3314, 0x3314),  # ㌔
+        (0x3351, 0x3351),  # ㍑
+        (0x337F, 0x337F),  # ㍿
+        (0x338E, 0x338F),  # ㎎ ㎏
+        (0x339C, 0x339E),  # ㎜ ㎝ ㎞
+        (0x3396, 0x3396),  # ㎖
+        (0x33A1, 0x33A1),  # ㎡
+        (0x33A5, 0x33A5),  # ㎥
+    ],
     "arrows":      [(0x2190, 0x21FF)],
     "symbols": [
         (0x00D7, 0x00D7),  # ×
@@ -86,6 +103,7 @@ INTERVAL_PRESETS = {
     # checking both the regular and bold source cmaps.  Keep these split so
     # unsupported symbols do not become empty placeholders in SD fonts.
     "jp-extra-noto": [
+        (0x20BB7, 0x20BB7),  # 𠮷; present in Noto CJK, not in BIZ/Zen sources
         (0x2103, 0x2103),  # ℃
         (0x2109, 0x2109),  # ℉
         (0x2113, 0x2113),  # ℓ
