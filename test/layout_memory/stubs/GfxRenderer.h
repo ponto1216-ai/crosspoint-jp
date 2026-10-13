@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <EpdFontFamily.h>
 #include <Utf8.h>
+#include <VerticalTextUtils.h>
 class GfxRenderer {
  public:
   struct MeasureOnlyScope {
@@ -15,6 +16,7 @@ class GfxRenderer {
   bool sd = false;
   bool exhaustPrewarm = false;
   bool narrowEllipsis = false;
+  bool narrowHalfwidth = false;
   bool isSdCardFont(int) const { return sd; }
   void ensureSdCardFontReady(int, const char*, uint8_t) const {
     if (exhaustPrewarm) ESP.free = ESP.largest = 512;
@@ -29,6 +31,7 @@ class GfxRenderer {
       width += cp == 0x00AD || cp == 0x200B     ? 0
                : cp == ' '                      ? 5
                : narrowEllipsis && (cp == 0x2025 || cp == 0x2026) ? 10
+               : narrowHalfwidth && VerticalTextUtils::isHalfwidthKatakana(cp) ? 10
                : cp < 128                       ? 10
                                                 : 20;
     }

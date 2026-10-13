@@ -207,6 +207,9 @@ bool isCjkCodepointForSplit(const uint32_t cp) {
   if (cp >= 0x3040 && cp <= 0x309F) return true;
   // Katakana: U+30A0 - U+30FF
   if (cp >= 0x30A0 && cp <= 0x30FF) return true;
+  // Katakana Phonetic Extensions: split Ainu small kana into individual
+  // Japanese cells so horizontal kinsoku can keep them off line heads.
+  if (cp >= 0x31F0 && cp <= 0x31FF) return true;
   // Circled digits and letters must stay individual upright cells in vertical
   // text, rather than joining the surrounding sideways text run.
   if (VerticalTextUtils::isEnclosedAlphanumeric(cp)) return true;
@@ -535,6 +538,18 @@ void ChapterHtmlSlimParser::startNewTextBlock(const BlockStyle& blockStyle) {
   if (currentTextBlock) {
     // already have a text block running and it is empty - just reuse it
     if (currentTextBlock->isEmpty()) {
+      // An explicit empty paragraph is laid out as an invisible word. Once it
+      // has been consumed, its ParsedText is empty again but its first-line
+      // state belongs to that paragraph, not to the following one.
+      if (currentTextBlock->hasConsumedFirstLine()) {
+        currentTextBlock.reset(new ParsedText(hyphenationEnabled, blockStyle, firstLineIndent, tateChuYokoMaxDigits));
+        wordsExtractedInBlock = 0;
+        if (!pendingAnchorId.empty()) {
+          anchorData.push_back({std::move(pendingAnchorId), static_cast<uint16_t>(completedPageCount)});
+          pendingAnchorId.clear();
+        }
+        return;
+      }
       // Merge with existing block style to accumulate CSS styling from parent block elements.
       // This handles cases like <div style="margin-bottom:2em"><h1>text</h1></div> where the
       // div's margin should be preserved, even though it has no direct text content.

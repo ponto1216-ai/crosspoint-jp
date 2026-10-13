@@ -243,7 +243,8 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
           const auto* basePtr = reinterpret_cast<const unsigned char*>(words[baseIndex].c_str());
           const uint32_t baseCp = utf8NextCodepoint(&basePtr);
           if (baseCp != 0 && *basePtr == '\0' && !utf8IsJapaneseVoicingMark(baseCp) &&
-              VerticalTextUtils::isUprightInVertical(baseCp) && baseIndex < wordYpos.size()) {
+              (VerticalTextUtils::isUprightInVertical(baseCp) || VerticalTextUtils::isHalfwidthKatakana(baseCp)) &&
+              baseIndex < wordYpos.size()) {
             const auto baseStyle = baseIndex < wordStyles.size() ? wordStyles[baseIndex] : glyphStyle;
             const auto baseFontStyle = static_cast<EpdFontFamily::Style>(baseStyle & EpdFontFamily::BOLD_ITALIC);
             const int baseAdvance = renderer.getTextAdvanceX(effectiveFontId, words[baseIndex].c_str(), baseFontStyle);

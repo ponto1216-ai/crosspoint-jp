@@ -124,7 +124,8 @@ bool isSingleCjkWord(const std::string& word) {
     cp = (cp << 6) | (p[i] & 0x3F);
   }
   if (static_cast<int>(word.size()) != len) return false;
-  return (cp >= 0x2E80 && cp <= 0x9FFF) || (cp >= 0x3000 && cp <= 0x30FF) || (cp >= 0x3400 && cp <= 0x4DBF) ||
+  return (cp >= 0x2E80 && cp <= 0x9FFF) || (cp >= 0x3000 && cp <= 0x30FF) || (cp >= 0x31F0 && cp <= 0x31FF) ||
+         (cp >= 0x3400 && cp <= 0x4DBF) ||
          (cp >= 0xF900 && cp <= 0xFAFF) || (cp >= 0xFF00 && cp <= 0xFFEF);
 }
 
@@ -746,7 +747,8 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       const auto* basePtr = reinterpret_cast<const unsigned char*>(words[i - 1].c_str());
       const uint32_t baseCp = utf8NextCodepoint(&basePtr);
       overlaysPreviousCharacter = baseCp != 0 && *basePtr == '\0' && !utf8IsJapaneseVoicingMark(baseCp) &&
-                                  VerticalTextUtils::isUprightInVertical(baseCp);
+                                  (VerticalTextUtils::isUprightInVertical(baseCp) ||
+                                   VerticalTextUtils::isHalfwidthKatakana(baseCp));
     }
 
     const bool isUprightHalfwidthKana =

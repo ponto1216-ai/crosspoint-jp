@@ -96,6 +96,7 @@ class ParsedText {
   void setEmphasisFrom(size_t start, TextEmphasis value);
   void setRubyForWordAt(size_t index, const std::string& ruby, size_t baseWordCount = 1);
   bool isEmpty() const { return words.empty(); }
+  bool hasConsumedFirstLine() const { return firstLineConsumed; }
   bool layoutFailed() const { return layoutFailed_; }
   bool isExplicitBlankLine() const {
     return !blockStyle.isHtmlRule && words.size() == 1 && words.front() == "\xE2\x80\x8B";

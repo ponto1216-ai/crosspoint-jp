@@ -185,7 +185,10 @@ inline bool isVerticalGlyphCell(const uint32_t cp) {
   // Japanese ellipses use the font's vertical substitute and one cell per
   // codepoint. UAX #50 classifies them as R, which otherwise groups "……" into
   // a sideways run and applies the Latin-run downward drawing offset.
-  return cp == 0x2025 || cp == 0x2026 || isUprightInVertical(cp) || isTransformedRotatedInVertical(cp) ||
+  // Halfwidth kana are R in UAX #50, but Yomuka composes them as narrow
+  // upright cells. Keep their voicing marks separate for overlay on the base.
+  return cp == 0x2025 || cp == 0x2026 || isHalfwidthKatakana(cp) || cp == 0xFF9E || cp == 0xFF9F ||
+         isUprightInVertical(cp) || isTransformedRotatedInVertical(cp) ||
          isJapaneseVerticalQuote(cp);
 }
 

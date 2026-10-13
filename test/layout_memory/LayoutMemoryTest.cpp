@@ -70,6 +70,42 @@ void assertKinsokuBoundary(const std::vector<std::vector<std::string>>& blocks) 
 
 int main() {
   GfxRenderer renderer;
+  // The first-column indent is a logical cell offset. Bracket ink and
+  // decoration strokes can extend above the body glyph while keeping it.
+  for (const auto& [firstWord, style] :
+       {std::pair{"「", EpdFontFamily::REGULAR}, std::pair{"ア", EpdFontFamily::UNDERLINE},
+        std::pair{"打", EpdFontFamily::STRIKETHROUGH}, std::pair{"ﾏ", EpdFontFamily::REGULAR}}) {
+    ESP = {};
+    BlockStyle blockStyle;
+    blockStyle.alignment = CssTextAlign::Left;
+    ParsedText paragraph(false, blockStyle, true);
+    paragraph.addWord(firstWord, style);
+    paragraph.addWord("字", EpdFontFamily::REGULAR);
+    std::vector<int16_t> positions;
+    paragraph.layoutVerticalColumns(renderer, 1, 100, [&](const auto& block) {
+      positions = block->getWordYpos();
+      return true;
+    });
+    assert(!paragraph.layoutFailed() && paragraph.isEmpty() && !positions.empty() && positions.front() == 20);
+  }
+  assert(VerticalTextUtils::isVerticalGlyphCell(0xFF8F));  // ﾏ
+  assert(VerticalTextUtils::isVerticalGlyphCell(0xFF9E));  // ﾞ
+  {
+    ESP = {};
+    GfxRenderer narrowRenderer;
+    narrowRenderer.narrowHalfwidth = true;
+    BlockStyle style;
+    style.alignment = CssTextAlign::Left;
+    ParsedText halfwidth(false, style, true);
+    for (const char* word : {"ﾏ", "ｼ", "ﾞ", "ｶ"}) halfwidth.addWord(word, EpdFontFamily::REGULAR);
+    std::vector<int16_t> positions;
+    halfwidth.layoutVerticalColumns(narrowRenderer, 1, 100, [&](const auto& block) {
+      positions = block->getWordYpos();
+      return true;
+    });
+    assert(!halfwidth.layoutFailed() && halfwidth.isEmpty());
+    assert((positions == std::vector<int16_t>{20, 40, 60, 60}));
+  }
   // A memory flush keeps the final line/column and later resumes the same paragraph.
   // Only the actual paragraph start may receive a first-line indent.
   for (const bool vertical : {false, true}) {
@@ -315,6 +351,26 @@ int main() {
   assert(VerticalTextUtils::isKinsokuTail(0x201C));  // “
   assert(VerticalTextUtils::isKinsokuTail(0x3012));  // 〒
   assert(VerticalTextUtils::isKinsokuInseparablePair(0x2026, 0x2026));
+  assert(VerticalTextUtils::isKinsokuHead(0x31F0));  // ㇰ
+  assert(VerticalTextUtils::isKinsokuHead(0x31FF));  // ㇿ
+  {
+    // The parser supplies one token per small katakana. Horizontal layout
+    // must keep each off the line head without treating the run as a word.
+    ESP = {};
+    BlockStyle style;
+    style.textIndentDefined = true;
+    ParsedText ainu(false, style);
+    for (const char* word : {"カ", "タ", "カ", "ナ", "：", "ア", "ㇰ", "イ", "ㇱ", "ウ", "ㇲ", "エ", "ㇳ", "オ",
+                             "ㇴ", "ハ", "ㇵ"})
+      ainu.addWord(word, EpdFontFamily::REGULAR);
+    std::vector<std::vector<std::string>> lines;
+    ainu.layoutAndExtractLines(renderer, 1, 100, [&](const auto& block) {
+      lines.push_back(block->getWords());
+      return true;
+    });
+    assert(!ainu.layoutFailed() && ainu.isEmpty() && lines.size() > 1);
+    assertKinsokuBoundary(lines);
+  }
   for (bool vertical : {false, true}) {
     ESP = {};
     BlockStyle style;
