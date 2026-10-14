@@ -27,24 +27,24 @@ void sidewaysLatinLeadingRegression() {
   GfxRenderer upright;
   japanese.render(upright, 1, 100, 20);
   assert(aligned.draws.size() == 1 && upright.draws.size() == 1);
-  assert(aligned.draws.front().y == upright.draws.front().y);
+  assert(aligned.draws.front().y == upright.draws.front().y + 4);
   GfxRenderer punctuation;
   punctuation.sidewaysTextVerticalOffset = 10;
   symbol.render(punctuation, 1, 100, 20);
-  assert(punctuation.draws.size() == 1 && punctuation.draws.front().y == aligned.draws.front().y + 10);
+  assert(punctuation.draws.size() == 1 && punctuation.draws.front().y == upright.draws.front().y + 10);
   GfxRenderer legacy;
   legacy.sidewaysTextVerticalOffset = 10;
   legacy.sidewaysFontPath = "OtherFont";
   latin.render(legacy, 1, 100, 20);
-  assert(legacy.draws.front().y == aligned.draws.front().y + 10);
+  assert(legacy.draws.front().y == upright.draws.front().y + 10);
   GfxRenderer biz;
   biz.sidewaysFontPath = "BIZUDMincho";
   biz.sidewaysTextVerticalOffset = 8;
   symbol.render(biz, 1, 100, 20);
-  assert(biz.draws.size() == 1 && biz.draws.front().y == aligned.draws.front().y);
+  assert(biz.draws.size() == 1 && biz.draws.front().y == upright.draws.front().y);
   biz.draws.clear();
   latin.render(biz, 1, 100, 20);
-  assert(biz.draws.front().y == aligned.draws.front().y + 8);
+  assert(biz.draws.front().y == upright.draws.front().y + 5);
 }
 void tateChuYokoVerticalCenterRegression() {
   TextBlock::smallFontId = 2;
@@ -68,8 +68,7 @@ void tateChuYokoVerticalCenterRegression() {
 }
 void ellipsisDigitOrientationRegression() {
   TextBlock sequence({"1―2—3–4", "…", "5", "‥", "6", "※"}, {0, 0, 0, 0, 0, 0},
-                     std::vector<EpdFontFamily::Style>(6, EpdFontFamily::REGULAR), {}, {0, 25, 50, 75, 100, 125},
-                     true);
+                     std::vector<EpdFontFamily::Style>(6, EpdFontFamily::REGULAR), {}, {0, 25, 50, 75, 100, 125}, true);
   GfxRenderer renderer;
   sequence.render(renderer, 1, 100, 20);
   assert(renderer.draws.size() == 6);

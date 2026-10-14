@@ -33,12 +33,13 @@ class GfxRenderer {
     auto* p = reinterpret_cast<const unsigned char*>(text);
     int width = 0;
     while (const uint32_t cp = utf8NextCodepoint(&p)) {
-      width += cp == 0x00AD || cp == 0x200B     ? 0
-               : cp == ' '                      ? 5
-               : narrowEllipsis && (cp == 0x2025 || cp == 0x2026) ? 10
+      width += cp == 0x00AD || cp == 0x200B                                    ? 0
+               : cp == ' '                                                     ? 5
+               : narrowEllipsis && (cp == 0x2025 || cp == 0x2026)              ? 10
                : narrowHalfwidth && VerticalTextUtils::isHalfwidthKatakana(cp) ? 10
-               : cp < 128                       ? 10
-                                                : tallLineHeight ? 29 : 20;
+               : cp < 128                                                      ? 10
+               : tallLineHeight                                                ? 29
+                                                                               : 20;
     }
     return width;
   }

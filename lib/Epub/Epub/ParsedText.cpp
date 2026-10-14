@@ -125,8 +125,7 @@ bool isSingleCjkWord(const std::string& word) {
   }
   if (static_cast<int>(word.size()) != len) return false;
   return (cp >= 0x2E80 && cp <= 0x9FFF) || (cp >= 0x3000 && cp <= 0x30FF) || (cp >= 0x31F0 && cp <= 0x31FF) ||
-         (cp >= 0x3400 && cp <= 0x4DBF) ||
-         (cp >= 0xF900 && cp <= 0xFAFF) || (cp >= 0xFF00 && cp <= 0xFFEF);
+         (cp >= 0x3400 && cp <= 0x4DBF) || (cp >= 0xF900 && cp <= 0xFAFF) || (cp >= 0xFF00 && cp <= 0xFFEF);
 }
 
 // Adjust a greedy horizontal line break so prohibited punctuation does not
@@ -600,8 +599,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       }
     }
   }
-  if (cjkCharAdvance == 0 && !words.empty() &&
-      !VerticalTextUtils::startsWithAsciiLatinLetter(words.front().c_str())) {
+  if (cjkCharAdvance == 0 && !words.empty() && !VerticalTextUtils::startsWithAsciiLatinLetter(words.front().c_str())) {
     // A paragraph made only of punctuation, digits, Greek, or fullwidth Latin
     // still indents by one Japanese body cell. Noto and Zen have a taller
     // line height than that cell, so line height over-indents these starts.
@@ -763,9 +761,9 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       // unrelated earlier character and gave it a zero-height cell.
       const auto* basePtr = reinterpret_cast<const unsigned char*>(words[i - 1].c_str());
       const uint32_t baseCp = utf8NextCodepoint(&basePtr);
-      overlaysPreviousCharacter = baseCp != 0 && *basePtr == '\0' && !utf8IsJapaneseVoicingMark(baseCp) &&
-                                  (VerticalTextUtils::isUprightInVertical(baseCp) ||
-                                   VerticalTextUtils::isHalfwidthKatakana(baseCp));
+      overlaysPreviousCharacter =
+          baseCp != 0 && *basePtr == '\0' && !utf8IsJapaneseVoicingMark(baseCp) &&
+          (VerticalTextUtils::isUprightInVertical(baseCp) || VerticalTextUtils::isHalfwidthKatakana(baseCp));
     }
 
     const bool isUprightHalfwidthKana =
@@ -851,8 +849,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
         wordStyles[i - 1] != wordStyles[i] || (i < wordSpaceBefore.size() && wordSpaceBefore[i]) ||
         (i - 1 < rubyTexts.size() && !rubyTexts[i - 1].empty()) || (i < rubyTexts.size() && !rubyTexts[i].empty()) ||
         (i - 1 < emphasis.size() && emphasis[i - 1] != TextEmphasis::None) ||
-        (i < emphasis.size() && emphasis[i] != TextEmphasis::None) ||
-        wordHeights[i - 1] <= ellipsisDigitTightening)
+        (i < emphasis.size() && emphasis[i] != TextEmphasis::None) || wordHeights[i - 1] <= ellipsisDigitTightening)
       continue;
     wordHeights[i - 1] -= ellipsisDigitTightening;
   }

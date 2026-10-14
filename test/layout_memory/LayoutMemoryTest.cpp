@@ -416,8 +416,8 @@ int main() {
     BlockStyle style;
     style.textIndentDefined = true;
     ParsedText ainu(false, style);
-    for (const char* word : {"カ", "タ", "カ", "ナ", "：", "ア", "ㇰ", "イ", "ㇱ", "ウ", "ㇲ", "エ", "ㇳ", "オ",
-                             "ㇴ", "ハ", "ㇵ"})
+    for (const char* word :
+         {"カ", "タ", "カ", "ナ", "：", "ア", "ㇰ", "イ", "ㇱ", "ウ", "ㇲ", "エ", "ㇳ", "オ", "ㇴ", "ハ", "ㇵ"})
       ainu.addWord(word, EpdFontFamily::REGULAR);
     std::vector<std::vector<std::string>> lines;
     ainu.layoutAndExtractLines(renderer, 1, 100, [&](const auto& block) {
@@ -497,8 +497,8 @@ int main() {
     narrowRenderer.narrowEllipsis = true;
     BlockStyle style;
     style.textIndentDefined = true;
-    constexpr const char* text[] = {"あ", "い", "…", "…", "」", "う", "ー", "え", "―",
-                                    "―", "「", "お", "か", "‥", "‥", "き", "く"};
+    constexpr const char* text[] = {"あ", "い", "…",  "…",  "」", "う", "ー", "え", "―",
+                                    "―",  "「", "お", "か", "‥",  "‥",  "き", "く"};
     auto collect = [](std::vector<std::vector<std::string>>& words, std::vector<std::vector<int16_t>>& positions) {
       return [&](std::unique_ptr<TextBlock> column) {
         const auto& ys = column->getWordYpos();
