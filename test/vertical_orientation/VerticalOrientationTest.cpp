@@ -64,8 +64,7 @@ int main() {
   assert(VerticalTextUtils::isSidewaysDigitAfterEllipsis("‥", "6"));
   assert(!VerticalTextUtils::isSidewaysDigitAfterEllipsis("…", "12"));
   assert(!VerticalTextUtils::isSidewaysDigitAfterEllipsis("あ", "5"));
-  assert(VerticalTextUtils::numericDashRunBytes("1―2—3–4…5", sizeof("1―2—3–4…5") - 1) ==
-         sizeof("1―2—3–4") - 1);
+  assert(VerticalTextUtils::numericDashRunBytes("1―2—3–4…5", sizeof("1―2—3–4…5") - 1) == sizeof("1―2—3–4") - 1);
   assert(VerticalTextUtils::numericDashRunBytes("1―23", sizeof("1―23") - 1) == 0);
   assert(VerticalTextUtils::ellipsisDigitTightening("NotoSerifJp_14.cpfont", 28) == 0);
   assert(VerticalTextUtils::ellipsisDigitTightening("BIZUDMincho_14.cpfont", 28) == 7);
