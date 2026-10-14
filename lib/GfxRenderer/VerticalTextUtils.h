@@ -1,7 +1,8 @@
 #pragma once
 
-#include <cstdint>
+#include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "VerticalOrientationData.h"
@@ -84,14 +85,14 @@ static constexpr PunctuationOffset VERTICAL_PUNCTUATION[] = {
     {0x201C, 2, 3, true},   // “ opening double quotation mark
     {0x201D, -2, 0, true},  // ” closing double quotation mark
     // Long marks - rotate to vertical orientation
-    {0x30FC, 0, 0, true},   // ー katakana long vowel mark
-    {0xFF70, 0, 0, true},   // ｰ halfwidth katakana-hiragana prolonged sound mark
-    {0x2014, 0, 0, true},   // — em dash
-    {0x2015, 0, 0, true},   // ― horizontal bar
-    {0x2026, 0, 0, true},   // … ellipsis
-    {0x301C, 0, 0, true},   // 〜 wave dash: rotated fallback already centers its visible ink
-    {0xFF0D, 0, 0, true},   // － fullwidth hyphen-minus
-    {0xFF5E, 0, 0, true},   // ～ fullwidth tilde
+    {0x30FC, 0, 0, true},  // ー katakana long vowel mark
+    {0xFF70, 0, 0, true},  // ｰ halfwidth katakana-hiragana prolonged sound mark
+    {0x2014, 0, 0, true},  // — em dash
+    {0x2015, 0, 0, true},  // ― horizontal bar
+    {0x2026, 0, 0, true},  // … ellipsis
+    {0x301C, 0, 0, true},  // 〜 wave dash: rotated fallback already centers its visible ink
+    {0xFF0D, 0, 0, true},  // － fullwidth hyphen-minus
+    {0xFF5E, 0, 0, true},  // ～ fullwidth tilde
 };
 static constexpr int VERTICAL_PUNCTUATION_COUNT = sizeof(VERTICAL_PUNCTUATION) / sizeof(VERTICAL_PUNCTUATION[0]);
 
@@ -164,8 +165,7 @@ inline size_t numericDashRunBytes(const char* text, size_t available) {
   size_t end = 1;
   while (end + 3 < available && static_cast<unsigned char>(text[end]) == 0xE2 &&
          static_cast<unsigned char>(text[end + 1]) == 0x80 &&
-         (static_cast<unsigned char>(text[end + 2]) == 0x93 ||
-          static_cast<unsigned char>(text[end + 2]) == 0x94 ||
+         (static_cast<unsigned char>(text[end + 2]) == 0x93 || static_cast<unsigned char>(text[end + 2]) == 0x94 ||
           static_cast<unsigned char>(text[end + 2]) == 0x95) &&
          text[end + 3] >= '0' && text[end + 3] <= '9') {
     end += 4;
@@ -200,17 +200,21 @@ inline bool startsWithAsciiLatinLetter(const char* text) {
 inline bool startsWithAsciiPunctuation(const char* text) {
   if (text == nullptr) return false;
   const unsigned char cp = static_cast<unsigned char>(*text);
-  return (cp >= '!' && cp <= '/') || (cp >= ':' && cp <= '@') || (cp >= '[' && cp <= '`') ||
-         (cp >= '{' && cp <= '~');
+  return (cp >= '!' && cp <= '/') || (cp >= ':' && cp <= '@') || (cp >= '[' && cp <= '`') || (cp >= '{' && cp <= '~');
 }
 
 inline int sidewaysTextVerticalOffset(const char* fontPath, const char* text, const int ascender) {
   const int legacyOffset = ascender / 3;
   if (fontPath == nullptr) return legacyOffset;
   if (std::strstr(fontPath, "BIZUD") != nullptr && startsWithAsciiPunctuation(text)) return 0;
-  if ((std::strstr(fontPath, "Noto") != nullptr || std::strstr(fontPath, "ZenMaruGothic") != nullptr) &&
-      startsWithAsciiLatinLetter(text))
-    return 0;
+  // Latin runs sit between upright Japanese cells. Give the ink a little
+  // breathing room on the side where each font family is visually tight.
+  if (startsWithAsciiLatinLetter(text)) {
+    const int adjustment = std::max(2, ascender / 10) + 1;
+    if (std::strstr(fontPath, "BIZUD") != nullptr) return std::max(0, legacyOffset - adjustment);
+    if (std::strstr(fontPath, "Noto") != nullptr || std::strstr(fontPath, "ZenMaruGothic") != nullptr)
+      return adjustment;
+  }
   return legacyOffset;
 }
 
@@ -245,8 +249,7 @@ inline bool isVerticalGlyphCell(const uint32_t cp) {
   // Halfwidth kana are R in UAX #50, but Yomuka composes them as narrow
   // upright cells. Keep their voicing marks separate for overlay on the base.
   return cp == 0x2025 || cp == 0x2026 || isHalfwidthKatakana(cp) || cp == 0xFF9E || cp == 0xFF9F ||
-         isUprightInVertical(cp) || isTransformedRotatedInVertical(cp) ||
-         isJapaneseVerticalQuote(cp);
+         isUprightInVertical(cp) || isTransformedRotatedInVertical(cp) || isJapaneseVerticalQuote(cp);
 }
 
 // Should this codepoint use the OpenType 'vert' substitute glyph?

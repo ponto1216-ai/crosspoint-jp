@@ -43,10 +43,12 @@ int main() {
   assert(VerticalTextUtils::startsWithAsciiPunctuation("@"));
   assert(!VerticalTextUtils::startsWithAsciiPunctuation("ABC"));
   assert(VerticalTextUtils::sidewaysTextVerticalOffset("BIZUDGothic_14.cpfont", "+", 26) == 0);
-  assert(VerticalTextUtils::sidewaysTextVerticalOffset("BIZUDGothic_14.cpfont", "ABC", 26) == 8);
+  assert(VerticalTextUtils::sidewaysTextVerticalOffset("BIZUDGothic_14.cpfont", "ABC", 26) == 5);
   assert(VerticalTextUtils::sidewaysTextVerticalOffset("NotoSerifJp_14.cpfont", "+", 34) == 11);
-  assert(VerticalTextUtils::sidewaysTextVerticalOffset("NotoSerifJp_14.cpfont", "ABC", 34) == 0);
+  assert(VerticalTextUtils::sidewaysTextVerticalOffset("NotoSerifJp_14.cpfont", "ABC", 34) == 4);
   assert(VerticalTextUtils::sidewaysTextVerticalOffset("ZenMaruGothic_14.cpfont", "@", 34) == 11);
+  assert(VerticalTextUtils::sidewaysTextVerticalOffset("ZenMaruGothic_14.cpfont", "Mind", 34) == 4);
+  assert(VerticalTextUtils::sidewaysTextVerticalOffset("Other_14.cpfont", "Mind", 34) == 11);
 
   const auto* openingQuote = VerticalTextUtils::getVerticalPunctuationOffset(0x201C);
   const auto* closingQuote = VerticalTextUtils::getVerticalPunctuationOffset(0x201D);
@@ -64,8 +66,7 @@ int main() {
   assert(VerticalTextUtils::isSidewaysDigitAfterEllipsis("‥", "6"));
   assert(!VerticalTextUtils::isSidewaysDigitAfterEllipsis("…", "12"));
   assert(!VerticalTextUtils::isSidewaysDigitAfterEllipsis("あ", "5"));
-  assert(VerticalTextUtils::numericDashRunBytes("1―2—3–4…5", sizeof("1―2—3–4…5") - 1) ==
-         sizeof("1―2—3–4") - 1);
+  assert(VerticalTextUtils::numericDashRunBytes("1―2—3–4…5", sizeof("1―2—3–4…5") - 1) == sizeof("1―2—3–4") - 1);
   assert(VerticalTextUtils::numericDashRunBytes("1―23", sizeof("1―23") - 1) == 0);
   assert(VerticalTextUtils::ellipsisDigitTightening("NotoSerifJp_14.cpfont", 28) == 0);
   assert(VerticalTextUtils::ellipsisDigitTightening("BIZUDMincho_14.cpfont", 28) == 7);
