@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -206,9 +207,14 @@ inline int sidewaysTextVerticalOffset(const char* fontPath, const char* text, co
   const int legacyOffset = ascender / 3;
   if (fontPath == nullptr) return legacyOffset;
   if (std::strstr(fontPath, "BIZUD") != nullptr && startsWithAsciiPunctuation(text)) return 0;
-  if ((std::strstr(fontPath, "Noto") != nullptr || std::strstr(fontPath, "ZenMaruGothic") != nullptr) &&
-      startsWithAsciiLatinLetter(text))
-    return 0;
+  // Latin runs sit between upright Japanese cells. Give the ink a little
+  // breathing room on the side where each font family is visually tight.
+  if (startsWithAsciiLatinLetter(text)) {
+    const int adjustment = std::max(2, ascender / 10) + 1;
+    if (std::strstr(fontPath, "BIZUD") != nullptr) return std::max(0, legacyOffset - adjustment);
+    if (std::strstr(fontPath, "Noto") != nullptr || std::strstr(fontPath, "ZenMaruGothic") != nullptr)
+      return adjustment;
+  }
   return legacyOffset;
 }
 
