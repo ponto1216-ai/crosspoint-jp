@@ -261,7 +261,8 @@ bool collectSectionFontCodepoints(const std::string& htmlPath, std::string& uniq
 // 152: Use the same indent cell for other non-ASCII-Latin paragraph starts.
 // 153: Rotate digits after ellipses and tighten their spacing.
 // 154: Keep numeric dash runs sideways and preserve Noto ellipsis spacing.
-constexpr uint8_t SECTION_FILE_VERSION = 154;
+// 155: Persist per-word CSS font-size overrides; rebuild older page layouts.
+constexpr uint8_t SECTION_FILE_VERSION = 155;
 // Minimum free heap required before attempting to build section pages.
 // Section building involves heavy allocations (Page, TextBlock, PageLine, etc.)
 // and on ESP32 without C++ exceptions, allocation failure calls abort().

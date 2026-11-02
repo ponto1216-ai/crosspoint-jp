@@ -113,17 +113,35 @@ int TextBlock::getHorizontalRubyTopInset(const GfxRenderer& renderer, const int 
   return std::max(0, rubyViewportSafety - naturalRubyY);
 }
 
+int TextBlock::maxFontLineHeight(const GfxRenderer& renderer, const int blockFontId) const {
+  int height = renderer.getLineHeight(blockFontId);
+  for (const int32_t id : wordFontIds) {
+    if (id != 0) height = std::max(height, renderer.getLineHeight(id));
+  }
+  return height;
+}
+
+int TextBlock::maxFontAscender(const GfxRenderer& renderer, const int blockFontId) const {
+  int ascender = renderer.getFontAscenderSize(blockFontId);
+  for (const int32_t id : wordFontIds) {
+    if (id != 0) ascender = std::max(ascender, renderer.getFontAscenderSize(id));
+  }
+  return ascender;
+}
+
 void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, const int y, const int viewportWidth,
                        const int viewportHeight, const int viewportLeft, const int viewportTop, const int rubyOffsetX,
                        const int rubyOffsetY) const {
   // Validate iterator bounds before rendering
-  if (words.size() != wordXpos.size() || words.size() != wordStyles.size()) {
+  if (words.size() != wordXpos.size() || words.size() != wordStyles.size() ||
+      (!wordFontIds.empty() && words.size() != wordFontIds.size())) {
     LOG_ERR("TXB", "Render skipped: size mismatch (words=%u, xpos=%u, styles=%u)\n", (uint32_t)words.size(),
             (uint32_t)wordXpos.size(), (uint32_t)wordStyles.size());
     return;
   }
 
   const int effectiveFontId = (blockStyle.fontId != 0) ? blockStyle.fontId : fontId;
+  const int lineAscender = maxFontAscender(renderer, effectiveFontId);
   // The first render pass only records text for the SD-font prewarm.  It does
   // not draw decoration pixels, so querying decoration dimensions here would
   // fault every glyph from the SD card before the batched preload occurs.
@@ -181,7 +199,8 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
     // lookup and metric calls.
     const auto glyphStyle = static_cast<EpdFontFamily::Style>(currentStyle & EpdFontFamily::BOLD_ITALIC);
     const bool isScript = (currentStyle & EpdFontFamily::SCRIPT_MASK) != 0;
-    const int wordFontId = (isScript && smallFontId != 0) ? smallFontId : effectiveFontId;
+    const int bodyWordFontId = !wordFontIds.empty() && wordFontIds[i] != 0 ? wordFontIds[i] : effectiveFontId;
+    const int wordFontId = (isScript && smallFontId != 0) ? smallFontId : bodyWordFontId;
     const int scriptOffset =
         (isScript && (currentStyle & EpdFontFamily::SUBSCRIPT) != 0 && wordFontId != effectiveFontId)
             ? std::max(0, renderer.getLineHeight(effectiveFontId) - renderer.getLineHeight(wordFontId))
@@ -225,7 +244,15 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
     if (isVertical && i < wordYpos.size()) {
       // 縦書きモード: VerticalBehaviorに応じて描画方法を分岐
       const char* w = words[i].c_str();
-      const int wx = x + wordXpos[i];
+      int inlineCenterOffset = 0;
+      if (bodyWordFontId != effectiveFontId) {
+        int variantMinX = 0;
+        int variantMaxX = 0;
+        renderer.getTextVisibleBoundsX(bodyWordFontId, "\xe4\xb8\x80", &variantMinX, &variantMaxX,
+                                       EpdFontFamily::REGULAR);
+        inlineCenterOffset = (verticalBodyMinX + verticalBodyMaxX - variantMinX - variantMaxX) / 2;
+      }
+      const int wx = x + wordXpos[i] + inlineCenterOffset;
       const int wy = y + wordYpos[i];
 
       // Classify: replicate the logic from ChapterHtmlSlimParser::flushPartWordBuffer
@@ -310,10 +337,10 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
         int markMaxX = 0;
         int bodyMinX = 0;
         int bodyMaxX = 0;
-        renderer.getTextVisibleBoundsX(effectiveFontId, w, &markMinX, &markMaxX, glyphStyle);
-        renderer.getTextVisibleBoundsX(effectiveFontId, "\xE4\xB8\x80", &bodyMinX, &bodyMaxX, glyphStyle);  // U+4E00
+        renderer.getTextVisibleBoundsX(bodyWordFontId, w, &markMinX, &markMaxX, glyphStyle);
+        renderer.getTextVisibleBoundsX(bodyWordFontId, "\xE4\xB8\x80", &bodyMinX, &bodyMaxX, glyphStyle);  // U+4E00
         const int centerOffset = (bodyMinX + bodyMaxX - markMinX - markMaxX) / 2;
-        renderer.drawTextVertical(effectiveFontId, wx + centerOffset, wy, w, true, glyphStyle);
+        renderer.drawTextVertical(wordFontId, wx + centerOffset, wy, w, true, glyphStyle);
         continue;
       }
 
@@ -334,8 +361,8 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
           int glyphMaxX = 0;
           int bodyMinX = 0;
           int bodyMaxX = 0;
-          renderer.getTextVisibleBoundsX(effectiveFontId, w, &glyphMinX, &glyphMaxX, glyphStyle);
-          renderer.getTextVisibleBoundsX(effectiveFontId, "\xE4\xB8\x80", &bodyMinX, &bodyMaxX,
+          renderer.getTextVisibleBoundsX(bodyWordFontId, w, &glyphMinX, &glyphMaxX, glyphStyle);
+          renderer.getTextVisibleBoundsX(bodyWordFontId, "\xE4\xB8\x80", &bodyMinX, &bodyMaxX,
                                          glyphStyle);  // U+4E00
           uprightX += (bodyMinX + bodyMaxX - glyphMinX - glyphMaxX) / 2;
         }
@@ -447,7 +474,7 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
           renderer.getTextVisibleBoundsX(tateChuYokoFont, w, &textMinX, &textMaxX, glyphStyle);
           int fullwidthDigitMinX = 0;
           int fullwidthDigitMaxX = 0;
-          renderer.getTextVisibleBoundsX(effectiveFontId, "\xEF\xBC\x90", &fullwidthDigitMinX, &fullwidthDigitMaxX,
+          renderer.getTextVisibleBoundsX(bodyWordFontId, "\xEF\xBC\x90", &fullwidthDigitMinX, &fullwidthDigitMaxX,
                                          glyphStyle);  // U+FF10
           const int centerOffset = (fullwidthDigitMinX + fullwidthDigitMaxX - textMinX - textMaxX) / 2;
           // The smaller three-digit font otherwise starts at the body font's
@@ -477,8 +504,8 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
           decorationHeight = wordYpos[i + 1] - wordYpos[i];
         }
         if (decorationHeight <= 0) {
-          decorationHeight = isSingleVerticalGlyph ? renderer.getTextAdvanceYVertical(effectiveFontId, w, glyphStyle)
-                                                   : renderer.getTextAdvanceX(effectiveFontId, w, glyphStyle);
+          decorationHeight = isSingleVerticalGlyph ? renderer.getTextAdvanceYVertical(bodyWordFontId, w, glyphStyle)
+                                                   : renderer.getTextAdvanceX(bodyWordFontId, w, glyphStyle);
         }
         decorationHeight = std::max(1, decorationHeight);
         if (hasUnderline) {
@@ -562,7 +589,9 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
       }
     } else {
       const int wordX = wordXpos[i] + x;
-      renderer.drawText(wordFontId, wordX, y + scriptOffset, words[i].c_str(), true, glyphStyle);
+      const int baselineOffset = lineAscender -
+                                 renderer.getFontAscenderSize(bodyWordFontId);
+      renderer.drawText(wordFontId, wordX, y + scriptOffset + baselineOffset, words[i].c_str(), true, glyphStyle);
       // 横書きルビ描画
       if (rubyFontId != 0 && i < rubyTexts.size() && !rubyTexts[i].empty() && !isRubyContinuation(rubyTexts[i])) {
         size_t rubyBaseEnd = i;
@@ -572,7 +601,10 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
 
         // Center over the complete <ruby> base, not only its first CJK token.
         const int lastBaseAdvance =
-            renderer.getTextAdvanceX(effectiveFontId, words[rubyBaseEnd].c_str(), wordStyles[rubyBaseEnd]);
+            renderer.getTextAdvanceX(!wordFontIds.empty() && wordFontIds[rubyBaseEnd] != 0
+                                         ? wordFontIds[rubyBaseEnd]
+                                         : effectiveFontId,
+                                     words[rubyBaseEnd].c_str(), wordStyles[rubyBaseEnd]);
         const int baseWidth = wordXpos[rubyBaseEnd] - wordXpos[i] + lastBaseAdvance;
         const int rubyWidth = renderer.getTextAdvanceX(rubyFontId, rubyTexts[i].c_str(), EpdFontFamily::REGULAR);
         const int viewportRight = viewportLeft + viewportWidth;
@@ -604,7 +636,7 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
       const bool hasStrikethrough = (currentStyle & EpdFontFamily::STRIKETHROUGH) != 0;
       if (!isPrewarmScan && (hasUnderline || hasStrikethrough)) {
         const std::string& w = words[i];
-        const int fullWordWidth = renderer.getTextWidth(effectiveFontId, w.c_str(), glyphStyle);
+        const int fullWordWidth = renderer.getTextWidth(bodyWordFontId, w.c_str(), glyphStyle);
         int startX = wordX;
         int decorationWidth = fullWordWidth;
 
@@ -612,8 +644,8 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
         if (w.size() >= 3 && static_cast<uint8_t>(w[0]) == 0xE2 && static_cast<uint8_t>(w[1]) == 0x80 &&
             static_cast<uint8_t>(w[2]) == 0x83) {
           const char* visiblePtr = w.c_str() + 3;
-          const int prefixWidth = renderer.getTextAdvanceX(effectiveFontId, "\xe2\x80\x83", glyphStyle);
-          const int visibleWidth = renderer.getTextWidth(effectiveFontId, visiblePtr, glyphStyle);
+          const int prefixWidth = renderer.getTextAdvanceX(bodyWordFontId, "\xe2\x80\x83", glyphStyle);
+          const int visibleWidth = renderer.getTextWidth(bodyWordFontId, visiblePtr, glyphStyle);
           startX = wordX + prefixWidth;
           decorationWidth = visibleWidth;
         }
@@ -659,7 +691,8 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
 }
 
 bool TextBlock::serialize(FsFile& file) const {
-  if (words.size() != wordXpos.size() || words.size() != wordStyles.size()) {
+  if (words.size() != wordXpos.size() || words.size() != wordStyles.size() ||
+      (!wordFontIds.empty() && words.size() != wordFontIds.size())) {
     LOG_ERR("TXB", "Serialization failed: size mismatch (words=%u, xpos=%u, styles=%u)\n", words.size(),
             wordXpos.size(), wordStyles.size());
     return false;
@@ -671,6 +704,9 @@ bool TextBlock::serialize(FsFile& file) const {
   if (!serialization::writePodArray(file, wordXpos.data(), wordXpos.size()) ||
       !serialization::writePodArray(file, wordStyles.data(), wordStyles.size()))
     return false;
+  const uint8_t hasWordFonts = wordFontIds.empty() ? 0 : 1;
+  serialization::writePod(file, hasWordFonts);
+  if (hasWordFonts && !serialization::writePodArray(file, wordFontIds.data(), wordFontIds.size())) return false;
 
   // Style (alignment + margins/padding/indent)
   serialization::writePod(file, blockStyle.alignment);
@@ -745,6 +781,15 @@ std::unique_ptr<TextBlock> TextBlock::deserialize(FsFile& file) {
   for (auto& w : words) serialization::readString(file, w);
   for (auto& x : wordXpos) serialization::readPod(file, x);
   for (auto& s : wordStyles) serialization::readPod(file, s);
+  uint8_t hasWordFonts = 0;
+  if (file.read(&hasWordFonts, 1) != 1 || hasWordFonts > 1) return nullptr;
+  std::vector<int32_t> wordFontIds;
+  if (hasWordFonts) {
+    wordFontIds.resize(wc);
+    for (auto& id : wordFontIds) {
+      if (file.read(&id, sizeof(id)) != sizeof(id)) return nullptr;
+    }
+  }
 
   // Style (alignment + margins/padding/indent)
   serialization::readPod(file, blockStyle.alignment);
@@ -812,5 +857,6 @@ std::unique_ptr<TextBlock> TextBlock::deserialize(FsFile& file) {
 
   return std::unique_ptr<TextBlock>(new TextBlock(std::move(words), std::move(wordXpos), std::move(wordStyles),
                                                   blockStyle, std::move(wordYpos), vertical, std::move(rubyTexts),
-                                                  std::move(inlineImages), std::move(emphasis), tateChuYokoMaxDigits));
+                                                  std::move(inlineImages), std::move(emphasis), tateChuYokoMaxDigits,
+                                                  std::move(wordFontIds)));
 }

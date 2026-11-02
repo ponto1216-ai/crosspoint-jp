@@ -312,6 +312,7 @@ void ChapterHtmlSlimParser::updateEffectiveInlineStyle() {
   effectiveItalic = currentCssStyle.hasFontStyle() && currentCssStyle.fontStyle == CssFontStyle::Italic;
   effectiveTextDecoration =
       currentCssStyle.hasTextDecoration() ? currentCssStyle.textDecoration : CssTextDecoration::None;
+  effectiveInlineFontId = 0;
 
   // Apply inline style stack in order
   for (const auto& entry : inlineStyleStack) {
@@ -325,6 +326,7 @@ void ChapterHtmlSlimParser::updateEffectiveInlineStyle() {
       // CSS decorations are painted by every ancestor that specifies one.
       effectiveTextDecoration = effectiveTextDecoration | entry.textDecoration;
     }
+    if (entry.hasFontId) effectiveInlineFontId = entry.fontId;
   }
 }
 
@@ -423,9 +425,11 @@ void ChapterHtmlSlimParser::flushPartWordBuffer() {
     if (tateChuYokoKind != VerticalTextUtils::TateChuYokoKind::None) {
       vb = VerticalTextUtils::VerticalBehavior::TateChuYoko;
     }
-    currentTextBlock->addWord(partWordBuffer, fontStyle, vb, false, nextWordContinues, pendingHorizontalSpace);
+    currentTextBlock->addWord(partWordBuffer, fontStyle, vb, false, nextWordContinues, pendingHorizontalSpace,
+                              effectiveInlineFontId);
   } else {
-    currentTextBlock->addWord(partWordBuffer, fontStyle, false, nextWordContinues, pendingHorizontalSpace);
+    currentTextBlock->addWord(partWordBuffer, fontStyle, false, nextWordContinues, pendingHorizontalSpace,
+                              effectiveInlineFontId);
   }
   currentTextBlock->setEmphasisFrom(emphasisStart, activeEmphasis());
   if (hasBufferedWord) noteEmptyBlockContent();
@@ -1482,7 +1486,8 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     self->updateEffectiveInlineStyle();
   } else if (strcmp(name, "span") == 0 || !isHeaderOrBlock(name)) {
     // Handle span and other inline elements for CSS styling
-    if (cssStyle.hasFontWeight() || cssStyle.hasFontStyle() || cssStyle.hasTextDecoration()) {
+    if (cssStyle.hasFontWeight() || cssStyle.hasFontStyle() || cssStyle.hasTextDecoration() ||
+        (self->bookStyle == 1 && cssStyle.hasFontSize())) {
       // Flush buffer before style change so preceding text gets current style
       if (self->partWordBufferIndex > 0) {
         self->flushPartWordBuffer();
@@ -1501,6 +1506,28 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       if (cssStyle.hasTextDecoration()) {
         entry.hasTextDecoration = true;
         entry.textDecoration = cssStyle.textDecoration;
+      }
+      if (self->bookStyle == 1 && cssStyle.hasFontSize() && self->currentTextBlock) {
+        const auto& blockStyle = self->currentTextBlock->getBlockStyle();
+        const int blockFontId = blockStyle.fontId != 0 ? blockStyle.fontId : self->fontId;
+        const int parentFontId = self->effectiveInlineFontId != 0 ? self->effectiveInlineFontId : blockFontId;
+        const float parentEm = static_cast<float>(self->renderer.getFontAscenderSize(parentFontId));
+        const float targetEm = parentEm * std::clamp(cssFontScale(cssStyle.fontSize, parentEm),
+                                                     MIN_CSS_FONT_SCALE, MAX_CSS_FONT_SCALE);
+        int closestFontId = blockFontId;
+        float closestDistance =
+            std::abs(static_cast<float>(self->renderer.getFontAscenderSize(blockFontId)) - targetEm);
+        for (const int candidateFontId : self->cssBodyFontIds) {
+          if (candidateFontId == 0) continue;
+          const float distance =
+              std::abs(static_cast<float>(self->renderer.getFontAscenderSize(candidateFontId)) - targetEm);
+          if (distance < closestDistance) {
+            closestFontId = candidateFontId;
+            closestDistance = distance;
+          }
+        }
+        entry.hasFontId = true;
+        entry.fontId = closestFontId == blockFontId ? 0 : closestFontId;
       }
       self->inlineStyleStack.push_back(entry);
       self->updateEffectiveInlineStyle();
@@ -1732,9 +1759,10 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
       const size_t emphasisStart = self->currentTextBlock->size();
       if (self->verticalMode) {
         self->currentTextBlock->addWord(cjkWord, cjkStyle, VerticalTextUtils::VerticalBehavior::Upright, false, false,
-                                        self->pendingHorizontalSpace);
+                                        self->pendingHorizontalSpace, self->effectiveInlineFontId);
       } else {
-        self->currentTextBlock->addWord(cjkWord, cjkStyle, false, false, self->pendingHorizontalSpace);
+        self->currentTextBlock->addWord(cjkWord, cjkStyle, false, false, self->pendingHorizontalSpace,
+                                        self->effectiveInlineFontId);
       }
       self->pendingHorizontalSpace = false;
       self->currentTextBlock->setEmphasisFrom(emphasisStart, self->activeEmphasis());
@@ -2172,8 +2200,8 @@ bool ChapterHtmlSlimParser::addLineToPage(std::unique_ptr<TextBlock> line) {
   }
   const auto* text = pageLine->getBlock().get();
   const int effectiveFontId = (text->getBlockStyle().fontId != 0) ? text->getBlockStyle().fontId : fontId;
-  const int lineHeight =
-      renderer.getLineHeight(effectiveFontId) * lineCompression * text->getBlockStyle().lineHeightMultiplier;
+  const int lineHeight = text->maxFontLineHeight(renderer, effectiveFontId) * lineCompression *
+                         text->getBlockStyle().lineHeightMultiplier;
 
   if (verticalMode) {
     // Vertical mode: columns placed right-to-left
@@ -2483,14 +2511,14 @@ void ChapterHtmlSlimParser::makePages() {
     return;
   }
 
-  const int lineHeight =
-      renderer.getLineHeight(fontId) * lineCompression * currentTextBlock->getBlockStyle().lineHeightMultiplier;
   const BlockStyle& blockStyle = currentTextBlock->getBlockStyle();
 
   const int horizontalInset = blockStyle.totalHorizontalInset();
   const uint16_t effectiveWidth =
       (horizontalInset < viewportWidth) ? static_cast<uint16_t>(viewportWidth - horizontalInset) : viewportWidth;
   const int layoutFontId = (blockStyle.fontId != 0) ? blockStyle.fontId : fontId;
+  const int lineHeight = currentTextBlock->maxFontLineHeight(renderer, layoutFontId) * lineCompression *
+                         blockStyle.lineHeightMultiplier;
 
   const auto discardExplicitBlankLine = [&]() {
     if (verticalMode) {

@@ -3,6 +3,7 @@
 #include <HalStorage.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -27,6 +28,7 @@ class TextBlock final : public Block {
   std::vector<std::string> words;
   std::vector<int16_t> wordXpos;
   std::vector<EpdFontFamily::Style> wordStyles;
+  std::vector<int32_t> wordFontIds;  // empty unless at least one word uses a CSS size override
   BlockStyle blockStyle;
   std::vector<int16_t> wordYpos;  // vertical layout: y position within column
   bool isVertical = false;        // true when this block was laid out vertically
@@ -42,10 +44,12 @@ class TextBlock final : public Block {
                      std::vector<EpdFontFamily::Style> word_styles, const BlockStyle& blockStyle = BlockStyle(),
                      std::vector<int16_t> word_ypos = {}, bool vertical = false,
                      std::vector<std::string> ruby_texts = {}, std::vector<InlineImage> inline_images = {},
-                     std::vector<TextEmphasis> emphasis = {}, uint8_t tate_chu_yoko_max_digits = 2)
+                     std::vector<TextEmphasis> emphasis = {}, uint8_t tate_chu_yoko_max_digits = 2,
+                     std::vector<int32_t> word_font_ids = {})
       : words(std::move(words)),
         wordXpos(std::move(word_xpos)),
         wordStyles(std::move(word_styles)),
+        wordFontIds(std::move(word_font_ids)),
         blockStyle(blockStyle),
         wordYpos(std::move(word_ypos)),
         isVertical(vertical),
@@ -92,6 +96,8 @@ class TextBlock final : public Block {
   static int smallFontId;
   bool isEmpty() override { return words.empty(); }
   size_t wordCount() const { return words.size(); }
+  int maxFontLineHeight(const GfxRenderer& renderer, int blockFontId) const;
+  int maxFontAscender(const GfxRenderer& renderer, int blockFontId) const;
   // given a renderer works out where to break the words into lines
   // パラメータは非const参照（インライン画像を ImageBlock::render で描画するため）。
   // メソッド自体はconstのまま。

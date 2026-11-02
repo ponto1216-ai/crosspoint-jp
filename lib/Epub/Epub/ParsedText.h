@@ -4,6 +4,7 @@
 #include <VerticalTextUtils.h>
 
 #include <deque>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -23,6 +24,8 @@ class ParsedText {
   // small blocks, so the largest allocation stays bounded.
   std::deque<std::string> words;
   std::vector<EpdFontFamily::Style> wordStyles;
+  // Allocated only when an inline CSS size differs from the block font.
+  std::vector<int32_t> wordFontIds;
   std::vector<TextEmphasis> emphasis;  // empty until the first marked token
   std::vector<bool> wordContinues;     // true = word attaches to previous (no space before it)
   // True only when the source contained ordinary whitespace before this word.
@@ -48,6 +51,7 @@ class ParsedText {
   bool fallbackIndentApplied = false;
   bool layoutFailed_ = false;
   bool hasHeapForToken();
+  void prewarmInlineFonts(const GfxRenderer& renderer, int blockFontId);
   bool admitLayout(size_t bytes, const char* stage);
   void consumePrefix(size_t count);
   std::unique_ptr<TextBlock> prepareBlock(size_t start, size_t end, bool vertical);
@@ -79,9 +83,9 @@ class ParsedText {
   ~ParsedText() = default;
 
   void addWord(std::string word, EpdFontFamily::Style fontStyle, bool underline = false, bool attachToPrevious = false,
-               bool spaceBefore = false);
+               bool spaceBefore = false, int fontId = 0);
   void addWord(std::string word, EpdFontFamily::Style fontStyle, VerticalTextUtils::VerticalBehavior vBehavior,
-               bool underline = false, bool attachToPrevious = false, bool spaceBefore = false);
+               bool underline = false, bool attachToPrevious = false, bool spaceBefore = false, int fontId = 0);
   // Adds one Unicode super/subscript digit to a preceding short ASCII token.
   // Refuses any operation that would allocate, so low-memory parsing simply
   // falls back to the ordinary separate-word path.
@@ -96,6 +100,7 @@ class ParsedText {
   void setEmphasisFrom(size_t start, TextEmphasis value);
   void setRubyForWordAt(size_t index, const std::string& ruby, size_t baseWordCount = 1);
   bool isEmpty() const { return words.empty(); }
+  int maxFontLineHeight(const GfxRenderer& renderer, int blockFontId) const;
   bool hasConsumedFirstLine() const { return firstLineConsumed; }
   bool layoutFailed() const { return layoutFailed_; }
   bool isExplicitBlankLine() const {

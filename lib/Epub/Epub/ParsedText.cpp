@@ -176,7 +176,7 @@ size_t adjustHorizontalKinsokuBreak(const WordContainer& words, const std::vecto
 }  // namespace
 
 void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle, const bool underline,
-                         const bool attachToPrevious, const bool spaceBefore) {
+                         const bool attachToPrevious, const bool spaceBefore, const int fontId) {
   if (layoutFailed_ || word.empty() || !hasHeapForToken()) return;
 
   // Compose decomposed Latin accents before measuring and caching the layout.
@@ -204,6 +204,8 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
     combinedStyle = static_cast<EpdFontFamily::Style>(combinedStyle | EpdFontFamily::UNDERLINE);
   }
   wordStyles.push_back(combinedStyle);
+  if (fontId != 0 && wordFontIds.empty()) wordFontIds.resize(words.size() - 1, 0);
+  if (!wordFontIds.empty()) wordFontIds.push_back(fontId);
   wordContinues.push_back(attachToPrevious);
   wordSpaceBefore.push_back(spaceBefore);
 
@@ -220,9 +222,9 @@ void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
 
 void ParsedText::addWord(std::string word, const EpdFontFamily::Style fontStyle,
                          const VerticalTextUtils::VerticalBehavior vBehavior, const bool underline,
-                         const bool attachToPrevious, const bool spaceBefore) {
+                         const bool attachToPrevious, const bool spaceBefore, const int fontId) {
   const size_t wordCount = words.size();
-  addWord(std::move(word), fontStyle, underline, attachToPrevious, spaceBefore);
+  addWord(std::move(word), fontStyle, underline, attachToPrevious, spaceBefore, fontId);
 
   // The parser flushes at element boundaries even when its temporary buffer is
   // empty. In that case addWord() intentionally does nothing, so there is no
@@ -294,6 +296,43 @@ bool ParsedText::hasHeapForToken() {
   return false;
 }
 
+int ParsedText::maxFontLineHeight(const GfxRenderer& renderer, int blockFontId) const {
+  int height = renderer.getLineHeight(blockFontId);
+  for (const int32_t id : wordFontIds) {
+    if (id != 0) height = std::max(height, renderer.getLineHeight(id));
+  }
+  return height;
+}
+
+void ParsedText::prewarmInlineFonts(const GfxRenderer& renderer, int blockFontId) {
+  if (wordFontIds.empty()) return;
+  int32_t seen[4] = {};
+  size_t seenCount = 0;
+  for (size_t i = 0; i < wordFontIds.size(); ++i) {
+    const int32_t id = wordFontIds[i];
+    if (id == 0 || id == blockFontId || !renderer.isSdCardFont(id)) continue;
+    bool alreadySeen = false;
+    for (size_t j = 0; j < seenCount; ++j) alreadySeen |= seen[j] == id;
+    if (alreadySeen || seenCount == 4) continue;
+    seen[seenCount++] = id;
+    size_t textBytes = 0;
+    for (size_t j = i; j < wordFontIds.size(); ++j) {
+      if (wordFontIds[j] == id) textBytes = std::min(MAX_SD_FONT_PREWARM_TEXT_BYTES, textBytes + words[j].size());
+    }
+    std::string text;
+    if (!admitLayout(textBytes + 64, "inline font prewarm")) return;
+    text.reserve(textBytes);
+    uint8_t styleMask = 0;
+    for (size_t j = i; j < wordFontIds.size(); ++j) {
+      if (wordFontIds[j] != id || text.size() + words[j].size() > MAX_SD_FONT_PREWARM_TEXT_BYTES) continue;
+      text += words[j];
+      styleMask |= static_cast<uint8_t>(1u << (static_cast<uint8_t>(wordStyles[j]) &
+                                               static_cast<uint8_t>(EpdFontFamily::BOLD_ITALIC)));
+    }
+    if (!text.empty()) renderer.ensureSdCardFontReady(id, text.c_str(), styleMask);
+  }
+}
+
 void ParsedText::consumePrefix(size_t count) {
   if (!count) return;
   size_t images = 0;
@@ -303,6 +342,7 @@ void ParsedText::consumePrefix(size_t count) {
   inlineImages.erase(inlineImages.begin(), inlineImages.begin() + images);
   words.erase(words.begin(), words.begin() + count);
   wordStyles.erase(wordStyles.begin(), wordStyles.begin() + count);
+  if (!wordFontIds.empty()) wordFontIds.erase(wordFontIds.begin(), wordFontIds.begin() + count);
   wordContinues.erase(wordContinues.begin(), wordContinues.begin() + count);
   wordSpaceBefore.erase(wordSpaceBefore.begin(), wordSpaceBefore.begin() + count);
   wordVerticalBehaviors.erase(wordVerticalBehaviors.begin(), wordVerticalBehaviors.begin() + count);
@@ -345,6 +385,10 @@ std::unique_ptr<TextBlock> ParsedText::prepareBlock(size_t start, size_t end, bo
   block->words.resize(count);
   block->rubyTexts.resize(count);
   block->wordStyles.assign(wordStyles.begin() + start, wordStyles.begin() + end);
+  if (!wordFontIds.empty() &&
+      std::any_of(wordFontIds.begin() + start, wordFontIds.begin() + end, [](int32_t id) { return id != 0; })) {
+    block->wordFontIds.assign(wordFontIds.begin() + start, wordFontIds.begin() + end);
+  }
   block->wordXpos.resize(count, 0);
   if (vertical) block->wordYpos.resize(count, 0);
   if (!emphasis.empty()) block->emphasis.assign(emphasis.begin() + start, emphasis.begin() + end);
@@ -430,6 +474,8 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
     if (hyphenationEnabled && allText.size() < MAX_SD_FONT_PREWARM_TEXT_BYTES) allText += '-';
     renderer.ensureSdCardFontReady(fontId, allText.c_str(), usedStyleMask(wordStyles));
   }
+  prewarmInlineFonts(renderer, fontId);
+  if (layoutFailed_) return;
   if (TextBlock::smallFontId != 0 && TextBlock::smallFontId != fontId &&
       renderer.isSdCardFont(TextBlock::smallFontId)) {
     std::string scriptText;
@@ -510,6 +556,9 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
   const GfxRenderer::MeasureOnlyScope measureOnly(renderer);
   if (layoutFailed_ || words.empty()) return;
   if (!admitLayout(LayoutMemory::multiply(words.size(), 16), "vertical plan")) return;
+  const auto fontForWord = [&](size_t i) {
+    return !wordFontIds.empty() && wordFontIds[i] != 0 ? wordFontIds[i] : fontId;
+  };
 
   // A single digit immediately after a vertical ellipsis is rotated like
   // adjacent sideways text. Keep other isolated digits in TateChuYoko.
@@ -542,6 +591,8 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
     allText += "\xE4\xB8\x80";  // U+4E00
     renderer.ensureSdCardFontReady(fontId, allText.c_str(), usedStyleMask(wordStyles));
   }
+  prewarmInlineFonts(renderer, fontId);
+  if (layoutFailed_) return;
   if (TextBlock::smallFontId != 0 && TextBlock::smallFontId != fontId &&
       renderer.isSdCardFont(TextBlock::smallFontId)) {
     std::string scriptText;
@@ -576,7 +627,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
     const auto* p = reinterpret_cast<const unsigned char*>(words[i].c_str());
     const uint32_t firstCp = utf8NextCodepoint(&p);
     if (vb == VerticalTextUtils::VerticalBehavior::Upright && isCjkBodyCodepoint(firstCp)) {
-      cjkCharAdvance = renderer.getTextAdvanceX(scriptAwareFontId(fontId, wordStyles[i]), words[i].c_str(),
+      cjkCharAdvance = renderer.getTextAdvanceX(scriptAwareFontId(fontForWord(i), wordStyles[i]), words[i].c_str(),
                                                 glyphStyle(wordStyles[i]));
     }
   }
@@ -589,7 +640,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       const auto* p = reinterpret_cast<const unsigned char*>(words[i].c_str());
       const uint32_t firstCp = utf8NextCodepoint(&p);
       if (VerticalTextUtils::isHalfwidthKatakana(firstCp)) {
-        const int wordFontId = scriptAwareFontId(fontId, wordStyles[i]);
+        const int wordFontId = scriptAwareFontId(fontForWord(i), wordStyles[i]);
         const auto bodyStyle = glyphStyle(wordStyles[i]);
         const int kanaAdvance = renderer.getTextAdvanceX(wordFontId, words[i].c_str(), bodyStyle);
         const int fullwidthAdvance = renderer.getTextAdvanceX(wordFontId, "\xE4\xB8\x80", bodyStyle);  // U+4E00
@@ -658,7 +709,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
         i < wordVerticalBehaviors.size() && wordVerticalBehaviors[i] == VerticalTextUtils::VerticalBehavior::Sideways;
     const bool hasRuby = i < rubyTexts.size() && !rubyTexts[i].empty();
     if (sideways && !hasRuby &&
-        renderer.getTextAdvanceX(scriptAwareFontId(fontId, wordStyles[i]), words[i].c_str(),
+        renderer.getTextAdvanceX(scriptAwareFontId(fontForWord(i), wordStyles[i]), words[i].c_str(),
                                  glyphStyle(wordStyles[i])) > maxSidewaysRunAdvance) {
       needsSidewaysRunSplit = true;
       break;
@@ -673,12 +724,14 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
     if (!admitLayout(splitBudget, "sideways split")) return;
     std::deque<std::string> splitWords;
     std::vector<EpdFontFamily::Style> splitWordStyles;
+    std::vector<int32_t> splitWordFontIds;
     std::vector<bool> splitWordContinues;
     std::vector<bool> splitWordSpaceBefore;
     std::deque<std::string> splitRubyTexts;
     std::vector<VerticalTextUtils::VerticalBehavior> splitVerticalBehaviors;
     std::vector<TextEmphasis> splitEmphasis;
     splitWordStyles.reserve(words.size());
+    if (!wordFontIds.empty()) splitWordFontIds.reserve(words.size());
     splitWordContinues.reserve(words.size());
     splitWordSpaceBefore.reserve(words.size());
     splitVerticalBehaviors.reserve(words.size());
@@ -688,6 +741,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
                                      const bool spaceBefore) {
       splitWords.push_back(std::move(fragment));
       splitWordStyles.push_back(wordStyles[sourceIndex]);
+      if (!wordFontIds.empty()) splitWordFontIds.push_back(wordFontIds[sourceIndex]);
       splitWordContinues.push_back(continuation);
       splitWordSpaceBefore.push_back(spaceBefore);
       splitRubyTexts.push_back(rubyTexts[sourceIndex]);
@@ -699,7 +753,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       const bool sideways = wordVerticalBehaviors[i] == VerticalTextUtils::VerticalBehavior::Sideways;
       const bool hasRuby = !rubyTexts[i].empty();
       if (!sideways || hasRuby ||
-          renderer.getTextAdvanceX(scriptAwareFontId(fontId, wordStyles[i]), words[i].c_str(),
+          renderer.getTextAdvanceX(scriptAwareFontId(fontForWord(i), wordStyles[i]), words[i].c_str(),
                                    glyphStyle(wordStyles[i])) <= maxSidewaysRunAdvance) {
         appendSplitWord(words[i], i, wordContinues[i], wordSpaceBefore[i]);
         continue;
@@ -713,8 +767,9 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
         utf8NextCodepoint(&cursor);
         std::string candidate = fragment;
         candidate.append(reinterpret_cast<const char*>(start), cursor - start);
-        if (!fragment.empty() && renderer.getTextAdvanceX(scriptAwareFontId(fontId, wordStyles[i]), candidate.c_str(),
-                                                          glyphStyle(wordStyles[i])) > maxSidewaysRunAdvance) {
+        if (!fragment.empty() &&
+            renderer.getTextAdvanceX(scriptAwareFontId(fontForWord(i), wordStyles[i]), candidate.c_str(),
+                                     glyphStyle(wordStyles[i])) > maxSidewaysRunAdvance) {
           appendSplitWord(std::move(fragment), i, firstFragment ? wordContinues[i] : true,
                           firstFragment ? wordSpaceBefore[i] : false);
           firstFragment = false;
@@ -730,6 +785,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
 
     words = std::move(splitWords);
     wordStyles = std::move(splitWordStyles);
+    if (!wordFontIds.empty()) wordFontIds = std::move(splitWordFontIds);
     wordContinues = std::move(splitWordContinues);
     wordSpaceBefore = std::move(splitWordSpaceBefore);
     rubyTexts = std::move(splitRubyTexts);
@@ -794,7 +850,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       // fullwidth body cell when one exists, or the natural halfwidth pitch in
       // a kana-only paragraph. The sideways prolonged mark uses its own short
       // advance so it does not leave a full-cell gap before the next kana.
-      baseHeight = wordCp == 0xFF70 ? renderer.getTextAdvanceX(scriptAwareFontId(fontId, wordStyles[i]),
+      baseHeight = wordCp == 0xFF70 ? renderer.getTextAdvanceX(scriptAwareFontId(fontForWord(i), wordStyles[i]),
                                                                words[i].c_str(), glyphStyle(wordStyles[i]))
                                     : static_cast<uint16_t>(cjkCharAdvance);
     } else if (isUprightEnclosedAlphanumeric || isJapaneseVerticalQuote || isVerticalEllipsis) {
@@ -807,7 +863,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
     } else
       switch (vb) {
         case VerticalTextUtils::VerticalBehavior::Sideways:
-          baseHeight = renderer.getTextAdvanceX(scriptAwareFontId(fontId, wordStyles[i]), words[i].c_str(),
+          baseHeight = renderer.getTextAdvanceX(scriptAwareFontId(fontForWord(i), wordStyles[i]), words[i].c_str(),
                                                 glyphStyle(wordStyles[i]));
           break;
 
@@ -822,7 +878,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
           // would make this character share its cell with the following word
           // (for example, the digit in \"第1章\").  Keep upright CJK text on
           // the paragraph's measured fullwidth pitch in that case.
-          const int measuredAdvance = renderer.getTextAdvanceX(scriptAwareFontId(fontId, wordStyles[i]),
+          const int measuredAdvance = renderer.getTextAdvanceX(scriptAwareFontId(fontForWord(i), wordStyles[i]),
                                                                words[i].c_str(), glyphStyle(wordStyles[i]));
           baseHeight = static_cast<uint16_t>(measuredAdvance > 0 ? measuredAdvance : cjkCharAdvance);
           break;
@@ -992,7 +1048,7 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
       // boundaries remain valid and the guard stays conservative.
       int sidewaysTailGuard = 0;
       if (behavior == VerticalTextUtils::VerticalBehavior::Sideways) {
-        const int wordFontId = scriptAwareFontId(fontId, wordStyles[i]);
+        const int wordFontId = scriptAwareFontId(fontForWord(i), wordStyles[i]);
         int visibleMinX = 0;
         int visibleMaxX = 0;
         renderer.getTextVisibleBoundsX(wordFontId, words[i].c_str(), &visibleMinX, &visibleMaxX,
@@ -1106,7 +1162,8 @@ std::vector<uint16_t> ParsedText::calculateWordWidths(const GfxRenderer& rendere
     }
     if (containsSoftHyphen(words[i]) && !admitLayout(LayoutMemory::add(words[i].size(), 64), "soft hyphen metrics"))
       return {};
-    wordWidths.push_back(measureWordWidth(renderer, fontId, words[i], wordStyles[i]));
+    const int measuredFontId = !wordFontIds.empty() && wordFontIds[i] != 0 ? wordFontIds[i] : fontId;
+    wordWidths.push_back(measureWordWidth(renderer, measuredFontId, words[i], wordStyles[i]));
   }
 
   return wordWidths;
@@ -1280,6 +1337,7 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
 
   const std::string& word = words[wordIndex];
   const auto style = wordStyles[wordIndex];
+  const int wordFontId = !wordFontIds.empty() && wordFontIds[wordIndex] != 0 ? wordFontIds[wordIndex] : fontId;
 
   // Hyphenator builds codepoint, pattern and break arrays, plus prefix strings.
   // Include metadata growth and deque map/block overhead before changing words.
@@ -1302,7 +1360,7 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
     }
 
     const bool needsHyphen = info.requiresInsertedHyphen;
-    const int prefixWidth = measureWordWidth(renderer, fontId, word.substr(0, offset), style, needsHyphen);
+    const int prefixWidth = measureWordWidth(renderer, wordFontId, word.substr(0, offset), style, needsHyphen);
     if (prefixWidth > availableWidth || prefixWidth <= chosenWidth) {
       continue;
     }
@@ -1325,6 +1383,7 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
   words.insert(words.begin() + wordIndex + 1, remainder);
   wordVerticalBehaviors.insert(wordVerticalBehaviors.begin() + wordIndex + 1, wordVerticalBehaviors[wordIndex]);
   wordStyles.insert(wordStyles.begin() + wordIndex + 1, style);
+  if (!wordFontIds.empty()) wordFontIds.insert(wordFontIds.begin() + wordIndex + 1, wordFontIds[wordIndex]);
   if (!emphasis.empty()) emphasis.insert(emphasis.begin() + wordIndex + 1, emphasis[wordIndex]);
   wordContinues.insert(wordContinues.begin() + wordIndex + 1, false);
   wordSpaceBefore.insert(wordSpaceBefore.begin() + wordIndex + 1, false);
@@ -1342,7 +1401,7 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
   }
 
   wordWidths[wordIndex] = static_cast<uint16_t>(chosenWidth);
-  const uint16_t remainderWidth = measureWordWidth(renderer, fontId, remainder, style);
+  const uint16_t remainderWidth = measureWordWidth(renderer, wordFontId, remainder, style);
   wordWidths.insert(wordWidths.begin() + wordIndex + 1, remainderWidth);
   return true;
 }

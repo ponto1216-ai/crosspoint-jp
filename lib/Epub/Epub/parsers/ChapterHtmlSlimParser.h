@@ -119,6 +119,8 @@ class ChapterHtmlSlimParser {
     bool hasItalic = false, italic = false;
     bool hasTextDecoration = false;
     CssTextDecoration textDecoration = CssTextDecoration::None;
+    bool hasFontId = false;
+    int fontId = 0;
     // Ruby tags use a dedicated end-element path with their own depth updates.
     // Mark their entries so <rb> cannot accidentally pop a parent <ruby> style.
     bool rubyTagStyle = false;
@@ -137,6 +139,7 @@ class ChapterHtmlSlimParser {
   bool effectiveBold = false;
   bool effectiveItalic = false;
   CssTextDecoration effectiveTextDecoration = CssTextDecoration::None;
+  int effectiveInlineFontId = 0;
   int tableDepth = 0;
   int tableRowIndex = 0;
   int tableColIndex = 0;
