@@ -79,7 +79,7 @@ class Section {
                          const int* headingFontIds = nullptr, int tableFontId = 0, const int* cssBodyFontIds = nullptr,
                          const std::function<void(uint16_t pagesDone, uint16_t estimatedPages)>& progressFn = nullptr,
                          const std::function<void(const Page&)>& pageReadyFn = nullptr,
-                         const std::function<bool()>& cancelFn = nullptr, bool requireCompleteCss = false,
+                         const std::function<bool()>& cancelFn = nullptr, bool requireCompleteCss = true,
                          bool incremental = false);
   bool hasFreshTextOnlyBuild() const { return freshTextOnlyBuild; }
   CreateFailureReason getLastCreateFailureReason() const { return lastCreateFailureReason; }

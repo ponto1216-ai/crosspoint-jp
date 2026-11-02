@@ -36,6 +36,18 @@ int main() {
     assert(expected.fontSizeDefined == actual.fontSizeDefined);
     assert(expected.emphasis == actual.emphasis && expected.emphasisDefined == actual.emphasisDefined);
   }
+  CssParser ordered("/ordered");
+  auto orderCss = source(".a { font-size: 1.5em; } .b { font-size: 0.75em; } "
+                         ".a { font-weight: bold; }");
+  assert(ordered.loadFromStream(orderCss));
+  assert(ordered.saveToCache());
+  ordered.clear();
+  assert(ordered.loadFromCache(0, nullptr, true));
+  for (const auto& classes : {"a b", "b a"}) {
+    const auto style = ordered.resolveStyle("p", classes);
+    assert(style.hasFontSize() && style.fontSize.value == 0.75f);
+    assert(style.fontWeight == CssFontWeight::Bold);
+  }
   // More records than the old in-memory map limit: retain only the two used selectors on load.
   CssParser large("/large");
   assert(large.beginCacheWrite());

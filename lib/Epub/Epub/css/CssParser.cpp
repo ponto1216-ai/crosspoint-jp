@@ -43,19 +43,14 @@ constexpr size_t READ_BUFFER_SIZE = 512;
 // Prevents unbounded memory growth from pathological CSS files
 constexpr size_t MAX_RULES = 1500;
 
-// Minimum free heap required to apply CSS during rendering
-// If below this threshold, we skip CSS to avoid display artifacts.
-constexpr size_t MIN_FREE_HEAP_FOR_CSS = 48 * 1024;
-
 // The firmware is built without C++ exceptions, so a failed map allocation
 // while parsing CSS would abort and reboot the device. Stop collecting rules
 // before that point; a partial stylesheet is preferable to a restart.
 constexpr size_t MIN_FREE_HEAP_DURING_CSS_PARSE = 32 * 1024;
 
-// unordered_map node, selector string, bucket growth, and allocator overhead.
-// Measured caches use about 180 bytes per rule; keep a conservative margin so
-// a fragmented heap never reaches throwing new while restoring cached rules.
-constexpr size_t CSS_CACHE_HEAP_BYTES_PER_RULE = 192;
+// Map node, selector, per-selector vector and its style records. Preserve
+// headroom for repeated selectors as well as unique ones.
+constexpr size_t CSS_CACHE_HEAP_BYTES_PER_RULE = 320;
 
 // Maximum length for a single selector string
 // Prevents parsing of extremely long or malformed selectors
@@ -548,13 +543,7 @@ void CssParser::processRuleBlockWithStyle(const std::string& selectorGroup, cons
       continue;
     }
 
-    // Store or merge with existing
-    auto it = rulesBySelector_.find(key);
-    if (it != rulesBySelector_.end()) {
-      it->second.applyOver(style);
-    } else {
-      rulesBySelector_[key] = style;
-    }
+    rulesBySelector_[key].push_back({style, nextRuleOrder_++});
   }
 }
 
@@ -724,22 +713,13 @@ bool CssParser::loadFromStream(FsFile& source) {
 // Style resolution
 
 CssStyle CssParser::resolveStyle(const std::string& tagName, const std::string& classAttr) const {
-  static bool lowHeapWarningLogged = false;
-  if (ESP.getFreeHeap() < MIN_FREE_HEAP_FOR_CSS) {
-    if (!lowHeapWarningLogged) {
-      lowHeapWarningLogged = true;
-      LOG_DBG("CSS", "Warning: low heap (%u bytes) below MIN_FREE_HEAP_FOR_CSS (%u), returning empty style",
-              ESP.getFreeHeap(), static_cast<unsigned>(MIN_FREE_HEAP_FOR_CSS));
-    }
-    return CssStyle{};
-  }
   CssStyle result;
   const std::string tag = normalized(tagName);
 
   // 1. Apply element-level style (lowest priority)
   const auto tagIt = rulesBySelector_.find(tag);
   if (tagIt != rulesBySelector_.end()) {
-    result.applyOver(tagIt->second);
+    for (const auto& rule : tagIt->second) result.applyOver(rule.style);
   }
 
   // TODO: Support combinations of classes (e.g. style on .class1.class2)
@@ -747,25 +727,32 @@ CssStyle CssParser::resolveStyle(const std::string& tagName, const std::string& 
   if (!classAttr.empty()) {
     const auto classes = splitWhitespace(classAttr);
 
-    for (const auto& cls : classes) {
-      std::string classKey = "." + normalized(cls);
-
-      auto classIt = rulesBySelector_.find(classKey);
-      if (classIt != rulesBySelector_.end()) {
-        result.applyOver(classIt->second);
+    const auto applyClassesInSourceOrder = [&](const bool withTag) {
+      uint32_t after = 0;
+      bool hasAfter = false;
+      while (true) {
+        const OrderedRule* next = nullptr;
+        for (const auto& cls : classes) {
+          const std::string key = (withTag ? tag + "." : ".") + normalized(cls);
+          const auto it = rulesBySelector_.find(key);
+          if (it == rulesBySelector_.end()) continue;
+          for (const auto& rule : it->second) {
+            if (hasAfter && rule.order <= after) continue;
+            if (!next || rule.order < next->order) next = &rule;
+            break;
+          }
+        }
+        if (!next) break;
+        result.applyOver(next->style);
+        after = next->order;
+        hasAfter = true;
       }
-    }
+    };
+    applyClassesInSourceOrder(false);
 
     // TODO: Support combinations of classes (e.g. style on p.class1.class2)
     // 3. Apply element.class styles (higher priority)
-    for (const auto& cls : classes) {
-      std::string combinedKey = tag + "." + normalized(cls);
-
-      auto combinedIt = rulesBySelector_.find(combinedKey);
-      if (combinedIt != rulesBySelector_.end()) {
-        result.applyOver(combinedIt->second);
-      }
-    }
+    applyClassesInSourceOrder(true);
   }
 
   return result;
@@ -897,14 +884,26 @@ bool CssParser::saveToCache() const {
   file.write(reinterpret_cast<const uint8_t*>(&cacheSourceFingerprint_), sizeof(cacheSourceFingerprint_));
 
   // Write rule count
-  const auto ruleCount = static_cast<uint16_t>(rulesBySelector_.size());
+  size_t totalRules = 0;
+  for (const auto& pair : rulesBySelector_) totalRules += pair.second.size();
+  if (totalRules > UINT16_MAX) {
+    file.close();
+    Storage.remove(tmpPath.c_str());
+    return false;
+  }
+  const auto ruleCount = static_cast<uint16_t>(totalRules);
   file.write(reinterpret_cast<const uint8_t*>(&ruleCount), sizeof(ruleCount));
 
-  for (const auto& pair : rulesBySelector_) {
-    if (!writeCachedRule(file, pair.first, pair.second)) {
-      file.close();
-      Storage.remove(tmpPath.c_str());
-      return false;
+  for (uint32_t order = 0; order < nextRuleOrder_; ++order) {
+    for (const auto& pair : rulesBySelector_) {
+      for (const auto& rule : pair.second) {
+        if (rule.order != order) continue;
+        if (!writeCachedRule(file, pair.first, rule.style)) {
+          file.close();
+          Storage.remove(tmpPath.c_str());
+          return false;
+        }
+      }
     }
   }
 
@@ -1160,12 +1159,8 @@ bool CssParser::loadFromCache(const size_t minFreeHeapAfterLoad, const CssSelect
     if (usage != nullptr && !usage->matches(selector)) {
       continue;
     }
-    auto existing = rulesBySelector_.find(selector);
-    if (existing != rulesBySelector_.end()) {
-      existing->second.applyOver(style);
-    } else {
-      rulesBySelector_.emplace(std::move(selector), style);
-    }
+    rulesBySelector_[selector].push_back({style, static_cast<uint32_t>(i)});
+    nextRuleOrder_ = static_cast<uint32_t>(i) + 1;
   }
 
   if (file.available() != 0) {

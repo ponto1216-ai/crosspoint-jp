@@ -33,7 +33,7 @@ class CssSelectorUsage;
 class CssParser {
  public:
   // Bump when CSS cache format or rules change; section caches are invalidated when this changes
-  static constexpr uint8_t CSS_CACHE_VERSION = 11;
+  static constexpr uint8_t CSS_CACHE_VERSION = 12;
 
   explicit CssParser(std::string cachePath) : cachePath(std::move(cachePath)) {}
   ~CssParser() { abortCacheWrite(); }
@@ -82,7 +82,7 @@ class CssParser {
   /**
    * Clear all loaded rules
    */
-  void clear() { rulesBySelector_.clear(); }
+  void clear() { rulesBySelector_.clear(); nextRuleOrder_ = 0; }
 
   /**
    * Check if CSS rules cache file exists
@@ -122,8 +122,11 @@ class CssParser {
   void setCacheSourceFingerprint(uint64_t fingerprint) { cacheSourceFingerprint_ = fingerprint; }
 
  private:
-  // Storage: maps normalized selector -> style properties
-  std::unordered_map<std::string, CssStyle> rulesBySelector_;
+  // Keep each declaration block: merging equal selectors loses their order
+  // relative to intervening rules with the same specificity.
+  struct OrderedRule { CssStyle style; uint32_t order; };
+  std::unordered_map<std::string, std::vector<OrderedRule>> rulesBySelector_;
+  uint32_t nextRuleOrder_ = 0;
 
   std::string cachePath;
   uint64_t cacheSourceFingerprint_ = 0;
