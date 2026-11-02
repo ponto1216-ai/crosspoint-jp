@@ -107,6 +107,10 @@ void retainBalancedParagraphStyle(CssStyle& style) {
   CssStyle balanced;
   balanced.emphasis = style.emphasis;
   balanced.emphasisDefined = style.emphasisDefined;
+  balanced.pageBreakBefore = style.pageBreakBefore;
+  balanced.pageBreakAfter = style.pageBreakAfter;
+  balanced.pageBreakBeforeDefined = style.pageBreakBeforeDefined;
+  balanced.pageBreakAfterDefined = style.pageBreakAfterDefined;
   if (style.hasFontStyle()) {
     balanced.fontStyle = style.fontStyle;
     balanced.defined.fontStyle = 1;
@@ -677,6 +681,15 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     self->skipUntilDepth = self->depth;
     self->depth += 1;
     return;
+  }
+
+  // Only block boundaries can force a page break. Inline spans do not split
+  // their containing paragraph, and repeated breaks must not emit blank pages.
+  const bool pageBreakBlock = isHeaderOrBlock(name) && strcmp(name, "br") != 0;
+  if (self->bookStyle != 0 && self->tableDepth == 0 && pageBreakBlock) {
+    if (cssStyle.pageBreakBefore) self->forcePageBreak();
+    if (self->lowMemoryAbortRequested) return;
+    if (cssStyle.pageBreakAfter) self->pageBreakAfterDepths.push_back(self->depth);
   }
 
   if (strcmp(name, "svg") == 0) {
@@ -2068,6 +2081,11 @@ void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* n
     }
   }
 
+  if (!self->pageBreakAfterDepths.empty() && self->pageBreakAfterDepths.back() == self->depth) {
+    self->pageBreakAfterDepths.pop_back();
+    self->forcePageBreak();
+  }
+
   if (strcmp(name, "html") == 0) {
     self->htmlEnded = true;
   }
@@ -2174,6 +2192,18 @@ void ChapterHtmlSlimParser::completeCurrentPage() {
   }
   completePageFn(std::move(currentPage));
   completedPageCount++;
+}
+
+void ChapterHtmlSlimParser::forcePageBreak() {
+  if (partWordBufferIndex > 0) flushPartWordBuffer();
+  if (currentTextBlock && !currentTextBlock->isEmpty()) makePages();
+  if (lowMemoryAbortRequested) return;
+  currentTextBlock.reset();
+  if (currentPage && !currentPage->elements.empty()) completeCurrentPage();
+  currentPage.reset();
+  currentPageNextY = 0;
+  currentPageNextX = 0;
+  startNewTextBlock(BlockStyle{});
 }
 
 bool ChapterHtmlSlimParser::addLineToPage(std::unique_ptr<TextBlock> line) {

@@ -154,6 +154,10 @@ struct CssStyle {
   bool lineHeightIsMultiplier = true;
   bool fontSizeDefined = false;
   bool lineHeightDefined = false;
+  bool pageBreakBefore = false;
+  bool pageBreakAfter = false;
+  bool pageBreakBeforeDefined = false;
+  bool pageBreakAfterDefined = false;
   CssDisplay display = CssDisplay::Block;                     // display property (Block or None)
   CssWritingMode writingMode = CssWritingMode::HorizontalTb;  // writing-mode property
 
@@ -244,6 +248,14 @@ struct CssStyle {
       lineHeightIsMultiplier = base.lineHeightIsMultiplier;
       lineHeightDefined = true;
     }
+    if (base.pageBreakBeforeDefined) {
+      pageBreakBefore = base.pageBreakBefore;
+      pageBreakBeforeDefined = true;
+    }
+    if (base.pageBreakAfterDefined) {
+      pageBreakAfter = base.pageBreakAfter;
+      pageBreakAfterDefined = true;
+    }
     if (base.hasDisplay()) {
       display = base.display;
       defined.display = 1;
@@ -273,7 +285,10 @@ struct CssStyle {
   [[nodiscard]] bool hasImageMaxWidth() const { return defined.imageMaxWidth; }
   [[nodiscard]] bool hasFontSize() const { return fontSizeDefined; }
   [[nodiscard]] bool hasLineHeight() const { return lineHeightDefined; }
-  [[nodiscard]] bool anySet() const { return defined.anySet() || fontSizeDefined || lineHeightDefined || emphasisDefined; }
+  [[nodiscard]] bool anySet() const {
+    return defined.anySet() || fontSizeDefined || lineHeightDefined || emphasisDefined || pageBreakBeforeDefined ||
+           pageBreakAfterDefined;
+  }
   [[nodiscard]] bool hasDisplay() const { return defined.display; }
   [[nodiscard]] bool hasWritingMode() const { return defined.writingMode; }
 
@@ -291,6 +306,7 @@ struct CssStyle {
     lineHeight = 1.0f;
     lineHeightIsMultiplier = true;
     fontSizeDefined = lineHeightDefined = false;
+    pageBreakBefore = pageBreakAfter = pageBreakBeforeDefined = pageBreakAfterDefined = false;
     display = CssDisplay::Block;
     writingMode = CssWritingMode::HorizontalTb;
     defined.clearAll();

@@ -48,6 +48,18 @@ int main() {
     assert(style.hasFontSize() && style.fontSize.value == 0.75f);
     assert(style.fontWeight == CssFontWeight::Bold);
   }
+  CssParser breaks("/breaks");
+  auto breakCss = source(".forced { page-break-before: always; break-after: page; } "
+                         ".cancel { page-break-before: auto; break-after: avoid; }");
+  assert(breaks.loadFromStream(breakCss) && breaks.saveToCache());
+  breaks.clear();
+  assert(breaks.loadFromCache(0, nullptr, true));
+  const auto forced = breaks.resolveStyle("p", "forced");
+  assert(forced.pageBreakBeforeDefined && forced.pageBreakBefore);
+  assert(forced.pageBreakAfterDefined && forced.pageBreakAfter);
+  const auto cancelled = breaks.resolveStyle("p", "forced cancel");
+  assert(cancelled.pageBreakBeforeDefined && !cancelled.pageBreakBefore);
+  assert(cancelled.pageBreakAfterDefined && !cancelled.pageBreakAfter);
   // More records than the old in-memory map limit: retain only the two used selectors on load.
   CssParser large("/large");
   assert(large.beginCacheWrite());

@@ -331,6 +331,19 @@ void CssParser::parseDeclarationIntoStyle(const std::string& decl, CssStyle& sty
         style.lineHeightDefined = true;
       }
     }
+  } else if (propNameBuf == "page-break-before" || propNameBuf == "break-before" ||
+             propNameBuf == "page-break-after" || propNameBuf == "break-after") {
+    const std::string_view value = stripTrailingImportant(propValueBuf);
+    const bool forced = value == "always" || value == "page" || value == "left" || value == "right";
+    if (forced || value == "auto" || value == "avoid") {
+      if (propNameBuf == "page-break-before" || propNameBuf == "break-before") {
+        style.pageBreakBefore = forced;
+        style.pageBreakBeforeDefined = true;
+      } else {
+        style.pageBreakAfter = forced;
+        style.pageBreakAfterDefined = true;
+      }
+    }
   } else if (propNameBuf == "text-indent") {
     style.textIndent = interpretLength(propValueBuf);
     style.defined.textIndent = 1;
@@ -834,6 +847,9 @@ bool CssParser::writeCachedRule(FsFile& file, const std::string& selector, const
   file.write(static_cast<uint8_t>(style.display));
   file.write(static_cast<uint8_t>(style.emphasis));
   file.write(static_cast<uint8_t>(style.emphasisDefined));
+  const uint8_t pageBreakFlags = (style.pageBreakBefore ? 1 : 0) | (style.pageBreakAfter ? 2 : 0) |
+                                 (style.pageBreakBeforeDefined ? 4 : 0) | (style.pageBreakAfterDefined ? 8 : 0);
+  file.write(pageBreakFlags);
 
   // Write defined flags as uint32_t. New image bounds use bits above the
   // original 16-bit image-style flags.
@@ -1001,7 +1017,7 @@ bool CssParser::loadFromCache(const size_t minFreeHeapAfterLoad, const CssSelect
   constexpr size_t CSS_LENGTH_FIELD_COUNT = 15;
   constexpr size_t CSS_LENGTH_BYTES = sizeof(float) + sizeof(uint8_t);
   constexpr size_t CSS_FIXED_STYLE_BYTES = 4 * sizeof(uint8_t) + (CSS_LENGTH_FIELD_COUNT * CSS_LENGTH_BYTES) +
-                                           sizeof(float) + 6 * sizeof(uint8_t) + sizeof(uint32_t);
+                                           sizeof(float) + 7 * sizeof(uint8_t) + sizeof(uint32_t);
 
   // Read each rule
   for (uint16_t i = 0; i < ruleCount; ++i) {
@@ -1130,6 +1146,15 @@ bool CssParser::loadFromCache(const size_t minFreeHeapAfterLoad, const CssSelect
     }
     style.emphasis = static_cast<TextEmphasis>(emphasisVal);
     style.emphasisDefined = emphasisDefined != 0;
+    uint8_t pageBreakFlags = 0;
+    if (file.read(&pageBreakFlags, 1) != 1 || (pageBreakFlags & 0xF0) != 0) {
+      rulesBySelector_.clear();
+      return false;
+    }
+    style.pageBreakBefore = (pageBreakFlags & 1) != 0;
+    style.pageBreakAfter = (pageBreakFlags & 2) != 0;
+    style.pageBreakBeforeDefined = (pageBreakFlags & 4) != 0;
+    style.pageBreakAfterDefined = (pageBreakFlags & 8) != 0;
 
     // Read defined flags
     uint32_t definedBits = 0;

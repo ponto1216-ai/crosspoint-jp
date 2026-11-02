@@ -140,6 +140,7 @@ class ChapterHtmlSlimParser {
   bool effectiveItalic = false;
   CssTextDecoration effectiveTextDecoration = CssTextDecoration::None;
   int effectiveInlineFontId = 0;
+  std::vector<int> pageBreakAfterDepths;
   int tableDepth = 0;
   int tableRowIndex = 0;
   int tableColIndex = 0;
@@ -193,6 +194,7 @@ class ChapterHtmlSlimParser {
   bool consumeEmptyBlockCandidate(int depth);
   void makePages();
   void completeCurrentPage();
+  void forcePageBreak();
   void flushTableAsGrid();
   // XML callbacks
   static void XMLCALL startElement(void* userData, const XML_Char* name, const XML_Char** atts);

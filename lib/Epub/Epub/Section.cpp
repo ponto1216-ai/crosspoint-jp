@@ -263,7 +263,8 @@ bool collectSectionFontCodepoints(const std::string& htmlPath, std::string& uniq
 // 154: Keep numeric dash runs sideways and preserve Noto ellipsis spacing.
 // 155: Persist per-word CSS font-size overrides; rebuild older page layouts.
 // 156: Preserve CSS rule order and never cache a section with missing CSS.
-constexpr uint8_t SECTION_FILE_VERSION = 156;
+// 157: Honor forced CSS page breaks before and after block elements.
+constexpr uint8_t SECTION_FILE_VERSION = 157;
 // Minimum free heap required before attempting to build section pages.
 // Section building involves heavy allocations (Page, TextBlock, PageLine, etc.)
 // and on ESP32 without C++ exceptions, allocation failure calls abort().
