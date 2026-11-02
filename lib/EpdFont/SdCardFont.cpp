@@ -983,8 +983,8 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
     s.miniBitmap = new (std::nothrow) uint8_t[bitmapAllocationSize];
 #endif
     if (!s.miniBitmap) {
-      // Preserve the batch-read path when the heap has no sufficiently large
-      // contiguous region.  Each glyph resides in one small allocation.
+      // Preserve the glyph set when the heap has no sufficiently large
+      // contiguous region. Several glyphs can share each small allocation.
       s.miniBitmapIsChunked = true;
       LOG_INF("SDCF", "Using chunked mini bitmap (%u bytes) for style %u", totalBitmapSize, styleIdx);
     } else {
@@ -999,6 +999,10 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
 
     uint32_t miniBitmapOffset = 0;
     uint8_t chunkIndex = 0;
+    uint32_t chunkCapacity = 0;
+    uint32_t chunkUsed = 0;
+    uint32_t chunkBitmapBytes = 0;
+    uint16_t chunkOffset = 0;
     uint32_t lastBitmapEnd = UINT32_MAX;
     for (uint32_t i = 0; i < validCount;) {
       uint32_t mapIdx = readOrder[i];
@@ -1029,7 +1033,8 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
       }
 #endif
 
-      if (s.miniBitmapIsChunked && s.miniBitmapChunkCount >= PerStyle::MAX_MINI_BITMAP_CHUNKS) {
+      const bool needsChunk = s.miniBitmapIsChunked && glyph.dataLength > chunkCapacity - chunkUsed;
+      if (needsChunk && s.miniBitmapChunkCount >= PerStyle::MAX_MINI_BITMAP_CHUNKS) {
         LOG_ERR("SDCF", "Failed to allocate chunked mini bitmap (%u bytes) for style %u", totalBitmapSize, styleIdx);
         file.close();
         delete[] readOrder;
@@ -1037,11 +1042,19 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
         freeStyleMiniData(s);
         return static_cast<int>(cpCount);
       }
-      if (s.miniBitmapIsChunked) {
+      if (needsChunk) {
         chunkIndex = s.miniBitmapChunkCount;
         // On ESP32-C3, a failed nothrow new[] can still terminate instead of
         // returning nullptr. malloc() lets this low-heap fallback fail safely.
-        s.miniBitmapChunks[chunkIndex] = static_cast<uint8_t*>(malloc(glyph.dataLength));
+        constexpr uint32_t CHUNK_TARGET_BYTES = 2048;
+        chunkCapacity = std::min<uint32_t>(std::max<uint32_t>(CHUNK_TARGET_BYTES, glyph.dataLength),
+                                            totalBitmapSize - chunkBitmapBytes);
+        s.miniBitmapChunks[chunkIndex] = static_cast<uint8_t*>(malloc(chunkCapacity));
+        if (!s.miniBitmapChunks[chunkIndex] && chunkCapacity > glyph.dataLength) {
+          // Preserve the old per-glyph fallback when a larger chunk will not fit.
+          chunkCapacity = glyph.dataLength;
+          s.miniBitmapChunks[chunkIndex] = static_cast<uint8_t*>(malloc(chunkCapacity));
+        }
         if (!s.miniBitmapChunks[chunkIndex]) {
           LOG_ERR("SDCF", "Failed to allocate chunked mini bitmap (%u bytes) for style %u", totalBitmapSize, styleIdx);
           file.close();
@@ -1051,6 +1064,11 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
           return static_cast<int>(cpCount);
         }
         s.miniBitmapChunkCount++;
+        chunkUsed = 0;
+      }
+      if (s.miniBitmapIsChunked) {
+        chunkIndex = s.miniBitmapChunkCount - 1;
+        chunkOffset = static_cast<uint16_t>(chunkUsed);
       }
 
       uint32_t fileOff = s.bitmapFileOffset + glyph.dataOffset;
@@ -1085,7 +1103,8 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
 #endif
         }
       }
-      uint8_t* const target = s.miniBitmapIsChunked ? s.miniBitmapChunks[chunkIndex] : s.miniBitmap + miniBitmapOffset;
+      uint8_t* const target =
+          s.miniBitmapIsChunked ? s.miniBitmapChunks[chunkIndex] + chunkOffset : s.miniBitmap + miniBitmapOffset;
       if (file.read(target, batchBytes) != static_cast<int>(batchBytes)) {
         LOG_ERR("SDCF", "Prewarm: short bitmap read (style %u)", styleIdx);
         file.close();
@@ -1105,7 +1124,9 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
       lastBitmapEnd = fileOff + batchBytes;
 
       if (s.miniBitmapIsChunked) {
-        glyph.dataOffset = static_cast<uint32_t>(chunkIndex) << 16;
+        glyph.dataOffset = (static_cast<uint32_t>(chunkIndex) << 16) | chunkOffset;
+        chunkUsed += glyph.dataLength;
+        chunkBitmapBytes += glyph.dataLength;
       } else {
         uint32_t packedOffset = miniBitmapOffset;
         for (uint32_t batchIndex = 0; batchIndex < batchGlyphs; batchIndex++) {

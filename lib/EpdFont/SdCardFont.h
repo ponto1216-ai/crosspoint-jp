@@ -226,8 +226,8 @@ class SdCardFont {
     bool miniHysteresisPending = false;
     // A fragmented heap may not provide one contiguous bitmap allocation for
     // a text-heavy page.  Keep the same prewarmed glyph set in small chunks.
-    // Chunked fallback allocates one bitmap per glyph, avoiding a large
-    // contiguous request when a retained EPUB page leaves little free heap.
+    // Chunked fallback packs glyph bitmaps into small allocations when a
+    // retained EPUB page leaves no room for one contiguous bitmap.
     static constexpr uint8_t MAX_MINI_BITMAP_CHUNKS = 64;
     uint8_t* miniBitmapChunks[MAX_MINI_BITMAP_CHUNKS] = {};
     uint8_t miniBitmapChunkCount = 0;
