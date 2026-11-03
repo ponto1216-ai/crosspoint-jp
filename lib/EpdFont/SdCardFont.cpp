@@ -44,6 +44,30 @@ static constexpr size_t MIN_FREE_HEAP_FOR_VERT_DATA = 32 * 1024;
 // margin so a dense matrix never consumes the last usable contiguous block.
 static constexpr size_t KERN_ALLOCATION_MARGIN = 1024;
 
+// Loaded fonts are managed on the reader task. Identical interval tables can
+// therefore be shared across styles and point sizes without a second buffer.
+struct SharedIntervalTable {
+  EpdUnicodeInterval* data = nullptr;
+  uint32_t count = 0;
+  uint16_t references = 0;
+};
+static constexpr size_t MAX_SHARED_INTERVAL_TABLES = 16;
+static SharedIntervalTable sharedIntervalTables[MAX_SHARED_INTERVAL_TABLES];
+
+static void releaseIntervalTable(EpdUnicodeInterval* data) {
+  if (!data) return;
+  for (auto& entry : sharedIntervalTables) {
+    if (entry.data != data) continue;
+    if (--entry.references == 0) {
+      delete[] data;
+      entry = {};
+    }
+    return;
+  }
+  // The registry can fill; an unregistered table remains privately owned.
+  delete[] data;
+}
+
 #if defined(SD_FONT_ARENA_REUSE) && SD_FONT_ARENA_REUSE
 // Retain a page arena only while enough general heap remains for the reader.
 // A bitmap that stays under 75% utilization for three different rebuilds is
@@ -163,7 +187,7 @@ void SdCardFont::freeStyleKernLigatureData(PerStyle& s) {
 void SdCardFont::freeStyleAll(PerStyle& s) {
   freeStyleMiniData(s);
   freeStyleVertData(s);
-  delete[] s.fullIntervals;
+  releaseIntervalTable(s.fullIntervals);
   s.fullIntervals = nullptr;
   freeStyleKernLigatureData(s);
   s.present = false;
@@ -491,26 +515,71 @@ bool SdCardFont::load(const char* path) {
     auto& s = styles_[i];
     if (!s.present) continue;
 
-    s.fullIntervals = new (std::nothrow) EpdUnicodeInterval[s.header.intervalCount];
-    if (!s.fullIntervals) {
-      LOG_ERR("SDCF", "Failed to allocate %u intervals for style %u", s.header.intervalCount, i);
-      file.close();
-      freeAll();
-      return false;
-    }
-
     if (!file.seekSet(s.intervalsFileOffset)) {
       LOG_ERR("SDCF", "Failed to seek to intervals for style %u", i);
       file.close();
       freeAll();
       return false;
     }
-    size_t intervalsBytes = s.header.intervalCount * sizeof(EpdUnicodeInterval);
-    if (file.read(reinterpret_cast<uint8_t*>(s.fullIntervals), intervalsBytes) != static_cast<int>(intervalsBytes)) {
-      LOG_ERR("SDCF", "Failed to read intervals for style %u", i);
-      file.close();
-      freeAll();
-      return false;
+    // Compare while streaming from SD, before allocating a second table. This
+    // also avoids a temporary allocation at the point of greatest heap pressure.
+    uint16_t candidates = 0;
+    for (size_t k = 0; k < MAX_SHARED_INTERVAL_TABLES; ++k) {
+      if (sharedIntervalTables[k].data && sharedIntervalTables[k].count == s.header.intervalCount) {
+        candidates |= static_cast<uint16_t>(1u << k);
+      }
+    }
+    EpdUnicodeInterval interval{};
+    for (uint32_t j = 0; candidates && j < s.header.intervalCount; ++j) {
+      if (file.read(reinterpret_cast<uint8_t*>(&interval), sizeof(interval)) != sizeof(interval)) {
+        LOG_ERR("SDCF", "Failed to read intervals for style %u", i);
+        file.close();
+        freeAll();
+        return false;
+      }
+      for (size_t k = 0; k < MAX_SHARED_INTERVAL_TABLES && candidates; ++k) {
+        if ((candidates & (1u << k)) == 0) continue;
+        const auto& loaded = sharedIntervalTables[k].data[j];
+        if (loaded.first != interval.first || loaded.last != interval.last || loaded.offset != interval.offset) {
+          candidates &= static_cast<uint16_t>(~(1u << k));
+        }
+      }
+    }
+    for (size_t k = 0; k < MAX_SHARED_INTERVAL_TABLES && candidates; ++k) {
+      if ((candidates & (1u << k)) == 0) continue;
+      auto& entry = sharedIntervalTables[k];
+      s.fullIntervals = entry.data;
+      ++entry.references;
+      LOG_DBG("SDCF", "Style %u: shared %u intervals (%u bytes saved)", i, s.header.intervalCount,
+              s.header.intervalCount * static_cast<uint32_t>(sizeof(EpdUnicodeInterval)));
+      break;
+    }
+    if (!s.fullIntervals) {
+      s.fullIntervals = new (std::nothrow) EpdUnicodeInterval[s.header.intervalCount];
+      if (!s.fullIntervals) {
+        LOG_ERR("SDCF", "Failed to allocate %u intervals for style %u", s.header.intervalCount, i);
+        file.close();
+        freeAll();
+        return false;
+      }
+      if (!file.seekSet(s.intervalsFileOffset)) {
+        LOG_ERR("SDCF", "Failed to seek back to intervals for style %u", i);
+        file.close();
+        freeAll();
+        return false;
+      }
+      const size_t intervalsBytes = s.header.intervalCount * sizeof(EpdUnicodeInterval);
+      if (file.read(reinterpret_cast<uint8_t*>(s.fullIntervals), intervalsBytes) != static_cast<int>(intervalsBytes)) {
+        LOG_ERR("SDCF", "Failed to load intervals for style %u", i);
+        file.close();
+        freeAll();
+        return false;
+      }
+      for (auto& entry : sharedIntervalTables) {
+        if (entry.data) continue;
+        entry = {s.fullIntervals, s.header.intervalCount, 1};
+        break;
+      }
     }
 
     // Initialize stub data
