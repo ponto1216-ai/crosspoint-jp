@@ -512,6 +512,39 @@ void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
   auto wordWidths = calculateWordWidths(renderer, fontId);
   if (layoutFailed_) return;
 
+  // Adjacent ruby annotations are centered independently at render time. Use
+  // their visible ink bounds so font side bearings do not create a wide gap
+  // between the base characters merely to separate invisible advance space.
+  if (TextBlock::rubyFontId != 0 && !rubyTexts.empty()) {
+    size_t previousEnd = 0;
+    int previousRightOverhang = 0;
+    for (size_t start = 0; start < words.size(); ++start) {
+      if (start >= rubyTexts.size() || rubyTexts[start].empty() ||
+          TextBlock::isRubyContinuation(rubyTexts[start]))
+        continue;
+      size_t end = start + 1;
+      while (end < words.size() && end < rubyTexts.size() && TextBlock::isRubyContinuation(rubyTexts[end])) ++end;
+      int baseWidth = 0;
+      for (size_t index = start; index < end; ++index) baseWidth += wordWidths[index];
+      const int rubyWidth =
+          renderer.getTextAdvanceX(TextBlock::rubyFontId, rubyTexts[start].c_str(), EpdFontFamily::REGULAR);
+      int inkMinX = 0;
+      int inkMaxX = 0;
+      renderer.getTextVisibleBoundsX(TextBlock::rubyFontId, rubyTexts[start].c_str(), &inkMinX, &inkMaxX,
+                                     EpdFontFamily::REGULAR);
+      const int centeredX = (baseWidth - rubyWidth) / 2;
+      const int leftOverhang = std::max(0, -(centeredX + inkMinX));
+      if (start > 0 && previousEnd == start && previousRightOverhang + leftOverhang > 0) {
+        const int clearance = previousRightOverhang + leftOverhang + 1;
+        auto& previousWidth = wordWidths[start - 1];
+        previousWidth += std::min(clearance, static_cast<int>(std::numeric_limits<uint16_t>::max() - previousWidth));
+      }
+      previousEnd = end;
+      previousRightOverhang = std::max(0, centeredX + inkMaxX - baseWidth);
+      start = end - 1;
+    }
+  }
+
   // Build indexed continues vector from the parallel list for O(1) access during layout
   std::vector<bool> continuesVec(wordContinues.begin(), wordContinues.end());
 

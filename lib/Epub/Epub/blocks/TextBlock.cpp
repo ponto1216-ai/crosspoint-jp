@@ -190,6 +190,9 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
   // Keep annotations in one vertical column from drawing over each other.
   // This adjusts only ruby glyphs; body-text positions remain unchanged.
   int nextVerticalRubyY = INT_MIN;
+  int previousHorizontalRubyRight = INT_MIN;
+  size_t previousHorizontalRubyEnd = 0;
+  bool hasPreviousHorizontalRuby = false;
   size_t imgIdx = 0;  // words 内の画像マーカー出現順 = inlineImages の index
 
   for (size_t i = 0; i < words.size(); i++) {
@@ -610,7 +613,19 @@ void TextBlock::render(GfxRenderer& renderer, const int fontId, const int x, con
         const int viewportRight = viewportLeft + viewportWidth;
         const int minRubyX = viewportWidth > 0 ? viewportLeft : 0;
         const int maxRubyX = viewportWidth > 0 ? std::max(minRubyX, viewportRight - rubyWidth) : INT_MAX;
-        const int rubyX = std::clamp(wordX + (baseWidth - rubyWidth) / 2 + rubyOffsetX, minRubyX, maxRubyX);
+        int rubyX = std::clamp(wordX + (baseWidth - rubyWidth) / 2 + rubyOffsetX, minRubyX, maxRubyX);
+        int rubyInkMinX = 0;
+        int rubyInkMaxX = 0;
+        renderer.getTextVisibleBoundsX(rubyFontId, rubyTexts[i].c_str(), &rubyInkMinX, &rubyInkMaxX,
+                                       EpdFontFamily::REGULAR);
+        if (hasPreviousHorizontalRuby && previousHorizontalRubyEnd == i) {
+          // Keep a small visible gap even when rounded font metrics leave two
+          // adjacent annotations touching. Do not move their base characters.
+          rubyX = std::min(maxRubyX, std::max(rubyX, previousHorizontalRubyRight - rubyInkMinX + 3));
+        }
+        previousHorizontalRubyRight = rubyX + rubyInkMaxX;
+        previousHorizontalRubyEnd = rubyBaseEnd + 1;
+        hasPreviousHorizontalRuby = true;
         const int bodyLineHeight = renderer.getLineHeight(effectiveFontId);
         const int rubyLineHeight = renderer.getLineHeight(rubyFontId);
 

@@ -265,7 +265,10 @@ bool collectSectionFontCodepoints(const std::string& htmlPath, std::string& uniq
 // 156: Preserve CSS rule order and never cache a section with missing CSS.
 // 157: Honor forced CSS page breaks before and after block elements.
 // 158: Preserve long table cell text across page boundaries.
-constexpr uint8_t SECTION_FILE_VERSION = 158;
+// 159: Reserve horizontal space between adjacent ruby annotations.
+// 160: Use visible ruby ink bounds to avoid excessive base-text spacing.
+// 161: Keep a visible gap between adjacent horizontal ruby glyphs.
+constexpr uint8_t SECTION_FILE_VERSION = 161;
 // Minimum free heap required before attempting to build section pages.
 // Section building involves heavy allocations (Page, TextBlock, PageLine, etc.)
 // and on ESP32 without C++ exceptions, allocation failure calls abort().
