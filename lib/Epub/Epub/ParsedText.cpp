@@ -977,29 +977,20 @@ void ParsedText::layoutVerticalColumns(const GfxRenderer& renderer, const int fo
     if (!admitLayout(LayoutMemory::multiply(words.size(), sizeof(uint16_t)), "ruby heights")) return;
     rubyFitHeights.reserve(words.size());
 
-    int rubyLineHeight = lineHeight / 2;
-    if (TextBlock::rubyFontId != 0) {
-      rubyLineHeight = renderer.getLineHeight(TextBlock::rubyFontId);
-    }
-    if (rubyLineHeight <= 0) {
-      rubyLineHeight = lineHeight / 2;
-    }
-
     for (size_t i = 0; i < words.size(); i++) {
       uint16_t fitHeight = wordHeights[i];
 
-      if (i < rubyTexts.size() && !rubyTexts[i].empty() && !TextBlock::isRubyContinuation(rubyTexts[i])) {
-        int rubyCharCount = 0;
-        const auto* p = reinterpret_cast<const unsigned char*>(rubyTexts[i].c_str());
-        while (utf8NextCodepoint(&p) != 0) {
-          rubyCharCount++;
-        }
-
-        const int rubyHeight = rubyLineHeight * rubyCharCount;
-
-        if (rubyHeight > fitHeight) {
-          fitHeight = static_cast<uint16_t>(rubyHeight);
-        }
+      if (TextBlock::rubyFontId != 0 && i < rubyTexts.size() && !rubyTexts[i].empty() &&
+          !TextBlock::isRubyContinuation(rubyTexts[i])) {
+        // Match the rendered annotation: Latin ruby is rotated as one phrase;
+        // other ruby advances vertically using the active font's glyph widths.
+        const int rubyFontId = TextBlock::rubyFontId;
+        const char* ruby = rubyTexts[i].c_str();
+        const int naturalHeight = VerticalTextUtils::isAsciiAlphabeticWord(ruby)
+                                      ? renderer.getTextAdvanceX(rubyFontId, ruby, EpdFontFamily::REGULAR)
+                                      : renderer.getTextAdvanceYVertical(rubyFontId, ruby, EpdFontFamily::REGULAR);
+        const int rubyHeight = std::max(renderer.getLineHeight(rubyFontId), naturalHeight);
+        fitHeight = static_cast<uint16_t>(std::min<int>(UINT16_MAX, std::max<int>(fitHeight, rubyHeight)));
       }
 
       rubyFitHeights.push_back(fitHeight);
