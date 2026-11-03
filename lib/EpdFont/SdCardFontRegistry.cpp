@@ -97,7 +97,8 @@ void SdCardFontRegistry::scanDirectory(const char* dirPath, SdCardFontFamilyInfo
 
 bool SdCardFontRegistry::discover() {
   families_.clear();
-  families_.reserve(MAX_SD_FAMILIES);
+  // Most cards contain only a few families. Let capacity follow the families
+  // found instead of retaining 128 slots for the lifetime of the reader.
 
   // Prefer the hidden install directory, then the former public directory,
   // then the original CrossPoint metadata location.
