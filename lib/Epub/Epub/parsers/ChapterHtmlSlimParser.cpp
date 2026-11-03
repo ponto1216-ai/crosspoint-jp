@@ -2348,9 +2348,9 @@ bool ChapterHtmlSlimParser::addLineToPage(std::unique_ptr<TextBlock> line) {
 // Unlike wrappedText() which only breaks on spaces, this breaks at any character boundary,
 // making it suitable for CJK text without spaces.
 static std::vector<std::string> wrapCellText(GfxRenderer& renderer, const int fontId, const char* text,
-                                             const int maxWidth, const int maxLines, const EpdFontFamily::Style style) {
+                                             const int maxWidth, const EpdFontFamily::Style style) {
   std::vector<std::string> lines;
-  if (!text || !*text || maxWidth <= 0 || maxLines <= 0) return lines;
+  if (!text || !*text || maxWidth <= 0) return lines;
 
   const char* p = text;
   std::string current;
@@ -2377,20 +2377,13 @@ static std::vector<std::string> wrapCellText(GfxRenderer& renderer, const int fo
         current.clear();
         // Don't advance p — re-process this character on the next line
       }
-      if (static_cast<int>(lines.size()) >= maxLines) {
-        // Append remaining text as truncated last line
-        if (*p) {
-          lines.back() = renderer.truncatedText(fontId, (lines.back() + std::string(p)).c_str(), maxWidth, style);
-        }
-        return lines;
-      }
       continue;
     }
     current = test;
     p += charLen;
   }
 
-  if (!current.empty() && static_cast<int>(lines.size()) < maxLines) {
+  if (!current.empty()) {
     lines.push_back(current);
   }
 
@@ -2417,7 +2410,10 @@ void ChapterHtmlSlimParser::flushTableAsGrid() {
   // Descender overshoot: glyphs extend below lineH by this amount
   const int descenderExtra = std::max(0, fullLineH - lineH);
   static constexpr int16_t CELL_PADDING = 2;
-  static constexpr int MAX_CELL_LINES = 8;
+  if (lineH <= 0 || viewportHeight < lineH + descenderExtra + CELL_PADDING * 2) {
+    lowMemoryAbortRequested = true;
+    return;
+  }
 
   // Limit columns to what can fit (min ~50px per column)
   static constexpr int MIN_COL_WIDTH = 50;
@@ -2474,6 +2470,16 @@ void ChapterHtmlSlimParser::flushTableAsGrid() {
   const int numRows = static_cast<int>(tableBuffer.size());
   for (int rowIdx = 0; rowIdx < numRows; rowIdx++) {
     const auto& row = tableBuffer[rowIdx];
+    size_t textBytes = 0;
+    for (int col = 0; col < maxCols && col < static_cast<int>(row.cells.size()); col++) {
+      textBytes += row.cells[col].text.size();
+    }
+    // Each UTF-8 byte can become a separate line with vector and string overhead.
+    if (textBytes > (SIZE_MAX - 4096) / 48 ||
+        !LayoutMemory::admit(textBytes * 48 + 4096, "table row wrapping")) {
+      lowMemoryAbortRequested = true;
+      return;
+    }
     std::vector<std::vector<std::string>> cellLines(maxCols);
     std::vector<bool> headers(maxCols, false);
     int maxLinesInRow = 1;
@@ -2483,49 +2489,60 @@ void ChapterHtmlSlimParser::flushTableAsGrid() {
       const auto style = headers[col] ? EpdFontFamily::BOLD : EpdFontFamily::REGULAR;
       const int maxTextW = layout->colWidths[col] - CELL_PADDING * 2;
       if (maxTextW > 0 && !row.cells[col].text.empty()) {
-        cellLines[col] =
-            wrapCellText(renderer, tblFontId, row.cells[col].text.c_str(), maxTextW, MAX_CELL_LINES, style);
+        cellLines[col] = wrapCellText(renderer, tblFontId, row.cells[col].text.c_str(), maxTextW, style);
       }
       maxLinesInRow = std::max(maxLinesInRow, static_cast<int>(cellLines[col].size()));
     }
 
-    // Add descenderExtra so bottom padding visually matches top padding
-    const int16_t rowHeight = static_cast<int16_t>(maxLinesInRow * lineH + descenderExtra + CELL_PADDING * 2);
-
-    auto block = std::unique_ptr<TableRowBlock>(new (std::nothrow) TableRowBlock(
-        std::move(cellLines), std::move(headers), layout, rowHeight, rowIdx == 0, rowIdx == numRows - 1));
-    if (!block) {
-      lowMemoryAbortRequested = true;
-      return;
-    }
-
-    if (!currentPage) {
-      currentPage.reset(new (std::nothrow) Page());
+    int offset = 0;
+    while (offset < maxLinesInRow) {
       if (!currentPage) {
+        currentPage.reset(new (std::nothrow) Page());
+        if (!currentPage) {
+          lowMemoryAbortRequested = true;
+          return;
+        }
+        currentPageNextY = 0;
+      }
+      const int available = (viewportHeight - currentPageNextY - descenderExtra - CELL_PADDING * 2) / lineH;
+      if (available <= 0) {
+        if (currentPage->elements.empty()) {
+          lowMemoryAbortRequested = true;
+          return;
+        }
+        completeCurrentPage();
+        currentPage.reset();
+        currentPageNextY = 0;
+        continue;
+      }
+      // The serialized row format accepts at most 50 lines per cell.
+      const int count = std::min({maxLinesInRow - offset, available, 50});
+      std::vector<std::vector<std::string>> segmentLines(maxCols);
+      for (int col = 0; col < maxCols; col++) {
+        const int end = std::min(offset + count, static_cast<int>(cellLines[col].size()));
+        for (int line = offset; line < end; line++) {
+          segmentLines[col].push_back(std::move(cellLines[col][line]));
+        }
+      }
+      const int16_t rowHeight = static_cast<int16_t>(count * lineH + descenderExtra + CELL_PADDING * 2);
+      auto block = std::unique_ptr<TableRowBlock>(new (std::nothrow) TableRowBlock(
+          std::move(segmentLines), headers, layout, rowHeight,
+          (rowIdx == 0 && offset == 0) || currentPage->elements.empty(),
+          rowIdx == numRows - 1 && offset + count == maxLinesInRow));
+      if (!block) {
         lowMemoryAbortRequested = true;
         return;
       }
-      currentPageNextY = 0;
-    }
-
-    if (currentPageNextY + rowHeight > viewportHeight) {
-      completeCurrentPage();
-      currentPage.reset(new (std::nothrow) Page());
-      if (!currentPage) {
+      auto element =
+          std::unique_ptr<PageTableRow>(new (std::nothrow) PageTableRow(std::move(block), 0, currentPageNextY));
+      if (!element) {
         lowMemoryAbortRequested = true;
         return;
       }
-      currentPageNextY = 0;
+      currentPage->elements.push_back(std::move(element));
+      currentPageNextY += rowHeight;
+      offset += count;
     }
-
-    auto element =
-        std::unique_ptr<PageTableRow>(new (std::nothrow) PageTableRow(std::move(block), 0, currentPageNextY));
-    if (!element) {
-      lowMemoryAbortRequested = true;
-      return;
-    }
-    currentPage->elements.push_back(std::move(element));
-    currentPageNextY += rowHeight;
   }
 }
 
