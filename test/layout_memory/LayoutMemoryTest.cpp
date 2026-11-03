@@ -409,6 +409,7 @@ int main() {
   assert(VerticalTextUtils::isKinsokuInseparablePair(0x2026, 0x2026));
   assert(VerticalTextUtils::isKinsokuHead(0x31F0));  // ㇰ
   assert(VerticalTextUtils::isKinsokuHead(0x31FF));  // ㇿ
+  assert(VerticalTextUtils::isKinsokuHead(0x0029));  // )
   {
     // The parser supplies one token per small katakana. Horizontal layout
     // must keep each off the line head without treating the run as a word.
@@ -431,11 +432,31 @@ int main() {
     ESP = {};
     BlockStyle style;
     style.textIndentDefined = true;
+    ParsedText closingPair(false, style);
+    for (const char* word : {"あ", "あ", "あ", ")", "」", "続", "き"}) {
+      closingPair.addWord(word, EpdFontFamily::REGULAR);
+    }
+    std::vector<std::vector<std::string>> blocks;
+    if (vertical) {
+      closingPair.layoutVerticalColumns(renderer, 1, 40, [&](const auto& block) {
+        blocks.push_back(block->getWords());
+        return true;
+      });
+    } else {
+      closingPair.layoutAndExtractLines(renderer, 1, 40, [&](const auto& block) {
+        blocks.push_back(block->getWords());
+        return true;
+      });
+    }
+    assert(!closingPair.layoutFailed() && closingPair.isEmpty() && blocks.size() > 1);
+    assertKinsokuBoundary(blocks);
+
+    ESP = {};
     ParsedText punctuation(false, style);
     for (const char* word : {"あ", "い", "・", "う", "「", "え", "お"}) {
       punctuation.addWord(word, EpdFontFamily::REGULAR);
     }
-    std::vector<std::vector<std::string>> blocks;
+    blocks.clear();
     if (vertical) {
       punctuation.layoutVerticalColumns(renderer, 1, 40, [&](const auto& block) {
         blocks.push_back(block->getWords());

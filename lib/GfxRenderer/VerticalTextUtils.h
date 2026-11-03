@@ -326,6 +326,7 @@ inline constexpr bool isSmallKana(uint32_t cp) {
 
 inline bool isKinsokuHead(uint32_t cp) {
   // Closing brackets and punctuation (行頭禁止)
+  if (cp == 0x0029) return true;  // ) before Japanese closing punctuation
   if (cp == 0x3001 || cp == 0x3002) return true;                                  // 、。
   if (cp == 0xFF61 || cp == 0xFF63 || cp == 0xFF64) return true;                  // ｡｣､
   if (cp == 0x300D || cp == 0x300F || cp == 0x3011) return true;                  // 」』】
