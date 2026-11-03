@@ -433,17 +433,17 @@ int main() {
     BlockStyle style;
     style.textIndentDefined = true;
     ParsedText closingPair(false, style);
-    for (const char* word : {"あ", "あ", "あ", ")", "」", "続", "き"}) {
+    for (const char* word : {"あ", "あ", "あ", "あ", ")", "」", "続", "き"}) {
       closingPair.addWord(word, EpdFontFamily::REGULAR);
     }
     std::vector<std::vector<std::string>> blocks;
     if (vertical) {
-      closingPair.layoutVerticalColumns(renderer, 1, 40, [&](const auto& block) {
+      closingPair.layoutVerticalColumns(renderer, 1, 80, [&](const auto& block) {
         blocks.push_back(block->getWords());
         return true;
       });
     } else {
-      closingPair.layoutAndExtractLines(renderer, 1, 40, [&](const auto& block) {
+      closingPair.layoutAndExtractLines(renderer, 1, 80, [&](const auto& block) {
         blocks.push_back(block->getWords());
         return true;
       });

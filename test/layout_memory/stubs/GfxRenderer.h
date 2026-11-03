@@ -46,4 +46,10 @@ class GfxRenderer {
   int getTextWidth(int font, const char* text, EpdFontFamily::Style style) const {
     return getTextAdvanceX(font, text, style);
   }
+  int getTextAdvanceYVertical(int font, const char* text, EpdFontFamily::Style) const {
+    auto* p = reinterpret_cast<const unsigned char*>(text);
+    int height = 0;
+    while (utf8NextCodepoint(&p)) height += getLineHeight(font);
+    return height;
+  }
 };
