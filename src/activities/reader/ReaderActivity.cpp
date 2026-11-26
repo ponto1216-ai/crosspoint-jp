@@ -155,13 +155,6 @@ void ReaderActivity::onEnter() {
       return;
     }
     onGoToXtcReader(std::move(xtc));
-  } else if (isTxtFile(initialBookPath)) {
-    auto txt = loadTxt(initialBookPath);
-    if (!txt) {
-      onGoBack();
-      return;
-    }
-    onGoToTxtReader(std::move(txt));
   } else {
     auto epub = loadEpub(initialBookPath);
     if (!epub) {

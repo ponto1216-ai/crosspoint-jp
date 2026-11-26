@@ -3,10 +3,13 @@
 #include <FsHelpers.h>
 #include <JpegToBmpConverter.h>
 #include <Logging.h>
+#include <Arduino.h>
 
 #include <algorithm>
+#include <cstring>
 
 #include "Cp932Table.generated.h"
+#include "TxtToHtml.h"
 
 namespace {
 bool isUtf8Continuation(const uint8_t value) { return (value & 0xC0) == 0x80; }
@@ -97,7 +100,12 @@ bool Txt::load() {
 
   fileSize = file.size();
   uint8_t sample[4096] = {};
-  const size_t sampleSize = file.read(sample, std::min(fileSize, sizeof(sample)));
+  const int sampleRead = file.read(sample, std::min(fileSize, sizeof(sample)));
+  if (sampleRead < 0) {
+    LOG_ERR("TXT", "Failed to read encoding sample: %s", filepath.c_str());
+    return false;
+  }
+  const size_t sampleSize = static_cast<size_t>(sampleRead);
   if (sampleSize >= 3 && sample[0] == 0xEF && sample[1] == 0xBB && sample[2] == 0xBF) {
     encoding = Encoding::UTF8;
     contentOffset = 3;
@@ -265,7 +273,7 @@ bool Txt::readDecodedLine(FsFile& file, const size_t offset, const size_t maxRaw
   size_t rawRead = 0;
   while (file.available() && rawRead < maxRawBytes) {
     const int next = file.read();
-    if (next < 0) break;
+    if (next < 0) return false;
     const uint8_t first = static_cast<uint8_t>(next);
     ++rawRead;
     ++out.nextOffset;
@@ -289,7 +297,7 @@ bool Txt::readDecodedLine(FsFile& file, const size_t offset, const size_t maxRaw
         // boundary is reached so the next page never starts mid-character.
         while (needed-- > 0 && file.available()) {
           const int continuation = file.read();
-          if (continuation < 0) break;
+          if (continuation < 0) return false;
           out.text.push_back(static_cast<char>(continuation));
           ++rawRead;
           ++out.nextOffset;
@@ -299,7 +307,7 @@ bool Txt::readDecodedLine(FsFile& file, const size_t offset, const size_t maxRaw
       appendUtf8(out.text, 0xFF61 + (first - 0xA1));
     } else if (((first >= 0x81 && first <= 0x9F) || (first >= 0xE0 && first <= 0xFC)) && file.available()) {
       const int trailValue = file.read();
-      if (trailValue < 0) break;
+      if (trailValue < 0) return false;
       ++rawRead;
       ++out.nextOffset;
       appendUtf8(out.text, cp932ToUnicode(static_cast<uint16_t>((first << 8) | trailValue)));
@@ -310,4 +318,52 @@ bool Txt::readDecodedLine(FsFile& file, const size_t offset, const size_t maxRaw
   }
 
   return out.nextOffset > offset;
+}
+
+bool Txt::streamToHtml(Print& output) {
+  if (!load()) return false;
+  FsFile input;
+  if (!Storage.openFileForRead("TXT", filepath, input) || input.size() != fileSize) return false;
+
+  struct Reader {
+    Txt& txt;
+    FsFile& input;
+    size_t offset;
+    DecodedLine line;
+    size_t position = 0;
+    uint8_t chunksRead = 0;
+
+    int read(uint8_t* buffer, const size_t capacity) {
+      if (position == line.text.size()) {
+        if (offset >= txt.getFileSize()) return 0;
+        if (!txt.readDecodedLine(input, offset, 1024, line)) return -1;
+        if (++chunksRead == 64) {
+          delay(1);
+          chunksRead = 0;
+        }
+        offset = line.nextOffset;
+        position = 0;
+        if (line.newline) line.text.push_back('\n');
+        if (line.pageBreak) line.text.push_back('\f');
+        // A truncated read must never publish a successful XHTML cache.
+        if (offset < txt.getFileSize() && !input.available()) return -1;
+      }
+      const size_t count = std::min(capacity, line.text.size() - position);
+      if (count == 0) {
+        // A chunk containing only CR still consumed source bytes.
+        buffer[0] = '\r';
+        return 1;
+      }
+      memcpy(buffer, line.text.data() + position, count);
+      position += count;
+      return static_cast<int>(count);
+    }
+  } reader{*this, input, contentOffset, {}};
+
+  return TxtToHtml::stream(
+      filepath, &reader,
+      [](void* context, uint8_t* buffer, size_t capacity) {
+        return static_cast<Reader*>(context)->read(buffer, capacity);
+      },
+      output);
 }

@@ -713,8 +713,8 @@ bool Section::clearCache() const {
 
 CssParser* Section::loadEmbeddedCssForSection(const uint8_t bookStyle, const uint32_t fileSize,
                                               const std::string& htmlPath, const bool requireComplete, bool& cssReady) {
-  cssReady = bookStyle == 0;
-  if (bookStyle == 0) {
+  cssReady = bookStyle == 0 || epub->isPlainText();
+  if (cssReady) {
     return nullptr;
   }
 

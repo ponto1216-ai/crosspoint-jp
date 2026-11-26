@@ -6,6 +6,8 @@
 #include <Logging.h>
 #include <PngToBmpConverter.h>
 #include <ZipFile.h>
+#include <Txt.h>
+#include <new>
 
 #include "Epub/parsers/ContainerParser.h"
 #include "Epub/parsers/ContentOpfParser.h"
@@ -208,6 +210,8 @@ Epub::CacheGenerationStatus Epub::getCacheGenerationStatus() const {
 }
 
 bool Epub::getSourceFingerprint(uint64_t* fingerprint) const {
+  // TXT identity/legacy progress migration is handled separately from ZIP IDs.
+  if (isPlainText()) return false;
   if (fingerprint == nullptr) return false;
   if (hasSourceFingerprint) {
     *fingerprint = cachedSourceFingerprint;
@@ -570,6 +574,7 @@ void Epub::parseCssFiles() const {
 
 // load in the meta data for the epub file
 bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
+  if (isPlainText()) return loadPlainText(buildIfMissing);
   cssDiscoveryComplete = true;
   LOG_DBG("EBP", "Loading ePub: %s", filepath.c_str());
 
@@ -1018,6 +1023,21 @@ uint8_t* Epub::readItemContentsToBytes(const std::string& itemHref, size_t* size
   }
 
   const std::string path = FsHelpers::normalisePath(itemHref);
+  if (isPlainText()) {
+    FsFile html;
+    if (path != "content.html" || !Storage.openFileForRead("TXT", cachePath + "/text.xhtml", html)) return nullptr;
+    const size_t length = html.size();
+    if (length > SIZE_MAX - static_cast<size_t>(trailingNullByte)) return nullptr;
+    auto* bytes = static_cast<uint8_t*>(malloc(length + static_cast<size_t>(trailingNullByte)));
+    if (!bytes) return nullptr;
+    if (html.read(bytes, length) != static_cast<int>(length)) {
+      free(bytes);
+      return nullptr;
+    }
+    if (trailingNullByte) bytes[length] = '\0';
+    if (size) *size = length;
+    return bytes;
+  }
 
   const auto content = ZipFile(filepath).readFileToMemory(path.c_str(), size, trailingNullByte);
   if (!content) {
@@ -1035,12 +1055,55 @@ bool Epub::readItemContentsToStream(const std::string& itemHref, Print& out, con
   }
 
   const std::string path = FsHelpers::normalisePath(itemHref);
+  if (isPlainText()) {
+    return path == "content.html" &&
+           Storage.readFileToStream((cachePath + "/text.xhtml").c_str(), out, chunkSize);
+  }
   return ZipFile(filepath).readFileToStream(path.c_str(), out, chunkSize);
 }
 
 bool Epub::getItemSize(const std::string& itemHref, size_t* size) const {
   const std::string path = FsHelpers::normalisePath(itemHref);
+  if (isPlainText()) {
+    FsFile html;
+    if (!size || path != "content.html" ||
+        !Storage.openFileForRead("TXT", cachePath + "/text.xhtml", html)) return false;
+    *size = html.size();
+    return true;
+  }
   return ZipFile(filepath).getInflatedFileSize(path.c_str(), size);
+}
+
+bool Epub::isPlainText() const { return Txt::isTextFile(filepath); }
+
+bool Epub::loadPlainText(const bool buildIfMissing) {
+  const HalStorage::StorageLock storageLock;
+  bookMetadataCache.reset();
+  cssParser.reset();
+  Txt text(filepath, "/.crosspoint");
+  if (!text.prepareHtmlCache(cachePath, buildIfMissing)) return false;
+  bookMetadataCache.reset(new (std::nothrow) BookMetadataCache(cachePath));
+  cssParser.reset(new (std::nothrow) CssParser(cachePath));
+  if (!bookMetadataCache || !cssParser) return false;
+  if (bookMetadataCache->load()) return true;
+  if (!buildIfMissing) return false;
+
+  size_t htmlSize = 0;
+  if (!getItemSize("content.html", &htmlSize) || !bookMetadataCache->beginWrite() ||
+      !bookMetadataCache->beginContentOpfPass()) return false;
+  bookMetadataCache->createSpineEntry("content.html");
+  if (!bookMetadataCache->endContentOpfPass() || !bookMetadataCache->beginTocPass()) return false;
+  std::string title = text.getTitle();
+  if (FsHelpers::hasMarkdownExtension(title)) title.resize(title.size() - 3);
+  bookMetadataCache->createTocEntry(title, "content.html", "", 0);
+  if (!bookMetadataCache->endTocPass() || !bookMetadataCache->endWrite()) return false;
+  BookMetadataCache::BookMetadata metadata;
+  metadata.title = title;
+  metadata.language = "ja";
+  if (!bookMetadataCache->buildBookBin(filepath, metadata, htmlSize)) return false;
+  bookMetadataCache->cleanupTmpFiles();
+  bookMetadataCache.reset(new (std::nothrow) BookMetadataCache(cachePath));
+  return bookMetadataCache && bookMetadataCache->load();
 }
 
 int Epub::getSpineItemsCount() const {

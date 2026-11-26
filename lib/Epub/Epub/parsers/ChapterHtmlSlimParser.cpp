@@ -348,7 +348,8 @@ void ChapterHtmlSlimParser::noteEmptyBlockBreak() {
 }
 
 bool ChapterHtmlSlimParser::addExplicitBlankLine() {
-  if (!currentTextBlock || consecutiveExplicitBlankLines >= MAX_CONSECUTIVE_EXPLICIT_BLANK_LINES) return false;
+  if (!currentTextBlock ||
+      (!epub->isPlainText() && consecutiveExplicitBlankLines >= MAX_CONSECUTIVE_EXPLICIT_BLANK_LINES)) return false;
 
   // ParsedText discards empty words. A zero-width space keeps one invisible
   // layout line in the cache while occupying no visible text width.
@@ -685,6 +686,14 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
 
   // Only block boundaries can force a page break. Inline spans do not split
   // their containing paragraph, and repeated breaks must not emit blank pages.
+  if (self->epub->isPlainText() && strcmp(name, "div") == 0) {
+    // TxtToHtml emits div only for an explicit form feed. Honor it even when
+    // EPUB styles are disabled, and skip the empty marker's block spacing.
+    self->forcePageBreak();
+    self->skipUntilDepth = self->depth;
+    self->depth += 1;
+    return;
+  }
   const bool pageBreakBlock = isHeaderOrBlock(name) && strcmp(name, "br") != 0;
   if (self->bookStyle != 0 && self->tableDepth == 0 && pageBreakBlock) {
     if (cssStyle.pageBreakBefore) self->forcePageBreak();

@@ -102,7 +102,7 @@ class BookMetadataCache {
   bool cleanupTmpFiles() const;
 
   // Post-processing to update mappings and sizes
-  bool buildBookBin(const std::string& epubPath, const BookMetadata& metadata);
+  bool buildBookBin(const std::string& epubPath, const BookMetadata& metadata, size_t singleSpineSize = 0);
 
   // Reading phase (read mode)
   bool load();

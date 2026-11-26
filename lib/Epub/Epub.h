@@ -34,6 +34,7 @@ class Epub {
   std::unique_ptr<CssParser> cssParser;
   bool prepareSourceFingerprint(uint64_t fingerprint, bool& markerNeedsWrite);
   bool saveSourceFingerprint(uint64_t fingerprint) const;
+  bool loadPlainText(bool buildIfMissing);
   // CSS files
   std::vector<std::string> cssFiles;
   bool cssDiscoveryComplete = true;
@@ -55,6 +56,7 @@ class Epub {
   ~Epub() = default;
   std::string& getBasePath() { return contentBasePath; }
   bool load(bool buildIfMissing = true, bool skipLoadingCss = false);
+  bool isPlainText() const;
   // Shared by per-book and global cache management. This only removes a cache directory.
   static bool removeCacheDirectory(const std::string& cachePath);
   bool clearCache() const;

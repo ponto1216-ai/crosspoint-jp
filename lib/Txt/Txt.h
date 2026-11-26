@@ -4,7 +4,10 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
+
+class Print;
 
 class Txt {
  public:
@@ -38,6 +41,13 @@ class Txt {
   [[nodiscard]] size_t getFileSize() const { return fileSize; }
   [[nodiscard]] size_t getContentOffset() const { return contentOffset; }
   [[nodiscard]] Encoding getEncoding() const { return encoding; }
+
+  // Stream decoded UTF-8/CP932 text as XHTML without buffering the entire book.
+  [[nodiscard]] bool streamToHtml(Print& output);
+  // Publish a validated, decoded XHTML cache. Metadata/sections are discarded
+  // when the source changes, while saved reader state remains separate.
+  [[nodiscard]] bool prepareHtmlCache(const std::string& readerCachePath, bool buildIfMissing);
+  [[nodiscard]] static bool isTextFile(std::string_view path);
 
   void setupCacheDir() const;
 

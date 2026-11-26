@@ -259,7 +259,9 @@ bool BookMetadataCache::endWrite() {
   return true;
 }
 
-bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMetadata& metadata) {
+bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMetadata& metadata,
+                                   const size_t singleSpineSize) {
+  if (singleSpineSize != 0 && spineCount != 1) return false;
   const uint32_t buildStartedAt = millis();
   const std::string finalBookPath = cachePath + bookBinFile;
   const std::string tmpBookPath = cachePath + tmpBookBinFile;
@@ -344,7 +346,7 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
   const uint32_t zipOpenStartedAt = millis();
   ZipFile zip(epubPath);
   // Pre-open zip file to speed up size calculations
-  if (!zip.open()) {
+  if (singleSpineSize == 0 && !zip.open()) {
     LOG_ERR("BMC", "Could not open EPUB zip for size calculations");
     discardTmpBook();
     return false;
@@ -360,7 +362,7 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
   std::deque<uint32_t> spineSizes;
   bool useBatchSizes = false;
 
-  if (spineCount >= FAST_INDEX_THRESHOLD) {
+  if (singleSpineSize == 0 && spineCount >= FAST_INDEX_THRESHOLD) {
     LOG_DBG("BMC", "Using batch size lookup for %d spine items", spineCount);
 
     std::deque<ZipFile::SizeTarget> targets;
@@ -411,8 +413,8 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
     }
     lastSpineTocIndex = spineEntry.tocIndex;
 
-    size_t itemSize = 0;
-    if (useBatchSizes) {
+    size_t itemSize = singleSpineSize;
+    if (singleSpineSize == 0 && useBatchSizes) {
       itemSize = spineSizes[i];
       if (itemSize == 0) {
         const std::string path = FsHelpers::normalisePath(spineEntry.href);
@@ -420,7 +422,7 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
           LOG_ERR("BMC", "Warning: Could not get size for spine item: %s", path.c_str());
         }
       }
-    } else {
+    } else if (singleSpineSize == 0) {
       const std::string path = FsHelpers::normalisePath(spineEntry.href);
       if (!zip.getInflatedFileSize(path.c_str(), &itemSize)) {
         LOG_ERR("BMC", "Warning: Could not get size for spine item: %s", path.c_str());

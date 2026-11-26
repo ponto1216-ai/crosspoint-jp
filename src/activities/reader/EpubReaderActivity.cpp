@@ -148,7 +148,9 @@ void EpubReaderActivity::pregenerateCache() {
   epub->clearFullCacheGeneratedMarker();
 
   bool isVertical = false;
-  if (SETTINGS.writingMode == CrossPointSettings::WM_VERTICAL) {
+  if (epub->isPlainText()) {
+    isVertical = false;
+  } else if (SETTINGS.writingMode == CrossPointSettings::WM_VERTICAL) {
     isVertical = true;
   } else if (SETTINGS.writingMode == CrossPointSettings::WM_HORIZONTAL) {
     isVertical = false;
@@ -1262,7 +1264,9 @@ void EpubReaderActivity::render(RenderLock&& lock) {
   // A finished book has no section to load, but loop() still needs the correct
   // direction when mapping its end-screen buttons.
   if (!section) {
-    if (SETTINGS.writingMode == CrossPointSettings::WM_VERTICAL) {
+    if (epub->isPlainText()) {
+      verticalMode = false;
+    } else if (SETTINGS.writingMode == CrossPointSettings::WM_VERTICAL) {
       verticalMode = true;
     } else if (SETTINGS.writingMode == CrossPointSettings::WM_HORIZONTAL) {
       verticalMode = false;

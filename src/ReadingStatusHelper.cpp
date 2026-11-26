@@ -4,6 +4,7 @@
 #include <FsHelpers.h>
 #include <HalStorage.h>
 #include <Logging.h>
+#include <Txt.h>
 
 #include <algorithm>
 #include <cstring>
@@ -75,6 +76,17 @@ ReadingProgress readProgress(const std::string& progressPath, bool isEpub) {
     result.percent = 100;
   }
   return result;
+}
+
+void resolveTextProgress(const std::string& filepath, const std::string& cacheDir,
+                         std::string& entryName, bool& isEpub) {
+  if (!Txt::isTextFile(filepath)) return;
+  const std::string textEntry = "epub_" + std::to_string(std::hash<std::string>{}(filepath));
+  const std::string path = cacheDir + "/" + textEntry + "/progress.bin";
+  if (yomuka::sync::recoverFile(path) && Storage.exists(path.c_str())) {
+    entryName = textEntry;
+    isEpub = true;
+  }
 }
 
 bool bookmarkFileHasEntries(const std::string& path) {
@@ -264,8 +276,9 @@ ReadingStatus getReadingStatus(const std::string& filepath, const std::string& c
   std::string cacheEntryName;
   bool isEpub;
   if (!getCacheEntryName(filepath, cacheEntryName, isEpub)) return ReadingStatus::Unread;
+  resolveTextProgress(filepath, cacheDir, cacheEntryName, isEpub);
 
-  if (isEpub) {
+  if (FsHelpers::hasEpubExtension(filepath)) {
     uint64_t resolvedBookId = bookId;
     if (resolvedBookId == 0) BookIdentity::getLastArchiveId(filepath, resolvedBookId);
     if (resolvedBookId != 0) {
@@ -284,10 +297,11 @@ ReadingProgress getReadingProgress(const std::string& filepath, const std::strin
   if (!getCacheEntryName(filepath, cacheEntryName, isEpub)) {
     return {};
   }
+  resolveTextProgress(filepath, cacheDir, cacheEntryName, isEpub);
 
   ReadingProgress result;
   uint64_t resolvedBookId = bookId;
-  if (isEpub) {
+  if (FsHelpers::hasEpubExtension(filepath)) {
     // Recent/history records created before BookId support have no stored ID.
     // The path index is a cheap bridge in that case; it lets those records
     // find their canonical progress without opening the EPUB on the Home UI.
@@ -307,7 +321,8 @@ ReadingProgress getReadingProgress(const std::string& filepath, const std::strin
   }
 
   ReadingProgress progress = readProgress(cacheDir + "/" + cacheEntryName + "/progress.bin", isEpub);
-  progress.hasBookmarks = result.hasBookmarks;
+  progress.hasBookmarks = result.hasBookmarks ||
+                          (Txt::isTextFile(filepath) && bookmarkFileHasEntries(BookmarkUtil::getBookmarkPath(filepath)));
   return progress;
 }
 
@@ -343,11 +358,18 @@ void getReadingStatusCacheEntries(const std::string& cacheDir, std::vector<std::
 bool hasBookCacheEntry(const std::string& filepath, const std::vector<std::string>& cacheEntries) {
   std::string cacheEntryName;
   bool isEpub = false;
+  if (Txt::isTextFile(filepath) &&
+      cacheEntryExists(cacheEntries, "epub_" + std::to_string(std::hash<std::string>{}(filepath)))) return true;
   return getCacheEntryName(filepath, cacheEntryName, isEpub) && cacheEntryExists(cacheEntries, cacheEntryName);
 }
 
 bool getReadingStatusFromCacheEntries(const std::string& filepath, const std::string& cacheDir,
                                       const std::vector<std::string>& cacheEntries, ReadingStatus& status) {
+  if (Txt::isTextFile(filepath) &&
+      cacheEntryExists(cacheEntries, "epub_" + std::to_string(std::hash<std::string>{}(filepath)))) {
+    status = getReadingStatus(filepath, cacheDir);
+    return true;
+  }
   std::string cacheEntryName;
   bool isEpub;
   if (!getCacheEntryName(filepath, cacheEntryName, isEpub) ||
@@ -405,6 +427,11 @@ bool markAsFinished(const std::string& filepath, const std::string& cacheDir) {
     return false;
   }
 
+  if (Txt::isTextFile(filepath) &&
+      Storage.exists((Epub(filepath, cacheDir).getCachePath() + "/book.bin").c_str())) {
+    prefix = "epub_";
+    isEpub = true;
+  }
   const std::string hash = std::to_string(std::hash<std::string>{}(filepath));
   const std::string legacyProgressPath = cacheDir + "/" + prefix + hash + "/progress.bin";
   uint64_t bookId = 0;
