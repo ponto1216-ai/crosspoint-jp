@@ -16,6 +16,7 @@
 #include "BookIdentity.h"
 #include "ReadingHistoryStore.h"
 #include "util/BookDataPath.h"
+#include "util/TxtProgressMigration.h"
 
 bool ReaderActivity::isXtcFile(const std::string& path) { return FsHelpers::hasXtcExtension(path); }
 
@@ -65,6 +66,13 @@ std::unique_ptr<Epub> ReaderActivity::loadEpub(const std::string& path) {
   }
   if (fingerprint != 0) activeBookFingerprint = fingerprint;
   if (epub->load(true, SETTINGS.embeddedStyle == CrossPointSettings::CROSSPOINT_STYLE)) {
+    if (epub->isPlainText() &&
+        TxtProgressMigration::migrate(path, "/.crosspoint", epub->getCachePath(),
+                                      static_cast<uint16_t>(epub->getSpineItemsCount())) ==
+            TxtProgressMigration::Result::Failed) {
+      LOG_ERR("READER", "Could not migrate TXT progress");
+      return nullptr;
+    }
     return epub;
   }
 

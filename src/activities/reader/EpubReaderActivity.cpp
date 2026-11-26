@@ -1089,21 +1089,23 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       requestUpdate();
       break;
     case EpubReaderMenuActivity::MenuAction::DELETE_CACHE: {
-      const bool hasProgress = epub && section;
+      const bool savedFinished = epub && currentSpineIndex == epub->getSpineItemsCount();
+      const bool hasProgress = epub && (section || savedFinished);
       const uint16_t savedSpineIndex = hasProgress ? currentSpineIndex : 0;
-      const uint16_t savedPage = hasProgress ? section->currentPage : 0;
-      const uint16_t savedPageCount = hasProgress ? section->pageCount : 0;
-      const int savedPercent = hasProgress ? calculateBookPercent(savedPage, savedPageCount) : -1;
+      const uint16_t savedPage = section && !savedFinished ? section->currentPage : 0;
+      const uint16_t savedPageCount = section && !savedFinished ? section->pageCount : 0;
+      const int savedPercent = savedFinished ? 100 : calculateBookPercent(savedPage, savedPageCount);
       startActivityForResult(
           std::make_unique<BookCacheClearActivity>(renderer, mappedInput, epub),
-          [this, hasProgress, savedSpineIndex, savedPage, savedPageCount, savedPercent](const ActivityResult& result) {
+          [this, hasProgress, savedFinished, savedSpineIndex, savedPage, savedPageCount,
+           savedPercent](const ActivityResult& result) {
             if (!result.isCancelled) {
               section.reset();
               // progress.bin is deliberately restored after the cache directory is removed.
               // It is the only per-book state retained by this operation.
               if (hasProgress && epub) {
                 epub->setupCacheDir();
-                saveProgress(savedSpineIndex, savedPage, savedPageCount, false, savedPercent);
+                saveProgress(savedSpineIndex, savedPage, savedPageCount, savedFinished, savedPercent);
               }
               onGoHome();
             }
